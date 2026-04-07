@@ -1,0 +1,26 @@
+# Copyright IBM Corp. 2021, 2026
+
+version: 2
+before:
+  hooks:
+    - make go/tidy
+builds:
+  - id: default
+    main: .
+    env:
+      - CGO_ENABLED=0
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags:
+      - "-s -w -X github.com/hashicorp/tfcloud/internal/config.version={{.Version}} -X github.com/hashicorp/tfcloud/internal/config.Commit={{.Commit}} -X github.com/hashicorp/tfcloud/internal/config.committedTime={{.CommitDate}}"
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+archives:
+  - formats: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"

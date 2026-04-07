@@ -1,0 +1,48 @@
+# Copyright IBM Corp. 2021, 2026
+
+version: "2"
+run:
+  tests: true
+linters:
+  enable:
+    - bodyclose
+    - gocritic
+    - godot
+    - misspell
+    - revive
+    - staticcheck
+    - unconvert
+  settings:
+    errcheck:
+      check-blank: true
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - bodyclose
+          - errcheck
+          - revive
+        path: _test\.go
+      - path: (.+)\.go$
+        text: ifElseChain
+      - path: (.+)\.go$
+        text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/hashicorp/hcloud
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
