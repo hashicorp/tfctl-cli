@@ -3,10 +3,10 @@
 version: 2
 before:
   hooks:
-    - make go/tidy
+    - go mod tidy
 builds:
   - id: default
-    main: .
+    main: ./cmd/tfcloud.go
     env:
       - CGO_ENABLED=0
     mod_timestamp: "{{ .CommitTimestamp }}"
