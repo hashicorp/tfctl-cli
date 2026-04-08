@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
+	goversion "github.com/hashicorp/go-version"
 )
 
 // Name is the application name used throughout the CLI.
@@ -59,7 +59,7 @@ func mustParseTime(ts string) time.Time {
 // version, we will ensure it is prefixed with a `v`. If not, we will leave the
 // version as is and return it.
 func publicVersion(v string) string {
-	sv, err := semver.StrictNewVersion(v)
+	sv, err := goversion.NewSemver(v)
 	if err != nil {
 		return v
 	}

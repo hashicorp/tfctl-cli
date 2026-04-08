@@ -3,10 +3,10 @@ module github.com/brandonc/tfcloud
 go 1.25.5
 
 require (
-	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/hashicorp/cli v1.1.7
 	github.com/hashicorp/go-tfe v1.78.1-0.20260401171829-7a49f0cf5cb4
+	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/microsoft/kiota-abstractions-go v1.9.4
@@ -16,6 +16,7 @@ require (
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver/v3 v3.2.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
