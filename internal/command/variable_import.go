@@ -11,9 +11,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/brandonc/tfcloud/internal/client"
-	"github.com/brandonc/tfcloud/internal/config"
-	terraformcfg "github.com/brandonc/tfcloud/internal/terraform"
+	"github.com/hashicorp/tfcloud/internal/client"
+	"github.com/hashicorp/tfcloud/internal/config"
+	terraformcfg "github.com/hashicorp/tfcloud/internal/terraform"
 )
 
 // VariableImportCommand imports variables into a workspace or variable set.

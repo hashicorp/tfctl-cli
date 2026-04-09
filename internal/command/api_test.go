@@ -15,9 +15,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/brandonc/tfcloud/internal/client"
-	"github.com/brandonc/tfcloud/internal/config"
 	cli "github.com/hashicorp/cli"
+	"github.com/hashicorp/tfcloud/internal/client"
+	"github.com/hashicorp/tfcloud/internal/config"
 )
 
 func TestRun(t *testing.T) {

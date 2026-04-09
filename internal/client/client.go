@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/brandonc/tfcloud/internal/config"
 	tfe "github.com/hashicorp/go-tfe"
+	"github.com/hashicorp/tfcloud/internal/config"
 	abs "github.com/microsoft/kiota-abstractions-go"
 )
 

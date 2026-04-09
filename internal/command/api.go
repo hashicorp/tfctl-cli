@@ -16,10 +16,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/brandonc/tfcloud/internal/client"
-	"github.com/brandonc/tfcloud/internal/config"
-	"github.com/brandonc/tfcloud/internal/render"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/hashicorp/tfcloud/internal/client"
+	"github.com/hashicorp/tfcloud/internal/config"
+	"github.com/hashicorp/tfcloud/internal/render"
 )
 
 // APICommand performs arbitrary HCP Terraform API requests.

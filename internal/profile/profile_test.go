@@ -1,0 +1,184 @@
+// Copyright IBM Corp. 2024, 2025
+// SPDX-License-Identifier: MPL-2.0
+
+package profile
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/posener/complete"
+	"github.com/stretchr/testify/require"
+)
+
+func TestPropertyNames(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	properties := PropertyNames()
+	r.NotEmpty(properties)
+	r.Contains(properties, "name")
+	r.Contains(properties, "organization")
+	r.Contains(properties, "core/no_color")
+	r.Contains(properties, "core/verbosity")
+}
+
+func TestProfile_Validate(t *testing.T) {
+	t.Parallel()
+
+	badVerbosity := "invalid"
+
+	cases := []struct {
+		Name    string
+		Profile *Profile
+		Error   string
+	}{
+		{
+			Name:    "empty",
+			Profile: &Profile{},
+			Error:   "profile name may only include",
+		},
+		{
+			Name: "name too long",
+			Profile: &Profile{
+				Name: strings.Repeat("test", 100),
+			},
+			Error: "profile name may only include",
+		},
+		{
+			Name: "invalid core",
+			Profile: &Profile{
+				Name:         "test",
+				Organization: "123",
+				Core: &Core{
+					Verbosity: &badVerbosity,
+				},
+			},
+			Error: "invalid verbosity",
+		},
+		{
+			Name: "valid",
+			Profile: &Profile{
+				Name:         "test",
+				Organization: "123",
+			},
+			Error: "",
+		},
+	}
+
+	for _, c := range cases {
+		// Capture the test case
+		c := c
+		t.Run(c.Name, func(t *testing.T) {
+			t.Parallel()
+			r := require.New(t)
+
+			err := c.Profile.Validate()
+			if c.Error == "" {
+				r.NoError(err)
+			} else {
+				r.ErrorContains(err, c.Error)
+			}
+		})
+	}
+}
+
+func TestProfile_Predict(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		Name     string
+		Args     complete.Args
+		Expected []string
+	}{
+		{
+			Name: "empty",
+			Args: complete.Args{
+				All: []string{""},
+			},
+			Expected: []string{"organization", "core/"},
+		},
+		{
+			Name: "specific field",
+			Args: complete.Args{
+				All: []string{"org"},
+			},
+			Expected: []string{"organization", "core/"},
+		},
+		{
+			Name: "core",
+			Args: complete.Args{
+				All: []string{"core/"},
+			},
+			Expected: []string{"core/no_color", "core/verbosity"},
+		},
+	}
+
+	for _, c := range cases {
+		// Capture the test case
+		c := c
+		t.Run(c.Name, func(t *testing.T) {
+			t.Parallel()
+			r := require.New(t)
+
+			// Create a profile
+			p := &Profile{}
+
+			// Predict
+			out := p.Predict(c.Args)
+			r.Equal(c.Expected, out)
+		})
+	}
+}
+
+func TestCore_Predict(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		Name     string
+		Args     complete.Args
+		Expected []string
+	}{
+		{
+			Name: "just core",
+			Args: complete.Args{
+				All: []string{"core/"},
+			},
+			Expected: []string{"core/no_color", "core/verbosity"},
+		},
+		{
+			Name: "no_color",
+			Args: complete.Args{
+				All: []string{"core/no_color", ""},
+			},
+			Expected: []string{"true", "false"},
+		},
+	}
+
+	for _, c := range cases {
+		// Capture the test case
+		c := c
+		t.Run(c.Name, func(t *testing.T) {
+			t.Parallel()
+			r := require.New(t)
+
+			// Create a core
+			p := &Core{}
+
+			// Predict
+			out := p.Predict(c.Args)
+			r.Equal(c.Expected, out)
+		})
+	}
+}
+
+func TestCore_Getters(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	// Instantiate a non-empty core
+	v := true
+	c := &Core{
+		NoColor: &v,
+	}
+	r.Equal(v, *c.NoColor)
+}
