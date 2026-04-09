@@ -219,6 +219,9 @@ type Core struct {
 
 	// Verbosity is the default verbosity to log at
 	Verbosity *string `hcl:"verbosity,optional" json:",omitempty"`
+
+	// Quiet is whether the CLI should minimize outpout
+	Quiet *bool `hcl:"quiet,optional" json:",omitempty"`
 }
 
 func (c *Core) Predict(args complete.Args) []string {
@@ -269,4 +272,17 @@ func (c *Core) isEmpty() bool {
 	}
 
 	return true
+}
+
+// IsQueit returns whether the quiet property has been configured to be quiet.
+func (c *Core) IsQuiet() bool {
+	if c == nil {
+		return false
+	}
+
+	if c.Quiet == nil {
+		return false
+	}
+
+	return *c.Quiet
 }

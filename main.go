@@ -74,6 +74,7 @@ func realMain() int {
 	cmdMap := cmd.ToCommandMap(tfcloudCmd)
 
 	c := cli.CLI{
+		Version:                    config.Version,
 		Name:                       config.Name,
 		Args:                       args,
 		Commands:                   cmdMap,
@@ -81,7 +82,11 @@ func realMain() int {
 		Autocomplete:               true,
 		AutocompleteNoDefaultFlags: true,
 		AutocompleteGlobalFlags: map[string]complete.Predictor{
-			"--help": complete.PredictNothing,
+			"--help":    complete.PredictNothing,
+			"--version": complete.PredictNothing,
+			"--json":    complete.PredictAnything,
+			"--quiet":   complete.PredictAnything,
+			"--agent":   complete.PredictAnything,
 		},
 	}
 

@@ -48,7 +48,11 @@ type GlobalFlags struct {
 	// helpers exported in the Context.
 	profile string
 	json    bool
+	agent   bool
 	debug   int
+
+	// Version indicates the user has requested the version of the CLI
+	Version bool
 
 	// Quiet indicates the user has requested minimal output
 	Quiet bool
@@ -68,9 +72,6 @@ func (ctx *Context) GetGlobalFlags() GlobalFlags {
 func ConfigureRootCommand(ctx *Context, cmd *Command) {
 	// Store the IO on the command, making it available to the entire tree.
 	cmd.io = ctx.IO
-
-	// Configure the global flags
-	formats := []string{"pretty", "table", "json"}
 
 	cmd.Flags.Persistent = append(cmd.Flags.Persistent, &Flag{
 		Name:         "profile",
@@ -92,22 +93,31 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 			return profiles
 		}),
 	}, &Flag{
-		Name:         "json",
-		Description:  "Sets the output format.",
-		Value:        flagvalue.Simple(false, &ctx.flags.json),
-		global:       true,
-		Autocomplete: complete.PredictSet(formats...),
+		Name:        "json",
+		Description: "Sets the output format.",
+		Value:       flagvalue.Simple(false, &ctx.flags.json),
+		global:      true,
+	}, &Flag{
+		Name:        "agent",
+		Description: "Sets the output format.",
+		Value:       flagvalue.Simple(false, &ctx.flags.agent),
+		global:      true,
 	}, &Flag{
 		Name:          "quiet",
 		Description:   "Minimizes output and disables interactive prompting.",
 		Value:         flagvalue.Simple(false, &ctx.flags.Quiet),
 		IsBooleanFlag: true,
 		global:        true,
-		Autocomplete:  complete.PredictNothing,
 	}, &Flag{
 		Name:          "debug",
 		Description:   "Enable debug output.",
 		Value:         flagvalue.Counter(0, &ctx.flags.debug),
+		IsBooleanFlag: true,
+		global:        true,
+	}, &Flag{
+		Name:          "version",
+		Description:   "Print the version of tfcloud CLI.",
+		Value:         flagvalue.Simple(false, &ctx.flags.Version),
 		IsBooleanFlag: true,
 		global:        true,
 	})
@@ -167,9 +177,28 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 		c.Logger().SetLevel(l)
 	}
 
+	// Set the output format if the flag is set.
+	// f := ctx.flags.format
+	// if f == "" {
+	// 	f = ctx.Profile.Core.GetOutputFormat()
+	// }
+	// if f != "" {
+	// 	format, err := format.FromString(f)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	ctx.Output.SetFormat(format)
+	// }
+
 	// Disable color if set
 	if ctx.Profile.Core != nil && ctx.Profile.Core.NoColor != nil && *ctx.Profile.Core.NoColor {
 		ctx.IO.ForceNoColor()
+	}
+
+	// Set quiet on the IOStream if enabled by the flag or profile
+	if ctx.flags.Quiet || ctx.Profile.Core.IsQuiet() {
+		ctx.IO.SetQuiet(true)
 	}
 
 	return nil

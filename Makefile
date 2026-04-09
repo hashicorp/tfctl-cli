@@ -25,7 +25,7 @@ bin: $(BIN_PATH)
 
 .PHONY: $(BIN_PATH)
 $(BIN_PATH):
-	CGO_ENABLED=0 go build -o $(BIN_PATH) -trimpath -buildvcs=false ./cmd
+	CGO_ENABLED=0 go build -o $(BIN_PATH) -trimpath -buildvcs=false ./
 
 .PHONY: clean
 clean:

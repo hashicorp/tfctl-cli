@@ -109,6 +109,7 @@ func (c *Command) Run(args []string) int {
 			fmt.Fprint(io.Err(), c.usageHelp())
 			return 1
 		} else if errors.As(err, &runtimeErr) && runtimeErr.IsCode(http.StatusUnauthorized) {
+			// TODO: This runtimeErr is inaccurate for HCPTF
 			// Request failed because of authentication issues.
 			fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), authErrorHelp(io, c.commandPath(), args))
 			return 1
