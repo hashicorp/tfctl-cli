@@ -12,10 +12,12 @@ type Loud interface {
 	LoudErr() io.Writer
 }
 
+// LoudErr returns the writer to use for loud error output.
 func (s *system) LoudErr() io.Writer {
 	return s.err
 }
 
+// LoudErr returns the writer to use for loud error output in testing.
 func (t *Testing) LoudErr() io.Writer {
 	return t.Error
 }
@@ -39,6 +41,7 @@ type loudWrap struct {
 	l Loud
 }
 
+// Err returns the loud error writer instead of the quiet one.
 func (l *loudWrap) Err() io.Writer {
 	return l.l.LoudErr()
 }

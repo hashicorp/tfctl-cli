@@ -13,21 +13,16 @@ type counterValue struct {
 	value *int
 }
 
-// Simple returns a pflags.Value that sets the value at p with the default
+// Counter returns a pflags.Value that sets the value at p with the default
 // val or the value provided via a flag.
-//
-// If the type of the value is a boolean, set the NoOptDefVal to "true", on the
-// Flag. Otherwise the flag will have to have a value set to be parsed. As an
-// example if the boolean flag had the name "force" and NoOptDefVal is not set,
-// the flag will have to be set as --force=true.
-func Counter(val int, p *int) *counterValue {
+func Counter(val int, p *int) Value {
 	v := new(counterValue)
 	v.value = p
 	*p = val
 	return v
 }
 
-func (i *counterValue) Set(s string) error {
+func (i *counterValue) Set(_ string) error {
 	*i.value++
 	return nil
 }
@@ -40,5 +35,5 @@ func (i *counterValue) String() string {
 	return fmt.Sprintf("%d", *i.value)
 }
 
-// Ensure we meet the interface
+// Ensure we meet the interface.
 var _ pflag.Value = &counterValue{}

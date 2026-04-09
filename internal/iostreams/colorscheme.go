@@ -23,11 +23,22 @@ const (
 type Emphasis int
 
 const (
+	// EmphasisBold is used to bold text.
 	EmphasisBold Emphasis = iota
+
+	// EmphasisItalic is used to italic text.
 	EmphasisItalic
+
+	// EmphasisUnderline is used to underline text.
 	EmphasisUnderline
+
+	// EmphasisCrossOut is used to cross out text.
 	EmphasisCrossOut
+
+	// EmphasisCode is used to format text as inline code in markdown output.
 	EmphasisCode
+
+	// EmphasisCodeBlock is used to format text as a code block in markdown output.
 	EmphasisCodeBlock
 )
 

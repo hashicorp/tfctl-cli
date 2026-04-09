@@ -1,6 +1,6 @@
 // Copyright IBM Corp. 2026
 
-// package ld implements levenshtein distance in order to provide suggestions
+// Package ld implements levenshtein distance in order to provide suggestions
 // based on similarity.
 package ld
 
@@ -27,14 +27,14 @@ func Distance(s, t string, ignoreCase bool) int {
 			if s[i-1] == t[j-1] {
 				d[i][j] = d[i-1][j-1]
 			} else {
-				min := d[i-1][j]
-				if d[i][j-1] < min {
-					min = d[i][j-1]
+				minD := d[i-1][j]
+				if d[i][j-1] < minD {
+					minD = d[i][j-1]
 				}
-				if d[i-1][j-1] < min {
-					min = d[i-1][j-1]
+				if d[i-1][j-1] < minD {
+					minD = d[i-1][j-1]
 				}
-				d[i][j] = min + 1
+				d[i][j] = minD + 1
 			}
 		}
 

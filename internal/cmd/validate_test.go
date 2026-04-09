@@ -6,9 +6,10 @@ package cmd
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hashicorp/tfcloud/internal/flagvalue"
 	"github.com/hashicorp/tfcloud/internal/iostreams"
-	"github.com/stretchr/testify/require"
 )
 
 func getGoodCommand() *Command {

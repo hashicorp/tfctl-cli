@@ -18,7 +18,7 @@ type simpleSliceValue[T any] struct {
 
 // SimpleSlice returns a pflags.Value that sets the slice at p with the default
 // val or the value(s) provided via a flag.
-func SimpleSlice[T SimpleValue](val []T, p *[]T) *simpleSliceValue[T] {
+func SimpleSlice[T SimpleValue](val []T, p *[]T) Value {
 	isv := new(simpleSliceValue[T])
 	isv.value = p
 	*isv.value = val
@@ -99,6 +99,6 @@ func (s *simpleSliceValue[T]) toString(val T) string {
 	return fmt.Sprintf("%v", val)
 }
 
-// Ensure we meet the interface
+// Ensure we meet the interface.
 var _ pflag.Value = &simpleSliceValue[string]{}
 var _ pflag.SliceValue = &simpleSliceValue[string]{}

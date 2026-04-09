@@ -91,7 +91,7 @@ func newLoader(dir string) (*Loader, error) {
 	}, nil
 }
 
-// GetActiveProfile returns the current profile
+// GetActiveProfile returns the current profile.
 func (l *Loader) GetActiveProfile() (*ActiveProfile, error) {
 	// Expand the active profile path.
 	path := filepath.Join(l.configDir, ActiveProfileFileName)
@@ -129,7 +129,7 @@ func (l *Loader) DefaultActiveProfile() *ActiveProfile {
 	}
 }
 
-// ListProfiles returns the available profile names
+// ListProfiles returns the available profile names.
 func (l *Loader) ListProfiles() ([]string, error) {
 	files, err := os.ReadDir(l.profilesDir)
 	if err != nil {
@@ -191,7 +191,7 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 	return &c, nil
 }
 
-// LoadProfiles loads all the available profiles
+// LoadProfiles loads all the available profiles.
 func (l *Loader) LoadProfiles() ([]*Profile, error) {
 	profileNames, err := l.ListProfiles()
 	if err != nil {
@@ -239,7 +239,10 @@ const (
 func (l *Loader) DefaultProfile() *Profile {
 	org, orgOK := os.LookupEnv(envVarTFCloudOrganization)
 
-	profile, _ := l.NewProfile(ProfileNameDefault)
+	profile, err := l.NewProfile(ProfileNameDefault)
+	if err != nil {
+		panic("The default profile should always be valid. This is always a developer error: " + err.Error())
+	}
 
 	if orgOK {
 		profile.Organization = org

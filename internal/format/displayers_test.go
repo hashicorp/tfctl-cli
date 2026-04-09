@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+
 	"github.com/hashicorp/tfcloud/internal/format"
 )
 

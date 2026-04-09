@@ -6,8 +6,9 @@ package cmd
 import (
 	"testing"
 
-	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hashicorp/tfcloud/internal/iostreams"
 )
 
 func TestAuthErrorHelp(t *testing.T) {

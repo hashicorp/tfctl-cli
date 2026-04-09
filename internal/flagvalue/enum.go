@@ -19,7 +19,7 @@ type enumValue[T comparable] struct {
 // Enum returns a pflags.Value that sets the value at p with the default
 // val or the value provided via a flag. The provided value must be in the
 // allowed list or an error is returned.
-func Enum[T comparable](allowed []T, val T, p *T) *enumValue[T] {
+func Enum[T comparable](allowed []T, val T, p *T) Value {
 	v := new(enumValue[T])
 	v.allowed = allowed
 	v.value = p
@@ -50,5 +50,5 @@ func (i *enumValue[T]) String() string {
 	return fmt.Sprintf("%v", *i.value)
 }
 
-// Ensure we meet the interface
-var _ pflag.Value = &simpleValue[bool]{}
+// Ensure we meet the interface.
+var _ pflag.Value = &enumValue[bool]{}

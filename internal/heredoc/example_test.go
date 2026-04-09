@@ -87,7 +87,7 @@ func Example() {
 	// your text on a new line and end it like this.
 }
 
-// This example demonstrates how to use codeblocks
+// This example demonstrates how to use codeblocks.
 func Example_second() {
 	io, _ := iostreams.System(context.Background())
 	out := heredoc.New(io).Must(`
@@ -134,7 +134,7 @@ The code block gets defined then passed to the code block function.
 	//}
 }
 
-// This example demonstrates how to use the mdCodeOrBold template
+// This example demonstrates how to use the mdCodeOrBold template.
 func Example_third() {
 	io, _ := iostreams.System(context.Background())
 	out := heredoc.New(io).Must(`

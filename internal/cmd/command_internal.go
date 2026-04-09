@@ -16,13 +16,14 @@ import (
 
 	"github.com/go-openapi/runtime"
 	"github.com/hashicorp/cli"
-	"github.com/hashicorp/tfcloud/internal/heredoc"
-	"github.com/hashicorp/tfcloud/internal/iostreams"
-	"github.com/hashicorp/tfcloud/internal/ld"
 	"github.com/muesli/reflow/indent"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/posener/complete"
 	"github.com/spf13/pflag"
+
+	"github.com/hashicorp/tfcloud/internal/heredoc"
+	"github.com/hashicorp/tfcloud/internal/iostreams"
+	"github.com/hashicorp/tfcloud/internal/ld"
 )
 
 // Run runs the given command.
@@ -404,7 +405,7 @@ func (a PositionalArgument) text(cs *iostreams.ColorScheme) string {
 	return buf.String()
 }
 
-// aliasUsages returns a map from the alias to its usage
+// aliasUsages returns a map from the alias to its usage.
 func (c *Command) aliasUsages() map[string]string {
 	aliases := make(map[string]string)
 	for _, a := range c.Aliases {
@@ -507,7 +508,7 @@ func (c *Command) suggestionsFor(typedName string) []string {
 	}
 
 	typedNameLower := strings.ToLower(typedName)
-	return ld.SuggestionsWithOverride(typedName, options, 2, true, func(input, option string) bool {
+	return ld.SuggestionsWithOverride(typedName, options, 2, true, func(_, option string) bool {
 		return strings.HasPrefix(strings.ToLower(option), typedNameLower)
 	})
 }
@@ -722,7 +723,7 @@ func (c *Command) nonGlobalFlags() *pflag.FlagSet {
 	return nonglobal
 }
 
-// parseFlags parses the flags from the arguments
+// parseFlags parses the flags from the arguments.
 func (c *Command) parseFlags(args []string) error {
 	c.buildFlags()
 	if err := c.allFlags().Parse(args); err != nil {
@@ -808,9 +809,8 @@ func flagString(f *pflag.Flag) string {
 	if v != "" {
 		if repeatable {
 			return fmt.Sprintf("--%s=%s [Repeatable]", f.Name, v)
-		} else {
-			return fmt.Sprintf("--%s=%s", f.Name, v)
 		}
+		return fmt.Sprintf("--%s=%s", f.Name, v)
 	}
 
 	if repeatable {

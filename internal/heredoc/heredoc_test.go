@@ -7,9 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hashicorp/tfcloud/internal/iostreams"
 )
 
 func TestTemplate_NoWrap(t *testing.T) {

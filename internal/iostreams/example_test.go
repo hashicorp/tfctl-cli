@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/tfcloud/internal/iostreams"
 )
 
-// Example_output shows how text can be outputted with color and style
+// Example_output shows how text can be outputted with color and style.
 func Example() {
 	// Use iostreams.System for real usage.
 	io := iostreams.Test()

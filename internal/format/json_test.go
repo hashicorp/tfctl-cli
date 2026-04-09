@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hashicorp/tfcloud/internal/format"
 	"github.com/hashicorp/tfcloud/internal/iostreams"
-	"github.com/stretchr/testify/require"
 )
 
 func TestJSON_KV_Slice(t *testing.T) {

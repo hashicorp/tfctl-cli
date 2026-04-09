@@ -29,13 +29,13 @@ func newFlagAnnotations() flagAnnotations {
 	return make(map[string][]string)
 }
 
-// Global marks a flag as global
+// Global marks a flag as global.
 func (a flagAnnotations) Global() flagAnnotations {
 	a[flagAnnotationGlobal] = nil
 	return a
 }
 
-// isFlagGlobal returns whether the flag is global
+// isFlagGlobal returns whether the flag is global.
 func isFlagGlobal(a flagAnnotations) bool {
 	_, ok := a[flagAnnotationGlobal]
 

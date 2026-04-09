@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hashicorp/tfcloud/internal/format"
 	"github.com/hashicorp/tfcloud/internal/iostreams"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPretty_KV_Slice_Empty(t *testing.T) {
@@ -275,7 +276,7 @@ func TestPretty_Complex_Struct(t *testing.T) {
 
 // charactersToValue returns the number of characters to the first value.
 // For an input of "My Key:   My Value" the returned value will be 10.
-// "My Key" (6) + ":" (1) + "   " (3) = 10
+// "My Key" (6) + ":" (1) + "   " (3) = 10.
 func charactersToValue(line string) int {
 	// Split on the colon
 	parts := strings.Split(line, ":")

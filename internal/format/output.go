@@ -178,7 +178,7 @@ func inferFields[T any](payload T, columns []string) []Field {
 }
 
 // convertToScopedWithBlocks converts a full dot-path into nested `with` blocks using local field scope.
-// {{ .Request.Agent.Op.ActionRunID }} => {{ with .Request }}{{ with .Agent }}{{ with .Op }}{{ .ActionRunID }}{{ end }}{{ end }}{{ end }}
+// {{ .Request.Agent.Op.ActionRunID }} => {{ with .Request }}{{ with .Agent }}{{ with .Op }}{{ .ActionRunID }}{{ end }}{{ end }}{{ end }}.
 func convertToScopedWithBlocks(input string) string {
 	input = strings.TrimSpace(input)
 	// Remove surrounding {{ and }} if present
@@ -197,10 +197,10 @@ func convertToScopedWithBlocks(input string) string {
 	var builder strings.Builder
 	// Open with blocks
 	for _, part := range parts[:len(parts)-1] {
-		builder.WriteString(fmt.Sprintf("{{ with .%s }}", part))
+		fmt.Fprintf(&builder, "{{ with .%s }}", part)
 	}
 	// Final value
-	builder.WriteString(fmt.Sprintf("{{ .%s }}", parts[len(parts)-1]))
+	fmt.Fprintf(&builder, "{{ .%s }}", parts[len(parts)-1])
 	// Close all with blocks
 	builder.WriteString(strings.Repeat("{{ end }}", len(parts)-1))
 	return strings.TrimSpace(builder.String())

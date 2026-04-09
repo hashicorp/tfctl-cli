@@ -10,7 +10,7 @@ import (
 	"github.com/posener/complete"
 )
 
-// Ensure we meet the cli interfaces
+// Ensure we meet the cli interfaces.
 var _ cli.Command = &CompatibleCommand{}
 var _ cli.CommandAutocomplete = &CompatibleCommand{}
 var _ cli.CommandHelpTemplate = &CompatibleCommand{}
@@ -46,6 +46,7 @@ func (cc *CompatibleCommand) Synopsis() string {
 	return cc.c.ShortHelp
 }
 
+// Run implements cli.Command.
 func (cc *CompatibleCommand) Run(args []string) int {
 	return cc.c.Run(args)
 }

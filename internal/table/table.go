@@ -1,7 +1,7 @@
 // Copyright IBM Corp. 2024, 2025
 // SPDX-License-Identifier: MPL-2.0
 
-// table outputs data in a table format. The package is heavily inspired by
+// Package table outputs data in a table format. The package is heavily inspired by
 // github.com/gosuri/uitable.
 package table
 
@@ -15,7 +15,7 @@ import (
 	"github.com/muesli/reflow/wrap"
 )
 
-// Table represents a decorator that renders the data in formatted in a table
+// Table represents a decorator that renders the data in formatted in a table.
 type Table struct {
 	// LineLength is the maximum allowed length of a line in the Table
 	LineLength uint
@@ -42,14 +42,14 @@ type Table struct {
 	separator string
 }
 
-// AddRow adds a new row to the table
+// AddRow adds a new row to the table.
 func (t *Table) AddRow(data ...interface{}) *Table {
 	r := newRow(data...)
 	t.rows = append(t.rows, r)
 	return t
 }
 
-// String returns the string value of table
+// String returns the string value of table.
 func (t *Table) String() string {
 	if len(t.rows) == 0 {
 		return ""
@@ -62,7 +62,7 @@ func (t *Table) String() string {
 	// the width of column separators and then dividing by the number of columns.
 	numHeaders := len(t.rows[0].cells)
 	headerSpacing := uint((numHeaders - 1)) * t.SeparatorSpaces
-	t.maxColWidth = (t.LineLength - uint(headerSpacing)) / uint(numHeaders)
+	t.maxColWidth = (t.LineLength - headerSpacing) / uint(numHeaders)
 
 	// determine the width for each column (cell in a row)
 	var colWidths []uint
@@ -130,7 +130,7 @@ func (t *Table) String() string {
 	return strings.Join(lines, "\n")
 }
 
-// row represents a row in a table
+// row represents a row in a table.
 type row struct {
 	// cells is the group of cell for the row
 	cells []*cell
@@ -145,7 +145,7 @@ type row struct {
 	firstColumnFormatter func(input string) string
 }
 
-// newRow returns a new Row and adds the data to the row
+// newRow returns a new Row and adds the data to the row.
 func newRow(data ...interface{}) *row {
 	r := &row{cells: make([]*cell, len(data))}
 	for i, d := range data {
@@ -154,7 +154,7 @@ func newRow(data ...interface{}) *row {
 	return r
 }
 
-// string returns the string representation of the row
+// string returns the string representation of the row.
 func (r *row) string() string {
 	// get the max number of lines for each cell
 	var lc int // line count
@@ -201,7 +201,7 @@ func (r *row) string() string {
 	return strings.Join(lines, "\n")
 }
 
-// cell represents a column in a row
+// cell represents a column in a row.
 type cell struct {
 	// width is the width of the cell
 	width uint
@@ -213,7 +213,7 @@ type cell struct {
 	data interface{}
 }
 
-// lineWidth returns the max width of all the lines in a cell
+// lineWidth returns the max width of all the lines in a cell.
 func (c *cell) lineWidth() uint {
 	width := 0
 	for _, s := range strings.Split(c.string(), "\n") {
@@ -225,7 +225,7 @@ func (c *cell) lineWidth() uint {
 	return uint(width)
 }
 
-// string returns the string formated representation of the cell
+// string returns the string formatted representation of the cell.
 func (c *cell) string() string {
 	if c.data == nil {
 		return padding.String(" ", c.width)
@@ -238,9 +238,8 @@ func (c *cell) string() string {
 			return truncate.StringWithTail(s, c.width, "...")
 		} else if len(s) != 0 {
 			return padding.String(s, c.width)
-		} else {
-			return strings.Repeat(" ", int(c.width))
 		}
+		return strings.Repeat(" ", int(c.width))
 	}
 	return s
 }

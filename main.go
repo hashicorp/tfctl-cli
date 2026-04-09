@@ -10,12 +10,13 @@ import (
 	"syscall"
 
 	"github.com/hashicorp/cli"
+	"github.com/posener/complete"
+
 	"github.com/hashicorp/tfcloud/internal/cmd"
 	"github.com/hashicorp/tfcloud/internal/config"
 	"github.com/hashicorp/tfcloud/internal/format"
 	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/hashicorp/tfcloud/internal/profile"
-	"github.com/posener/complete"
 )
 
 func main() {
@@ -98,7 +99,7 @@ func realMain() int {
 	return status
 }
 
-// loadActiveProfile loads the active profile
+// loadActiveProfile loads the active profile.
 func loadActiveProfile() (*profile.Profile, error) {
 	// Create the profile loader
 	loader, err := profile.NewLoader()
@@ -154,8 +155,8 @@ func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
 	return c
 }
 
-// isAutocomplete returns true if the CLI is being run in an autocomplete
+// IsAutocomplete returns true if the CLI is being run in an autocomplete
 // context.
-func isAutocomplete() bool {
+func IsAutocomplete() bool {
 	return os.Getenv("COMP_LINE") != "" && os.Getenv("COMP_POINT") != ""
 }

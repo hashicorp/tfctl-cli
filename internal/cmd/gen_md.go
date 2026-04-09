@@ -11,8 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/spf13/pflag"
+
+	"github.com/hashicorp/tfcloud/internal/iostreams"
 )
 
 const markdownExtension = ".mdx"
@@ -21,6 +22,7 @@ const markdownExtension = ".mdx"
 // generated markdown. The path string is the unmodified path to the file.
 type LinkHandler func(path string) string
 
+// GenMarkdownTree creates a markdown file for the command and all of its children.
 func GenMarkdownTree(c *Command, dir string, link LinkHandler) error {
 	// Create the directory if it doesn't exist
 	if err := os.MkdirAll(dir, 0766); err != nil {
@@ -72,8 +74,8 @@ func GenMarkdown(c *Command, w io.Writer, link LinkHandler) error {
 	name := c.commandPath()
 
 	buf.WriteString("---\n")
-	buf.WriteString(fmt.Sprintf("page_title: %s\n", name))
-	buf.WriteString(fmt.Sprintf("description: |-\n  The \"%s\" command lets you %s\n", name, (strings.ToLower(c.ShortHelp[:1]) + c.ShortHelp[1:])))
+	fmt.Fprintf(buf, "page_title: %s\n", name)
+	fmt.Fprintf(buf, "description: |-\n  The \"%s\" command lets you %s\n", name, (strings.ToLower(c.ShortHelp[:1]) + c.ShortHelp[1:]))
 	buf.WriteString("---\n\n")
 
 	_, err := buf.WriteTo(w)
@@ -82,7 +84,7 @@ func GenMarkdown(c *Command, w io.Writer, link LinkHandler) error {
 	}
 
 	buf.WriteString("# " + name + "\n\n")
-	buf.WriteString(fmt.Sprintf("Command: `%s` \n\n", name))
+	fmt.Fprintf(buf, "Command: `%s` \n\n", name)
 
 	// Description
 	buf.WriteString(c.LongHelp + "\n\n")
@@ -92,14 +94,14 @@ func GenMarkdown(c *Command, w io.Writer, link LinkHandler) error {
 	// because we are using a code block.
 	mdIO.SetMD(false)
 	buf.WriteString("## Usage\n\n")
-	buf.WriteString(fmt.Sprintf("```shell-session\n$ %s\n```\n\n", c.useLine()))
+	fmt.Fprintf(buf, "```shell-session\n$ %s\n```\n\n", c.useLine())
 	mdIO.SetMD(true)
 
 	// Aliases
 	if len(c.Aliases) > 0 {
 		buf.WriteString("## Aliases\n\n")
 		for a, u := range c.aliasUsages() {
-			buf.WriteString(fmt.Sprintf("- `%s`. For example: `%s`\n", a, u))
+			fmt.Fprintf(buf, "- `%s`. For example: `%s`\n", a, u)
 		}
 		buf.WriteString("\n")
 	}
@@ -109,8 +111,8 @@ func GenMarkdown(c *Command, w io.Writer, link LinkHandler) error {
 		buf.WriteString("## Examples\n\n")
 
 		for _, e := range c.Examples {
-			buf.WriteString(fmt.Sprintf("%s\n\n", e.Preamble))
-			buf.WriteString(fmt.Sprintf("```shell-session\n%s\n```\n\n", e.Command))
+			fmt.Fprintf(buf, "%s\n\n", e.Preamble)
+			fmt.Fprintf(buf, "```shell-session\n%s\n```\n\n", e.Command)
 		}
 	}
 
@@ -146,8 +148,8 @@ func GenMarkdown(c *Command, w io.Writer, link LinkHandler) error {
 
 	// Additional docs
 	for _, d := range c.AdditionalDocs {
-		buf.WriteString(fmt.Sprintf("## %s\n", d.Title))
-		buf.WriteString(d.Documentation + "\n")
+		fmt.Fprintf(buf, "## %s\n", d.Title)
+		fmt.Fprintf(buf, "%s\n", d.Documentation)
 	}
 
 	_, err = buf.WriteTo(w)
@@ -211,15 +213,15 @@ func genMarkdownFlags(c *Command, buf *bytes.Buffer) {
 	for _, set := range flagSets {
 		required, optional := splitRequiredFlags(set.flags)
 		if required.HasFlags() {
-			buf.WriteString(fmt.Sprintf("## Required %sflags\n\n", set.name))
+			fmt.Fprintf(buf, "## Required %sflags\n\n", set.name)
 			genMarkdownFlagsetUsage(required, buf)
 
 			if optional.HasFlags() {
-				buf.WriteString(fmt.Sprintf("## Optional %sflags\n\n", set.name))
+				fmt.Fprintf(buf, "## Optional %sflags\n\n", set.name)
 				genMarkdownFlagsetUsage(optional, buf)
 			}
 		} else if optional.HasFlags() {
-			buf.WriteString(fmt.Sprintf("## %sFlags\n\n", set.name))
+			fmt.Fprintf(buf, "## %sFlags\n\n", set.name)
 			genMarkdownFlagsetUsage(optional, buf)
 		}
 	}

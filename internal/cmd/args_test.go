@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hashicorp/tfcloud/internal/iostreams"
 )
 
 func TestPositionalArgs_validateFunc(t *testing.T) {

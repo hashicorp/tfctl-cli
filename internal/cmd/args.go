@@ -10,7 +10,7 @@ import "fmt"
 type ValidateArgsFunc func(c *Command, args []string) error
 
 // NoArgs is a ValidateArgsFunc that validates that no arguments are received.
-func NoArgs(c *Command, args []string) error {
+func NoArgs(_ *Command, args []string) error {
 	if l := len(args); l > 0 {
 		return fmt.Errorf("no arguments allowed, but received %d", l)
 	}
@@ -20,13 +20,13 @@ func NoArgs(c *Command, args []string) error {
 
 // ArbitraryArgs never returns an error and is used to bypass argument
 // validation at the command level.
-func ArbitraryArgs(c *Command, args []string) error {
+func ArbitraryArgs(_ *Command, _ []string) error {
 	return nil
 }
 
 // MinimumNArgs returns an error if there is not at least N (inclusive) args.
 func MinimumNArgs(n int) ValidateArgsFunc {
-	return func(cmd *Command, args []string) error {
+	return func(_ *Command, args []string) error {
 		if len(args) < n {
 			return fmt.Errorf("requires at least %d arg(s), only received %d", n, len(args))
 		}
@@ -36,7 +36,7 @@ func MinimumNArgs(n int) ValidateArgsFunc {
 
 // MaximumNArgs returns an error if there are more than N (inclusive) args.
 func MaximumNArgs(n int) ValidateArgsFunc {
-	return func(cmd *Command, args []string) error {
+	return func(_ *Command, args []string) error {
 		if len(args) > n {
 			return fmt.Errorf("accepts at most %d arg(s), received %d", n, len(args))
 		}
@@ -46,7 +46,7 @@ func MaximumNArgs(n int) ValidateArgsFunc {
 
 // ExactArgs returns an error if there are not exactly N args.
 func ExactArgs(n int) ValidateArgsFunc {
-	return func(cmd *Command, args []string) error {
+	return func(_ *Command, args []string) error {
 		if len(args) != n {
 			return fmt.Errorf("accepts %d arg(s), received %d", n, len(args))
 		}
@@ -55,10 +55,10 @@ func ExactArgs(n int) ValidateArgsFunc {
 }
 
 // RangeArgs returns an error if the number of args is not within the expected range.
-func RangeArgs(min int, max int) ValidateArgsFunc {
-	return func(cmd *Command, args []string) error {
-		if len(args) < min || len(args) > max {
-			return fmt.Errorf("accepts between %d and %d arg(s), received %d", min, max, len(args))
+func RangeArgs(minimum int, maximum int) ValidateArgsFunc {
+	return func(_ *Command, args []string) error {
+		if len(args) < minimum || len(args) > maximum {
+			return fmt.Errorf("accepts between %d and %d arg(s), received %d", minimum, maximum, len(args))
 		}
 		return nil
 	}

@@ -94,7 +94,7 @@ type system struct {
 	quiet bool
 
 	// ctx is used to cancel any blocking read in the event the context is
-	// cancelled.
+	// canceled.
 	ctx context.Context
 }
 
@@ -183,7 +183,7 @@ func (s *system) ReadSecret() ([]byte, error) {
 	doneChannel := make(chan struct{})
 	defer close(doneChannel)
 
-	// Cancelled context restores the terminal, otherwise the no-echo mode would remain intact
+	// Canceled context restores the terminal, otherwise the no-echo mode would remain intact
 	go func() {
 		select {
 		case <-doneChannel:
@@ -246,7 +246,7 @@ func (s *system) PromptConfirm(prompt string) (confirmed bool, err error) {
 
 	select {
 	case <-s.ctx.Done():
-		// If we are cancelled, try to extract the reason.
+		// If we are canceled, try to extract the reason.
 		if cause := context.Cause(s.ctx); cause != nil {
 			err = cause
 		} else {
@@ -270,24 +270,24 @@ func (s *system) IsInputTTY() bool {
 }
 
 func (s *system) IsOutputTTY() bool {
-	return term.IsTerminal(int(s.out.TTY().Fd()))
+	return term.IsTerminal(int(s.out.TTY().Fd())) // nolint:staticcheck // Need a Fd for term.IsTerminal
 }
 
 func (s *system) IsErrorTTY() bool {
-	return term.IsTerminal(int(s.err.TTY().Fd()))
+	return term.IsTerminal(int(s.err.TTY().Fd())) // nolint:staticcheck // Need a Fd for term.IsTerminal
 }
 
 func (s *system) CanPrompt() bool {
 	return !s.quiet && s.IsErrorTTY() && s.IsInputTTY()
 }
 
-// TerminalWidth returns the width of the terminal that controls the process
+// TerminalWidth returns the width of the terminal that controls the process.
 func (s *system) TerminalWidth() int {
 	if !s.IsOutputTTY() {
 		return TerminalDefaultWidth
 	}
 
-	width, _, err := term.GetSize(int(s.out.TTY().Fd()))
+	width, _, err := term.GetSize(int(s.out.TTY().Fd())) // nolint:staticcheck // Need a Fd for term.IsTerminal
 	if err != nil {
 		return TerminalDefaultWidth
 	}

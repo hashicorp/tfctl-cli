@@ -7,15 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/hashicorp/go-hclog"
+	"github.com/posener/complete"
+
 	"github.com/hashicorp/tfcloud/internal/flagvalue"
 	"github.com/hashicorp/tfcloud/internal/format"
 	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/hashicorp/tfcloud/internal/profile"
-	"github.com/posener/complete"
 )
 
 // Context passes global objects for constructing and invoking a command.
@@ -26,7 +26,7 @@ type Context struct {
 	// Output is used to print structured output.
 	Output *format.Outputter
 
-	// ShutdownCtx is a context that is cancelled if the user requests the
+	// ShutdownCtx is a context that is canceled if the user requests the
 	// command to be shutdown. If a command can block for an extended amount of
 	// time, the context should be used to exit early.
 	ShutdownCtx context.Context
@@ -58,6 +58,8 @@ type GlobalFlags struct {
 	Quiet bool
 }
 
+// GetGlobalFlags returns the global flags. It panics if the flags have not been
+// parsed yet, which should only be the case if they are accessed outside of a run command.
 func (ctx *Context) GetGlobalFlags() GlobalFlags {
 	if !ctx.flags.parsed {
 		panic("This is a programmer error. Only access global flags from within a run command. Otherwise flags haven't been parsed yet.")
@@ -219,9 +221,14 @@ func (ctx *Context) ParseFlags(c *Command, args []string) ([]string, error) {
 	return c.allCommandFlags.Args(), nil
 }
 
-func isAuthenticated(ctx *Context, c *Command, args []string) error {
+func isAuthenticated(_ *Context, c *Command, args []string) error {
 	if isTopLevelCmd(args) || c.NoAuthRequired {
 		return nil
+	}
+
+	// TODO: check authentication and return authHelp if not authenticated
+	if false {
+		return authHelp(c.io)
 	}
 
 	return nil
@@ -236,7 +243,7 @@ No authentication detected. To get started with tfcloud CLI, please run:  %s`,
 	return errors.New(help)
 }
 
-// Used to parse commands and skip loading tfcloud profile
+// Used to parse commands and skip loading tfcloud profile.
 func isTopLevelCmd(args []string) bool {
 	if len(args) != 1 {
 		return false
@@ -257,28 +264,4 @@ func isTopLevelCmd(args []string) bool {
 		return true
 	}
 	return false
-}
-
-// logger implements the logging interface required by our openapi clients
-type apiLogger struct {
-	info  *log.Logger
-	debug *log.Logger
-}
-
-func newAPILogger(l hclog.Logger) *apiLogger {
-	l = l.Named("api_client")
-	return &apiLogger{
-		info:  l.StandardLogger(&hclog.StandardLoggerOptions{ForceLevel: hclog.Info}),
-		debug: l.StandardLogger(&hclog.StandardLoggerOptions{ForceLevel: hclog.Debug}),
-	}
-}
-
-// Printf prints an info log
-func (l apiLogger) Printf(format string, args ...interface{}) {
-	l.info.Printf(format, args...)
-}
-
-// Debugf prints a debug log
-func (l apiLogger) Debugf(format string, args ...interface{}) {
-	l.debug.Printf(format, args...)
 }

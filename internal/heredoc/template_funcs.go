@@ -8,8 +8,9 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"golang.org/x/exp/maps"
+
+	"github.com/hashicorp/tfcloud/internal/iostreams"
 )
 
 const (

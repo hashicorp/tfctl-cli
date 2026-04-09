@@ -104,9 +104,9 @@ func (t *Testing) ReadSecret() ([]byte, error) {
 	}
 }
 
-// Prompt confirm for testing attempts to read a single byte from stdin. If the
+// PromptConfirm for testing attempts to read a single byte from stdin. If the
 // byte is y, true is returned, if it is n, false is returned. Any other value
-// is an error
+// is an error.
 func (t *Testing) PromptConfirm(prompt string) (bool, error) {
 	if !t.CanPrompt() {
 		return false, fmt.Errorf("prompting is disabled")
@@ -151,12 +151,12 @@ func (t *Testing) TerminalWidth() int {
 	return TerminalDefaultWidth
 }
 
-// nopCloser wraps an io.Writer with a Close method
+// nopCloser wraps an io.Writer with a Close method.
 type nopCloser struct{ io.Writer }
 
-// NopWriteCloser wraps an io.Writer with a Close method
+// NopWriteCloser wraps an io.Writer with a Close method.
 func NopWriteCloser(w io.Writer) io.WriteCloser { return nopCloser{w} }
 func (nopCloser) Close() error                  { return nil }
 
-// Ensure we meet the interface
+// Ensure we meet the interface.
 var _ IOStreams = &Testing{}

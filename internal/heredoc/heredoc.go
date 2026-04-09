@@ -1,6 +1,8 @@
 // Copyright IBM Corp. 2024, 2025
 // SPDX-License-Identifier: MPL-2.0
 
+// Package heredoc provides utilities for formatting text that is intended to be
+// output to users and includes text/template formatting and word-wrapping.
 package heredoc
 
 import (
@@ -9,9 +11,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/lithammer/dedent"
 	"github.com/muesli/reflow/wordwrap"
+
+	"github.com/hashicorp/tfcloud/internal/iostreams"
 )
 
 // Config stores configuration for the formatter. The values can be set by

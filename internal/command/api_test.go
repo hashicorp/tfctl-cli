@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	cli "github.com/hashicorp/cli"
+
 	"github.com/hashicorp/tfcloud/internal/client"
 	"github.com/hashicorp/tfcloud/internal/config"
 )

@@ -15,6 +15,8 @@ import (
 // Value is the interface to the dynamic value stored in a flag.
 type Value = pflag.Value
 
+// SimpleValue is a constraint that includes all the types supported by the
+// Simple flag value.
 type SimpleValue interface {
 	constraints.Float | constraints.Integer | ~string | ~bool |
 		*string | *bool
@@ -31,13 +33,14 @@ type simpleValue[T any] struct {
 // Flag. Otherwise the flag will have to have a value set to be parsed. As an
 // example if the boolean flag had the name "force" and NoOptDefVal is not set,
 // the flag will have to be set as --force=true.
-func Simple[T SimpleValue](val T, p *T) *simpleValue[T] {
+func Simple[T SimpleValue](val T, p *T) Value {
 	v := new(simpleValue[T])
 	v.value = p
 	*p = val
 	return v
 }
 
+// Set implements the pflag.Value interface.
 func (i *simpleValue[T]) Set(s string) error {
 	var err error
 	switch v := any(i.value).(type) {
@@ -67,13 +70,15 @@ func parseBool[T bool](s string, v *T) error {
 	return nil
 }
 
+// Type implements the pflag.Value interface.
 func (i *simpleValue[T]) Type() string {
 	return reflect.TypeOf(*i.value).Name()
 }
 
+// String implements the pflag.Value interface.
 func (i *simpleValue[T]) String() string {
 	return fmt.Sprintf("%v", *i.value)
 }
 
-// Ensure we meet the interface
+// Ensure we meet the interface.
 var _ pflag.Value = &simpleValue[bool]{}

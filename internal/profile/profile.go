@@ -70,7 +70,7 @@ type Profile struct {
 	dir string
 }
 
-// Predict predicts the HCL key names and basic settable values
+// Predict predicts the HCL key names and basic settable values.
 func (p *Profile) Predict(args complete.Args) []string {
 	sub := map[string]complete.Predictor{
 		"core": p.Core,
@@ -202,13 +202,13 @@ func (c *Core) GetVerbosity() string {
 	return *c.Verbosity
 }
 
-// SetOrgID sets the OrganizationID
-func (p *Profile) SetOrgID(id string) *Profile {
+// SetOrg sets the Organization.
+func (p *Profile) SetOrg(name string) *Profile {
 	if p == nil {
 		return nil
 	}
 
-	p.Organization = id
+	p.Organization = name
 	return p
 }
 
@@ -220,10 +220,11 @@ type Core struct {
 	// Verbosity is the default verbosity to log at
 	Verbosity *string `hcl:"verbosity,optional" json:",omitempty"`
 
-	// Quiet is whether the CLI should minimize outpout
+	// Quiet is whether the CLI should minimize output
 	Quiet *bool `hcl:"quiet,optional" json:",omitempty"`
 }
 
+// Predict predicts the HCL key names and basic settable values for core configuration.
 func (c *Core) Predict(args complete.Args) []string {
 	properties := map[string][]string{
 		"core/no_color":  {"true", "false"},
@@ -248,6 +249,7 @@ func (c *Core) Predict(args complete.Args) []string {
 	return nil
 }
 
+// Validate validates the core configuration values.
 func (c *Core) Validate() error {
 	if c == nil {
 		return nil
@@ -274,7 +276,7 @@ func (c *Core) isEmpty() bool {
 	return true
 }
 
-// IsQueit returns whether the quiet property has been configured to be quiet.
+// IsQuiet returns whether the quiet property has been configured to be quiet.
 func (c *Core) IsQuiet() bool {
 	if c == nil {
 		return false

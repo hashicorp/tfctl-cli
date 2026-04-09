@@ -1,6 +1,7 @@
 // Copyright IBM Corp. 2024, 2025
 // SPDX-License-Identifier: MPL-2.0
 
+// Package format provides utilities for handling output formats.
 package format
 
 import (
@@ -14,6 +15,7 @@ import (
 type Format int
 
 const (
+	// Unset is the default value for Format and indicates that no format has been set.
 	Unset Format = iota
 
 	// Pretty is used to output the payload in a key/value format where each

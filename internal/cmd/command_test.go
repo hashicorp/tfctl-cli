@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hashicorp/tfcloud/internal/iostreams"
 )
 
 func TestCommand_PersistentPrerun(t *testing.T) {

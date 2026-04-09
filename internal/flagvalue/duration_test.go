@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/tfcloud/internal/flagvalue"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hashicorp/tfcloud/internal/flagvalue"
 )
 
 func ExampleDuration() {

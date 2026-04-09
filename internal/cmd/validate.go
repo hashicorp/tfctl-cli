@@ -9,8 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/spf13/pflag"
+
+	"github.com/hashicorp/tfcloud/internal/iostreams"
 )
 
 const (
@@ -381,7 +382,7 @@ func (e *Example) validate() error {
 
 	if e.Command == "" {
 		validationErr = errors.Join(validationErr, fmt.Errorf("command cannot be empty"))
-	} else if !(strings.HasPrefix(e.Command, "$ ") || strings.HasPrefix(e.Command, "#")) {
+	} else if !strings.HasPrefix(e.Command, "$ ") || !strings.HasPrefix(e.Command, "#") {
 		validationErr = errors.Join(validationErr, fmt.Errorf("example command must start with $ or #"))
 	}
 

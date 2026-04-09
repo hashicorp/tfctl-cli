@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/spf13/pflag"
 )
 
 type simpleMapValue[K, V SimpleValue] struct {
@@ -16,7 +18,7 @@ type simpleMapValue[K, V SimpleValue] struct {
 
 // SimpleMap returns a pflags.Value that sets the map at p with the default
 // val or the value(s) provided via a flag.
-func SimpleMap[K, V SimpleValue](val map[K]V, p *map[K]V) *simpleMapValue[K, V] {
+func SimpleMap[K, V SimpleValue](val map[K]V, p *map[K]V) Value {
 	isv := new(simpleMapValue[K, V])
 	isv.value = p
 	*isv.value = val
@@ -67,3 +69,6 @@ func (m *simpleMapValue[K, V]) String() string {
 	}
 	return "[" + strings.Join(out, ",") + "]"
 }
+
+// Ensure we meet the interface.
+var _ pflag.Value = &simpleMapValue[string, string]{}

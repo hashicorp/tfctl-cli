@@ -1,6 +1,7 @@
 // Copyright IBM Corp. 2024, 2025
 // SPDX-License-Identifier: MPL-2.0
 
+// Package cmd provides the structures and functions for constructing commands.
 package cmd
 
 import (
@@ -9,11 +10,12 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/posener/complete"
+	flag "github.com/spf13/pflag"
+
 	"github.com/hashicorp/tfcloud/internal/config"
 	"github.com/hashicorp/tfcloud/internal/flagvalue"
 	"github.com/hashicorp/tfcloud/internal/iostreams"
-	"github.com/posener/complete"
-	flag "github.com/spf13/pflag"
 )
 
 var (
@@ -169,6 +171,8 @@ type PositionalArgument struct {
 	Repeatable bool
 }
 
+// Flags is the set of flags for a command. It includes both local flags (specific to the command)
+// and persistent flags (inherited by child commands).
 type Flags struct {
 	// Local is the set of flags for this command.
 	Local []*Flag

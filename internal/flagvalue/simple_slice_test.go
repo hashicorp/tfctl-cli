@@ -6,9 +6,10 @@ package flagvalue_test
 import (
 	"testing"
 
-	"github.com/hashicorp/tfcloud/internal/flagvalue"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hashicorp/tfcloud/internal/flagvalue"
 )
 
 func ExampleSimpleSlice() {
