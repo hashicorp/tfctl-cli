@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2026
+// Copyright IBM Corp. 2026
 
 // Package config contains runtime configuration related code for the CLI, such as
 // version information.

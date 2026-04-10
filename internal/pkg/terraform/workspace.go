@@ -1,3 +1,6 @@
+// Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
+
 // Package terraform reads local Terraform configuration and tfvars inputs.
 package terraform
 

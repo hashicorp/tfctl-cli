@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 ARG base_image=docker.artifactory.hashicorp.engineering/ubuntu:24.04
 FROM ${base_image}
 
