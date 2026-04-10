@@ -66,6 +66,31 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 	r.Empty(io.Error.String())
 }
 
+func TestCmdAPISchemaSearchRunNoResults(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	io := iostreams.Test()
+	originalLoader := loadSchemaOperationsForSearch
+	originalSearcher := schemaOperationSearcher
+	loadSchemaOperationsForSearch = func() ([]schemaOperation, error) {
+		return testSchemaOperations, nil
+	}
+	schemaOperationSearcher = hybridSchemaSearcher{}
+	t.Cleanup(func() {
+		loadSchemaOperationsForSearch = originalLoader
+		schemaOperationSearcher = originalSearcher
+	})
+
+	command := newCmdAPISchemaSearch(testCommandContext(io))
+	command.SetIO(io)
+	r.Equal(0, command.Run([]string{"wrokspaec"}))
+
+	output := io.Output.String()
+	r.Contains(output, `No API operations matched "wrokspaec"`)
+	r.Empty(io.Error.String())
+}
+
 func TestSchemaOperationDocumentDereferencesRefs(t *testing.T) {
 	t.Parallel()
 

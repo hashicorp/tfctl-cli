@@ -65,14 +65,19 @@ func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
 			Command:  "$ tfcloud api schema search workspace",
 		}},
 		RunF: func(_ *cmd.Command, args []string) error {
+			query := joinSchemaQuery(args)
 			operations, err := loadSchemaOperationsForSearch()
 			if err != nil {
 				return err
 			}
 
-			results, err := schemaOperationSearcher.Search(joinSchemaQuery(args), operations, maxSchemaSearchResults)
+			results, err := schemaOperationSearcher.Search(query, operations, maxSchemaSearchResults)
 			if err != nil {
 				return err
+			}
+			if len(results) == 0 {
+				writeSchemaNoResults(ctx, query)
+				return nil
 			}
 
 			body, err := schemaSearchJSONAPIResponse(results)
@@ -144,4 +149,9 @@ func joinSchemaQuery(args []string) string {
 		query += " " + args[i]
 	}
 	return query
+}
+
+func writeSchemaNoResults(ctx *cmd.Context, query string) {
+	cs := ctx.IO.ColorScheme()
+	_, _ = fmt.Fprintf(ctx.IO.Out(), "%s No API operations matched %q.\n", cs.WarningLabel(), query)
 }
