@@ -118,6 +118,44 @@ func TestSchemaSearchSummary(t *testing.T) {
 	t.Log("\n" + strings.Join(rows, "\n"))
 }
 
+func TestSpecBackedSchemaSearch(t *testing.T) {
+	operations, err := loadSchemaOperationsForSearch()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fixtures := []struct {
+		name    string
+		query   string
+		wantTop []string
+	}{
+		{name: "workspace", query: "workspace", wantTop: []string{"getWorkspace", "listWorkspaces"}},
+		{name: "organization", query: "organization", wantTop: []string{"getOrganization", "listOrganizations"}},
+		{name: "variable", query: "variable", wantTop: []string{"createWorkspaceVar", "listWorkspaceVars"}},
+		{name: "apply run", query: "apply run", wantTop: []string{"applyRun"}},
+	}
+
+	for _, fixture := range fixtures {
+		fixture := fixture
+		t.Run(fixture.name, func(t *testing.T) {
+			results, err := schemaOperationSearcher.Search(fixture.query, operations, maxSchemaSearchResults)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(results) == 0 {
+				t.Fatal("got no results")
+			}
+
+			got := resultIDs(results)
+			for _, want := range fixture.wantTop {
+				if !containsOperation(got, want) {
+					t.Fatalf("expected %q in spec-backed results, got %v", want, got)
+				}
+			}
+		})
+	}
+}
+
 func resultIDs(results []schemaSearchResult) []string {
 	ids := make([]string, 0, len(results))
 	for _, result := range results {
