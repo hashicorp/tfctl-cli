@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2024, 2026
+// Copyright IBM Corp. 2026
 // SPDX-License-Identifier: MPL-2.0
 
 // Package tfcloud implements the root command for the tfcloud CLI.
@@ -17,7 +17,7 @@ func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
 	c := &cmd.Command{
 		Name:      config.Name,
 		ShortHelp: "Interact with HCP Terraform and Terraform Enterprise.",
-		LongHelp:  "The tfcloud command-line interface (CLI) is a unified tool to managing HCP Terraform and Terraform Enterpise from the command line.",
+		LongHelp:  "The tfcloud command-line interface (CLI) is a unified tool for managing HCP Terraform and Terraform Enterprise from the command line.",
 	}
 
 	//  _   _  ___ _____ _____

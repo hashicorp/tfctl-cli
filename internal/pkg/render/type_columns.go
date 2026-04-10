@@ -1,3 +1,6 @@
+// Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
+
 package render
 
 // typeColumns is a mapping of API resource types to their preferred columns for horizontal table rendering.
