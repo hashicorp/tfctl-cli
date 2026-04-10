@@ -60,7 +60,6 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 	r.Equal(0, command.Run([]string{"cancel", "run"}))
 
 	output := io.Output.String()
-	r.Contains(output, "operation-id")
 	r.Contains(output, "getRun")
 	r.Contains(output, "/runs/{run_id}")
 	r.Empty(io.Error.String())

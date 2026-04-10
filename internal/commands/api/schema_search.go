@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 )
@@ -95,14 +94,11 @@ func schemaSearchJSONAPIResponse(results []schemaSearchResult) ([]byte, error) {
 	data := make([]map[string]any, 0, len(results))
 	for _, result := range results {
 		data = append(data, map[string]any{
-			"id":   strings.ToLower(result.Operation.OperationID),
-			"type": "api-operations",
 			"attributes": map[string]any{
 				"operation-id": result.Operation.OperationID,
 				"method":       result.Operation.Method,
 				"path":         result.Operation.Path,
 				"summary":      result.Operation.Summary,
-				"confidence":   fmt.Sprintf("%.2f", result.Confidence),
 			},
 		})
 	}
