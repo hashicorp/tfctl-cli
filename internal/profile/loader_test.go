@@ -238,17 +238,11 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 
 		p, err := l.NewProfile("test")
 		r.NoError(err)
-		p.Organization = "123"
 		r.NoError(p.Write())
 
 		os.Setenv(envVarTFCloudOrganization, "xyz")
 
 		out, err := l.LoadProfile(p.Name)
-		r.NoError(err)
-		r.NotNil(out)
-		r.Equal("xyz", out.Organization)
-
-		out, err = l.LoadProfile(p.Name)
 		r.NoError(err)
 		r.NotNil(out)
 		r.Equal("xyz", out.Organization)

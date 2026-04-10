@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,20 +15,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
-
 	"github.com/hashicorp/tfcloud/internal/client"
-	"github.com/hashicorp/tfcloud/internal/config"
+	"github.com/hashicorp/tfcloud/internal/cmd"
+	"github.com/hashicorp/tfcloud/internal/flagvalue"
+	"github.com/hashicorp/tfcloud/internal/heredoc"
+	"github.com/hashicorp/tfcloud/internal/iostreams"
 	"github.com/hashicorp/tfcloud/internal/render"
 )
-
-// APICommand performs arbitrary HCP Terraform API requests.
-type APICommand struct {
-	// Meta provides UI and stream access for command execution.
-	Meta       *Meta
-	loadConfig func() (*config.Config, error)
-	newClient  func(*config.Config) (apiRequester, error)
-}
 
 type apiRequester interface {
 	Base() *url.URL
@@ -48,271 +40,242 @@ func (c *realAPIClient) RawRequest(ctx context.Context, req *client.Request) (*c
 	return c.client.RawRequest(ctx, req)
 }
 
-type apiOutputMode int
-
-const (
-	apiOutputHuman apiOutputMode = iota
-	apiOutputMachine
-)
-
-type apiStyles struct {
-	header lipgloss.Style
-	label  lipgloss.Style
-	error  lipgloss.Style
-	json   lipgloss.Style
+// APIOpts stores the options parsed from flags for the API command.
+type APIOpts struct {
+	IO           iostreams.IOStreams
+	Headers      []string
+	Attributes   map[string]string
+	Query        map[string]string
+	PathTokens   map[string]string
+	InputRequest string
+	Method       string
+	ResourceType string
+	Paginate     bool
 }
 
-const ansiHelpBoldWhite = "\x1b[1;97m"
-
-// Synopsis returns a short summary of the command.
-func (c *APICommand) Synopsis() string { return "Make arbitrary API requests" }
-
-// Help returns the command help text.
-func (c *APICommand) Help() string {
-	help := strings.TrimSpace(`Usage: tfcloud api <path> [flags]
-
-Perform an HCP Terraform API v2 request. Table output by default; use -json,
--agent or pipe output for JSON.
-
-Options:
-
-  -H, -header "key: value"   Add request header
-  -i, -input file            Read raw JSON request body from file or - for stdin
-  -X, -method method         HTTP method
-  -t, -type type             Resource type for -attribute JSON:API bodies
-  -paginate                  Follow links.next and combine up to 1000 resources
-  -a, -attribute key=value   Add typed JSON:API request attribute
-  -f, -field key=value       Add query parameter
-  -silent                    Suppress response body output
-  -agent, -json              Print JSON output
-  -v, -verbose               Log request and response metadata to stderr
-  -(path token) name         E.g. -organization myorg to replace {organization}
-
-Path templates:
-
-  Use tokens like {workspace} or {organization} in paths to have that token
-  automatically replaced with the corresponding name given by flag or
-  configuration
-
-Examples:
-
-  # List workspaces in the default organization
-  $ tfcloud api /organizations/{organization}/workspaces
-
-  # Create a project using attributes
-  $ tfcloud api /projects -a name=myproject
-
-  # Create a workspace variable using a JSON:API request body
-  $ tfcloud api /vars -i '{ "data": {
-      "type":"vars",
-      "attributes": {
-        "key":"AWS_ACCESS_KEY_ID",
-        "value":"FOOBARBAZQUX",
-        "category":"env",
-        "sensitive":true
-      },
-      "relationships": {
-        "workspace": {
-          "data": {
-            "id":"ws-mjAtT5DSQKuY8pAJ",
-            "type":"workspaces"
-          }
-        }
-      }
-    }}'
-`)
-
-	for _, heading := range []string{"Options:", "Path templates:", "Examples:"} {
-		help = strings.Replace(help, heading, ansiHelpBoldWhite+heading+"\x1b[0m", 1)
-	}
-	return help
-}
-
-// Run executes the API command.
-func (c *APICommand) Run(args []string) int {
-	var headers multiFlag
-	var attrs multiFlag
-	var filters multiFlag
-	var input string
-	var method string
-	var resourceType string
-	var paginate bool
-	var silent bool
-	var rawJSON bool
-	var verbose bool
-
-	fs := flag.NewFlagSet("api", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	fs.Var(&headers, "H", "header")
-	fs.Var(&headers, "header", "header")
-	fs.StringVar(&input, "input", "", "input")
-	fs.StringVar(&input, "i", "", "input")
-	fs.StringVar(&method, "X", "", "method")
-	fs.StringVar(&method, "method", "", "method")
-	fs.StringVar(&resourceType, "t", "", "type")
-	fs.StringVar(&resourceType, "type", "", "type")
-	fs.BoolVar(&paginate, "paginate", false, "paginate")
-	fs.Var(&attrs, "a", "attribute")
-	fs.Var(&attrs, "attribute", "attribute")
-	fs.Var(&filters, "f", "field")
-	fs.Var(&filters, "field", "field")
-	fs.BoolVar(&silent, "silent", false, "silent")
-	fs.BoolVar(&rawJSON, "agent", false, "agent")
-	fs.BoolVar(&rawJSON, "json", false, "json")
-	fs.BoolVar(&verbose, "v", false, "verbose")
-	fs.BoolVar(&verbose, "verbose", false, "verbose")
-
-	path, err := parseSingleArg(args)
-	if err != nil {
-		c.Meta.UI.Error(err.Error())
-		return 1
+// NewCmdAPI creates the `tfcloud api` command.
+func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
+	opts := &APIOpts{
+		IO: ctx.IO,
 	}
 
-	if err := fs.Parse(args[1:]); err != nil {
-		c.Meta.UI.Error(err.Error())
-		return 1
+	cmd := &cmd.Command{
+		Name:           "api",
+		NoAuthRequired: true,
+		ShortHelp:      "Perform any API request",
+		LongHelp: heredoc.New(ctx.IO).Must(`
+		The {{ template "mdCodeOrBold" "tfcloud api" }} command performs any API v2 request.
+		`),
+		Args: cmd.PositionalArguments{
+			Args: []cmd.PositionalArgument{
+				{
+					Name:          "PATH",
+					Documentation: "The API path to request, ex. /account/details. Unless -a or -i is used, the command will perform a GET request.",
+				},
+			},
+		},
+		Flags: cmd.Flags{
+			Local: []*cmd.Flag{
+				{
+					Name:         "header",
+					Shorthand:    "H",
+					DisplayValue: "'name: value'",
+					Description:  "Request header",
+					Repeatable:   true,
+					Value:        flagvalue.SimpleSlice(nil, &opts.Headers),
+				},
+				{
+					Name:         "input",
+					Shorthand:    "i",
+					DisplayValue: "BODY",
+					Description:  "Raw JSON request body (or - to read from stdin)",
+					Value:        flagvalue.Simple("", &opts.InputRequest),
+				},
+				{
+					Name:         "method",
+					Shorthand:    "X",
+					DisplayValue: "METHOD",
+					Description:  "HTTP method to use (e.g. GET, POST, etc.)",
+					Value:        flagvalue.Simple("", &opts.Method),
+				},
+				{
+					Name:         "type",
+					Shorthand:    "t",
+					DisplayValue: "JSON:API TYPE",
+					Description:  "Resource type for --attribute JSON:API request bodies. This value is inferred from the path whenever possible.",
+					Value:        flagvalue.Simple("", &opts.ResourceType),
+				},
+				{
+					Name:          "paginate",
+					Description:   "Automatically paginate through results and stream them, one resource at a time. Only applies to successful responses with JSON:API document bodies.",
+					Value:         flagvalue.Simple(false, &opts.Paginate),
+					IsBooleanFlag: true,
+				},
+				{
+					Name:         "attribute",
+					Shorthand:    "a",
+					DisplayValue: "ATTRIBUTE=VALUE",
+					Description:  "Attribute for JSON:API request bodies. Implies POST method.",
+					Repeatable:   true,
+					Value:        flagvalue.SimpleMap(nil, &opts.Attributes),
+				},
+				{
+					Name:         "field",
+					Shorthand:    "f",
+					DisplayValue: "KEY=VALUE",
+					Description:  "Add a query parameter to the request URL",
+					Repeatable:   true,
+					Value:        flagvalue.SimpleMap(nil, &opts.Query),
+				},
+				{
+					Name:         "pathtoken",
+					Shorthand:    "p",
+					DisplayValue: "TOKEN=NAME",
+					Description:  "Resolve a path {token} with the given name. For example, --pathtoken 'workspace=foo' would replace {workspace} in the path with the ID of the foo workspace.",
+					Repeatable:   true,
+					Value:        flagvalue.SimpleMap(nil, &opts.PathTokens),
+				},
+			},
+		},
+		Examples: []cmd.Example{
+			{
+				Preamble: "List workspaces in the default organization",
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud api /organizations/{organization}/workspaces`),
+			},
+			{
+				Preamble: "Create a project using attributes",
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud api /projects -a name=myproject`),
+			},
+			{
+				Preamble: "Add remote state consumer",
+				Command: heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud api /workspaces/{workspace}/remote-state-consumers -p 'workspace=my-workspace' -i '{ "data: [
+	{
+		"type":"remote-state-consumers",
+		"id": "ws-glkT5DSQKuY8pAJ"
 	}
-
-	if len(attrs) > 0 && input != "" {
-		c.Meta.UI.Error("-attribute and -input are mutually exclusive")
-		return 1
-	}
-
-	loadConfig := c.loadConfig
-	if loadConfig == nil {
-		loadConfig = config.Load
-	}
-
-	cfg, err := loadConfig()
-	if err != nil {
-		c.emitError(err.Error())
-		return 1
-	}
-
-	newClient := c.newClient
-	if newClient == nil {
-		newClient = func(cfg *config.Config) (apiRequester, error) {
-			apiClient, err := client.New(cfg)
-			if err != nil {
-				return nil, err
+]}'`),
+			},
+			{
+				Preamble: "Create a workspace variable using a JSON:API request body",
+				Command: heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud api /vars -i '{ "data": {
+	"type":"vars",
+	"attributes": {
+		"key":"AWS_ACCESS_KEY_ID",
+		"value":"FOOBARBAZQUX",
+		"category":"env",
+		"sensitive":true
+	},
+	"relationships": {
+		"workspace": {
+			"data": {
+				"id":"ws-mjAtT5DSQKuY8pAJ",
+				"type":"workspaces"
 			}
-			return &realAPIClient{client: apiClient}, nil
 		}
 	}
+}}'`),
+			},
+		},
+		RunF: func(_ *cmd.Command, args []string) error {
+			// TODO: replace `return err` statements with something that can be shown to the user.
+			if len(args) < 1 {
+				return cmd.ErrDisplayUsage
+			}
 
-	apiClient, err := newClient(cfg)
-	if err != nil {
-		c.emitError(err.Error())
-		return 1
+			path := args[0]
+
+			resolvedURL, err := client.ResolveURL(ctx.APIClient.BaseURL, path)
+			if err != nil {
+				return err
+			}
+
+			for _, item := range opts.Query {
+				key, value, err := splitPair(item, '=')
+				if err != nil {
+					return err
+				}
+				query := resolvedURL.Query()
+				query.Set(key, value)
+				resolvedURL.RawQuery = query.Encode()
+			}
+
+			body, contentType, err := buildRequestBody(path, opts.InputRequest, opts.Attributes, opts.ResourceType, ctx.IO.In())
+			if err != nil {
+				return err
+			}
+
+			method := inferMethod(opts.Method, len(opts.Attributes) > 0, opts.InputRequest != "")
+			requestHeaders, err := parseHeaders(opts.Headers)
+			if err != nil {
+				return err
+			}
+			if contentType != "" && requestHeaders.Get("Content-Type") == "" {
+				requestHeaders.Set("Content-Type", contentType)
+			}
+			if requestHeaders.Get("Accept") == "" {
+				requestHeaders.Set("Accept", "application/vnd.api+json")
+			}
+
+			response, err := ctx.APIClient.RawRequest(context.Background(), &client.Request{
+				Method:  method,
+				URL:     resolvedURL,
+				Headers: requestHeaders,
+				Body:    body,
+			})
+			if err != nil {
+				return err
+			}
+
+			verbose := false
+			if ctx.Profile.GetVerbosity() == "debug" || ctx.Profile.GetVerbosity() == "trace" {
+				logRequestResponse(ctx.IO.Err(), method, resolvedURL, requestHeaders, response)
+				verbose = true
+			}
+
+			if opts.Paginate && response.StatusCode >= 200 && response.StatusCode < 300 {
+				response, err = paginateResponse(context.Background(), &realAPIClient{client: ctx.APIClient}, response, requestHeaders, verbose, ctx.IO.Err())
+				if err != nil {
+					return err
+				}
+			}
+
+			if response.Headers.Get("Content-Type") != "" && strings.Contains(response.Headers.Get("Content-Type"), "text/html") {
+				return errors.New("an HTML response was received, likely an error page")
+			}
+
+			if response.StatusCode < 200 || response.StatusCode >= 300 {
+				message := summarizeAPIErrors(response.Body)
+				if message == "" {
+					message = string(bytes.TrimSpace(response.Body))
+				}
+				if message != "" {
+					return fmt.Errorf("%s: %s", response.Status, message)
+				}
+				return errors.New(response.Status)
+			}
+
+			if ctx.Profile.IsQuiet() || len(bytes.TrimSpace(response.Body)) == 0 {
+				return nil
+			}
+
+			// TODO: output should be determined by global flags and the ctx should
+			// contain the displayer output device. This thing shoulld just write a data structure
+			// to the displayer and let it handle formatting and output.
+			table, ok, err := render.JSONAPITable(response.Body)
+			if err != nil {
+				return err
+			}
+			if ok {
+				_, _ = ctx.IO.Out().Write([]byte(table))
+				return nil
+			}
+
+			_, _ = ctx.IO.Out().Write(response.Body)
+			return nil
+		},
 	}
 
-	resolvedURL, err := client.ResolveURL(apiClient.Base(), path)
-	if err != nil {
-		c.emitError(err.Error())
-		return 1
-	}
-
-	for _, item := range filters {
-		key, value, err := splitPair(item, '=')
-		if err != nil {
-			c.emitError(err.Error())
-			return 1
-		}
-		query := resolvedURL.Query()
-		query.Set(key, value)
-		resolvedURL.RawQuery = query.Encode()
-	}
-
-	body, contentType, err := buildRequestBody(path, input, attrs, resourceType, c.Meta.Stdin)
-	if err != nil {
-		c.emitError(err.Error())
-		return 1
-	}
-
-	method = inferMethod(method, len(attrs) > 0, input != "")
-	requestHeaders, err := parseHeaders(headers)
-	if err != nil {
-		c.emitError(err.Error())
-		return 1
-	}
-	if contentType != "" && requestHeaders.Get("Content-Type") == "" {
-		requestHeaders.Set("Content-Type", contentType)
-	}
-	if requestHeaders.Get("Accept") == "" {
-		requestHeaders.Set("Accept", "application/vnd.api+json")
-	}
-
-	response, err := apiClient.RawRequest(context.Background(), &client.Request{
-		Method:  method,
-		URL:     resolvedURL,
-		Headers: requestHeaders,
-		Body:    body,
-	})
-	if err != nil {
-		c.emitError(err.Error())
-		return 1
-	}
-
-	if verbose {
-		logRequestResponse(c.Meta.Stderr, method, resolvedURL, requestHeaders, response)
-	}
-
-	if paginate && response.StatusCode >= 200 && response.StatusCode < 300 {
-		response, err = paginateResponse(context.Background(), apiClient, response, requestHeaders, verbose, c.Meta.Stderr)
-		if err != nil {
-			c.emitError(err.Error())
-			return 1
-		}
-	}
-
-	if response.Headers.Get("Content-Type") != "" && strings.Contains(response.Headers.Get("Content-Type"), "text/html") {
-		c.emitError("HTML response received, likely an error page. Check the URL and try again.")
-		return 1
-	}
-
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		message := summarizeAPIErrors(response.Body)
-		if message == "" {
-			message = string(bytes.TrimSpace(response.Body))
-		}
-		if message != "" {
-			c.emitError(fmt.Sprintf("%s: %s", response.Status, message))
-		} else {
-			c.emitError(response.Status)
-		}
-		return 1
-	}
-
-	if silent || len(bytes.TrimSpace(response.Body)) == 0 {
-		return 0
-	}
-
-	mode := c.outputMode(rawJSON)
-	if rawJSON || mode == apiOutputMachine {
-		c.emitOutput(c.renderJSON(response.Body, mode))
-		return 0
-	}
-
-	table, ok, err := render.JSONAPITable(response.Body)
-	if err != nil {
-		c.emitError(err.Error())
-		return 1
-	}
-	if ok {
-		c.emitOutput(table)
-		return 0
-	}
-
-	c.emitOutput(c.renderJSON(response.Body, mode))
-	return 0
-}
-
-type multiFlag []string
-
-func (m *multiFlag) String() string { return strings.Join(*m, ",") }
-func (m *multiFlag) Set(value string) error {
-	*m = append(*m, value)
-	return nil
+	return cmd
 }
 
 func inferMethod(explicit string, hasAttributes, hasInput bool) string {
@@ -366,7 +329,7 @@ func parseTypedValue(raw string) any {
 	return raw
 }
 
-func buildRequestBody(path, input string, attrs multiFlag, resourceType string, stdin io.Reader) ([]byte, string, error) {
+func buildRequestBody(path, input string, attrs map[string]string, resourceType string, stdin io.Reader) ([]byte, string, error) {
 	if input != "" {
 		var data []byte
 		var err error
@@ -391,15 +354,11 @@ func buildRequestBody(path, input string, attrs multiFlag, resourceType string, 
 		resourceType = inferResourceType(path)
 	}
 	if resourceType == "" {
-		return nil, "", errors.New("could not infer resource type from path; use -type")
+		return nil, "", errors.New("could not infer resource type from path; use --type")
 	}
 
 	attributes := make(map[string]any, len(attrs))
-	for _, item := range attrs {
-		key, value, err := splitPair(item, '=')
-		if err != nil {
-			return nil, "", err
-		}
+	for key, value := range attrs {
 		attributes[key] = parseTypedValue(value)
 	}
 
@@ -477,51 +436,6 @@ func paginateResponse(ctx context.Context, apiClient apiRequester, initial *clie
 	}
 	initial.Body = merged
 	return initial, nil
-}
-
-func (c *APICommand) outputMode(rawJSON bool) apiOutputMode {
-	if rawJSON {
-		return apiOutputHuman
-	}
-	if c.Meta == nil {
-		return apiOutputMachine
-	}
-	if c.Meta.HumanOutput {
-		return apiOutputHuman
-	}
-	if c.Meta.StdoutIsTTY {
-		return apiOutputHuman
-	}
-	return apiOutputMachine
-}
-
-func (c *APICommand) emitOutput(text string) {
-	c.Meta.UI.Output(text)
-}
-
-func (c *APICommand) emitError(text string) {
-	if c.Meta == nil || !c.Meta.HumanOutput || !c.Meta.StderrIsTTY {
-		c.Meta.UI.Error(text)
-		return
-	}
-	c.Meta.UI.Error(c.styles().error.Render(text))
-}
-
-func (c *APICommand) renderJSON(body []byte, mode apiOutputMode) string {
-	pretty := render.PrettyJSON(body)
-	if mode == apiOutputMachine || c.Meta == nil || !c.Meta.HumanOutput || !c.Meta.StdoutIsTTY {
-		return pretty
-	}
-	return c.styles().json.Render(pretty)
-}
-
-func (c *APICommand) styles() apiStyles {
-	return apiStyles{
-		header: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("63")),
-		label:  lipgloss.NewStyle().Foreground(lipgloss.Color("110")).Bold(true),
-		error:  lipgloss.NewStyle().Foreground(lipgloss.Color("204")).Bold(true),
-		json:   lipgloss.NewStyle().Foreground(lipgloss.Color("252")),
-	}
 }
 
 func parsePaginationPayload(body []byte) ([]any, *url.URL, error) {

@@ -4,15 +4,18 @@
 package profile
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/mitchellh/go-homedir"
+	"golang.org/x/net/idna"
 )
 
 const (
@@ -24,6 +27,10 @@ const (
 
 	// ProfileNameDefault is the default profile name.
 	ProfileNameDefault = "default"
+
+	// TerraformCredentialsPath is the path to the terraform credentials file that we will check for
+	// tokens if they're not set in the profiler.
+	TerraformCredentialsPath = "~/.terraform.d/credentials.tfrc.json"
 )
 
 var (
@@ -181,10 +188,29 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 		return nil, fmt.Errorf("profile path name does not match name in file. %q versus %q. Please rename file or name within the profile file to reconcile", name, c.Name)
 	}
 
-	// Honor environment variables around org and project over whatever
-	// we load from the profile file.
-	if orgID, ok := os.LookupEnv(envVarTFCloudOrganization); ok && orgID != "" {
-		c.Organization = orgID
+	// If there's no default organization set, use the environment variable if it's set.
+	if c.Organization == "" {
+		if orgID, ok := os.LookupEnv(envVarTFCloudOrganization); ok && orgID != "" {
+			c.Organization = orgID
+		}
+	}
+
+	// If there's no token set, check the credentials file and environment variables.
+	if c.Token == "" {
+		c.Token, err = tokenFromCredentials(c.Hostname)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if c.Token == "" {
+		if envToken := os.Getenv(profileTokenEnvVar(c.Name)); envToken != "" {
+			c.Token = envToken
+		}
+	}
+
+	if c.Token == "" {
+		c.Token = os.Getenv(legacyTokenEnvVar(c.Hostname))
 	}
 
 	c.dir = l.profilesDir
@@ -231,22 +257,31 @@ func (l *Loader) DeleteProfile(name string) error {
 }
 
 const (
-	envVarTFCloudOrganization = "TFCLOUD_ORGANIZATION"
+	envVarTFCloudHostname           = "TFCLOUD_HOSTNAME"
+	envVarTFCloudOrganization       = "TFCLOUD_ORGANIZATION"
+	envVarTFCloudToken              = "TFCLOUD_TOKEN"
+	envVarTFCloudTokenProfileFormat = "TFCLOUD_TOKEN_%s"
 )
 
 // DefaultProfile returns the minimal default profile. If environment
 // variables related to organization and project are set, they are honored here.
 func (l *Loader) DefaultProfile() *Profile {
-	org, orgOK := os.LookupEnv(envVarTFCloudOrganization)
-
 	profile, err := l.NewProfile(ProfileNameDefault)
 	if err != nil {
 		panic("The default profile should always be valid. This is always a developer error: " + err.Error())
 	}
 
+	org, orgOK := os.LookupEnv(envVarTFCloudOrganization)
 	if orgOK {
 		profile.Organization = org
 	}
+
+	hostname := "app.terraform.io"
+	if envHostname, ok := os.LookupEnv(envVarTFCloudHostname); ok && envHostname != "" {
+		hostname = envHostname
+	}
+
+	profile.Hostname = hostname
 
 	return profile
 }
@@ -259,4 +294,71 @@ func (l *Loader) NewProfile(name string) (*Profile, error) {
 	}
 
 	return p, p.Validate()
+}
+
+func normalizeHostname(hostname string) string {
+	hostname = strings.TrimSpace(hostname)
+	hostname = strings.TrimPrefix(hostname, "https://")
+	hostname = strings.TrimPrefix(hostname, "http://")
+	hostname = strings.TrimRight(hostname, "/")
+	if asciiHost, err := idna.Lookup.ToASCII(hostname); err == nil {
+		return asciiHost
+	}
+	return hostname
+}
+
+func profileTokenEnvVar(profileName string) string {
+	if profileName == "" || profileName == "default" {
+		return envVarTFCloudToken
+	}
+	return fmt.Sprintf(envVarTFCloudTokenProfileFormat, profileName)
+}
+
+func legacyTokenEnvVar(hostname string) string {
+	hostname = normalizeHostname(hostname)
+
+	var b strings.Builder
+	b.WriteString("TF_TOKEN_")
+	for _, r := range strings.ToUpper(hostname) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+			continue
+		}
+		b.WriteRune('_')
+	}
+	return b.String()
+}
+
+type credentialsFile struct {
+	Credentials map[string]struct {
+		Token string `json:"token"`
+	} `json:"credentials"`
+}
+
+func tokenFromCredentials(hostname string) (string, error) {
+	path, err := homedir.Expand(TerraformCredentialsPath)
+	if err != nil {
+		return "", fmt.Errorf("error expanding TFCloud config directory path %q: %w", TerraformCredentialsPath, err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	var creds credentialsFile
+	if err := json.Unmarshal(data, &creds); err != nil {
+		return "", fmt.Errorf("parse %s: %w", path, err)
+	}
+
+	hostname = normalizeHostname(hostname)
+	entry, ok := creds.Credentials[hostname]
+	if !ok {
+		return "", nil
+	}
+
+	return entry.Token, nil
 }

@@ -12,7 +12,7 @@ import (
 	tfe "github.com/hashicorp/go-tfe"
 	abs "github.com/microsoft/kiota-abstractions-go"
 
-	"github.com/hashicorp/tfcloud/internal/config"
+	"github.com/hashicorp/tfcloud/internal/profile"
 )
 
 // Client wraps the configured HCP Terraform API clients and request helpers.
@@ -54,11 +54,11 @@ type Response struct {
 }
 
 // New constructs a configured API client from CLI configuration.
-func New(cfg *config.Config) (*Client, error) {
+func New(p *profile.Profile, defaultHeaders http.Header) (*Client, error) {
 	tfeClient, err := tfe.NewClient(&tfe.Config{
-		Address: fmt.Sprintf("https://%s", cfg.Hostname),
-		Token:   cfg.Token,
-		Headers: cfg.DefaultHeaders,
+		Address: fmt.Sprintf("https://%s", p.Hostname),
+		Token:   p.Token,
+		Headers: defaultHeaders,
 	})
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func New(cfg *config.Config) (*Client, error) {
 		HTTP:           native.Client,
 		Adapter:        adapter,
 		BaseURL:        &baseURL,
-		DefaultHeaders: cfg.DefaultHeaders,
+		DefaultHeaders: defaultHeaders,
 	}, nil
 }
 

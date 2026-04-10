@@ -13,6 +13,7 @@ import (
 	"github.com/posener/complete"
 
 	"github.com/hashicorp/tfcloud/internal/cmd"
+	"github.com/hashicorp/tfcloud/internal/command"
 	"github.com/hashicorp/tfcloud/internal/config"
 	"github.com/hashicorp/tfcloud/internal/format"
 	"github.com/hashicorp/tfcloud/internal/iostreams"
@@ -50,22 +51,21 @@ func realMain() int {
 
 	// TODO: check version for updates?
 
-	// Load profile to get geography setting for HCP configuration
-	profile, err := loadActiveProfile()
+	activeProfile, err := loadProfile(shutdownCtx)
 	if err != nil {
 		fmt.Fprintln(io.Err(), err)
 		return 1
 	}
 
 	// If the profile has disabled color, disable on the iostream.
-	if profile.Core != nil && profile.Core.NoColor != nil && *profile.Core.NoColor {
+	if activeProfile != nil && activeProfile.NoColor != nil && *activeProfile.NoColor {
 		io.ForceNoColor()
 	}
 
 	// Create the command context
 	cCtx := &cmd.Context{
 		IO:          io,
-		Profile:     profile,
+		Profile:     activeProfile,
 		Output:      format.New(io),
 		ShutdownCtx: shutdownCtx,
 	}
@@ -131,6 +131,23 @@ func loadActiveProfile() (*profile.Profile, error) {
 	return loader.LoadProfile(activeProfile.Name)
 }
 
+// loadProfile loads the active profile and if one doesn't exist, a default
+// profile is created.
+func loadProfile(_ context.Context) (*profile.Profile, error) {
+	// Get the active profile
+	p, err := loadActiveProfile()
+	if err != nil {
+		return nil, err
+	}
+
+	// Save the profile.
+	if err := p.Write(); err != nil {
+		return nil, fmt.Errorf("failed to save default profile: %w", err)
+	}
+
+	return p, nil
+}
+
 func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
 	c := &cmd.Command{
 		Name:      config.Name,
@@ -147,7 +164,9 @@ func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
 	// When adding a top level command group, be sure to regenerate the
 	// screenshot in the README by running `make gen/screenshot`.
 
-	// Add the subcommandsß
+	// Add the subcommands
+	c.AddChild(command.NewCmdAPI(ctx))
+	c.AddChild(command.NewCmdVariable(ctx))
 
 	// Configure the command as the root command.
 	cmd.ConfigureRootCommand(ctx, c)

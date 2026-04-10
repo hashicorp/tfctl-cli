@@ -7,11 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
+	"github.com/hashicorp/tfcloud/internal/client"
+	"github.com/hashicorp/tfcloud/internal/config"
 	"github.com/hashicorp/tfcloud/internal/flagvalue"
 	"github.com/hashicorp/tfcloud/internal/format"
 	"github.com/hashicorp/tfcloud/internal/iostreams"
@@ -37,6 +40,8 @@ type Context struct {
 	flags GlobalFlags
 
 	Profile *profile.Profile
+
+	APIClient *client.Client
 }
 
 // GlobalFlags contains the global flags.
@@ -135,8 +140,24 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 			return err
 		}
 
+		client, err := ctx.newAPIClient()
+		if err != nil {
+			return err
+		}
+		ctx.APIClient = client
+
 		return isAuthenticated(ctx, c, args)
 	}
+}
+
+func (ctx *Context) newAPIClient() (*client.Client, error) {
+	apiClient, err := client.New(ctx.Profile, http.Header{
+		"User-Agent": []string{fmt.Sprintf("tfcloud-cli/%s", config.Version)},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return apiClient, nil
 }
 
 // applyGlobalFlags applies the global flags.
@@ -160,7 +181,7 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 	}
 
 	// Set the verbosity if the flag is set.
-	verbosity := ctx.Profile.Core.GetVerbosity()
+	verbosity := ctx.Profile.GetVerbosity()
 	switch ctx.flags.debug {
 	case 0:
 		// nothing
@@ -194,12 +215,12 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 	// }
 
 	// Disable color if set
-	if ctx.Profile.Core != nil && ctx.Profile.Core.NoColor != nil && *ctx.Profile.Core.NoColor {
+	if ctx.Profile != nil && ctx.Profile.NoColor != nil && *ctx.Profile.NoColor {
 		ctx.IO.ForceNoColor()
 	}
 
 	// Set quiet on the IOStream if enabled by the flag or profile
-	if ctx.flags.Quiet || ctx.Profile.Core.IsQuiet() {
+	if ctx.flags.Quiet || ctx.Profile.IsQuiet() {
 		ctx.IO.SetQuiet(true)
 	}
 
@@ -221,13 +242,12 @@ func (ctx *Context) ParseFlags(c *Command, args []string) ([]string, error) {
 	return c.allCommandFlags.Args(), nil
 }
 
-func isAuthenticated(_ *Context, c *Command, args []string) error {
+func isAuthenticated(ctx *Context, c *Command, args []string) error {
 	if isTopLevelCmd(args) || c.NoAuthRequired {
 		return nil
 	}
 
-	// TODO: check authentication and return authHelp if not authenticated
-	if false {
+	if ctx.Profile.Token == "" {
 		return authHelp(c.io)
 	}
 

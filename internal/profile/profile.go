@@ -18,7 +18,6 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/posener/complete"
-	"golang.org/x/exp/maps"
 )
 
 const (
@@ -34,7 +33,7 @@ var (
 
 	// ErrInvalidProfileName is returned if a profile is created with an invalid
 	// profile name.
-	ErrInvalidProfileName = errors.New("profile name may only include a-z, A-Z, 0-9, or '-', must start with a letter, and can be no longer than 64 characters")
+	ErrInvalidProfileName = errors.New("profile name may only include a-z, A-Z, 0-9, or '_', must start with a letter, and can be no longer than 64 characters")
 )
 
 // ActiveProfile stores the active profile.
@@ -63,8 +62,20 @@ type Profile struct {
 	// Organization stores the organization to make requests against.
 	Organization string `hcl:"organization"`
 
-	// Core stores core CLI configuration values.
-	Core *Core `hcl:"core,block" json:",omitempty"`
+	// NoColor disables color output
+	NoColor *bool `hcl:"no_color,optional" json:",omitempty"`
+
+	// Verbosity is the default verbosity to log at
+	Verbosity *string `hcl:"verbosity,optional" json:",omitempty"`
+
+	// Quiet is whether the CLI should minimize output
+	Quiet *bool `hcl:"quiet,optional" json:",omitempty"`
+
+	// Hostname is the profile's configured hostname for API requests. If not set, the default is app.terraform.io.
+	Hostname string `hcl:"hostname,optional" json:",omitempty"`
+
+	// Token is the API token to use for API requests. If not set, the CLI will look for the token in the environment or terraform credentials.
+	Token string `hcl:"token,optional" json:",omitempty"`
 
 	// dir is the directory the profile should write to.
 	dir string
@@ -72,20 +83,23 @@ type Profile struct {
 
 // Predict predicts the HCL key names and basic settable values.
 func (p *Profile) Predict(args complete.Args) []string {
-	sub := map[string]complete.Predictor{
-		"core": p.Core,
+	properties := map[string][]string{
+		"no_color":  {"true", "false"},
+		"verbosity": {"trace", "debug", "info", "warn", "error"},
+		"quiet":     {"true", "false"},
 	}
 
+	// If the property has been specified, return possible values.
 	if len(args.All) >= 1 {
-		c, ok := sub[strings.Split(args.All[0], "/")[0]]
+		prediction, ok := properties[args.All[0]]
 		if ok {
-			return c.Predict(args)
+			return prediction
 		}
 	}
 
 	// predicting the property
 	if len(args.All) == 1 {
-		return []string{"organization", "core/"}
+		return []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token"}
 	}
 
 	return nil
@@ -94,14 +108,17 @@ func (p *Profile) Predict(args complete.Args) []string {
 // Validate validates that the set values are valid. It validates parameters
 // that do not require any communication with HCP.
 func (p *Profile) Validate() error {
-	var err *multierror.Error
+	err := &multierror.Error{}
 
-	const nameRegex = "^[A-Za-z][A-Za-z0-9-]{0,63}$"
+	const nameRegex = "^[A-Za-z][A-Za-z0-9_]{0,63}$"
 	if matched, _ := regexp.MatchString(nameRegex, p.Name); !matched {
 		err = multierror.Append(err, ErrInvalidProfileName)
 	}
 
-	err = multierror.Append(err, p.Core.Validate())
+	allowedVerbosities := []string{"trace", "debug", "info", "warn", "error"}
+	if f := p.GetVerbosity(); f != "" && !slices.Contains(allowedVerbosities, f) {
+		err = multierror.Append(err, fmt.Errorf("invalid verbosity %q. Must be one of: %q", f, allowedVerbosities))
+	}
 
 	err.ErrorFormat = func(errors []error) string {
 		if len(errors) == 1 {
@@ -126,9 +143,6 @@ func (p *Profile) Validate() error {
 
 // Clean nils any empty component.
 func (p *Profile) Clean() {
-	if p.Core.isEmpty() {
-		p.Core = nil
-	}
 }
 
 // Write writes the profile to disk.
@@ -190,16 +204,16 @@ func doWalkStructElements(path string, t reflect.Type, keys map[string]struct{})
 
 // GetVerbosity returns the set verbosity or an empty string if it has not been
 // configured.
-func (c *Core) GetVerbosity() string {
-	if c == nil {
+func (p *Profile) GetVerbosity() string {
+	if p == nil {
 		return ""
 	}
 
-	if c.Verbosity == nil {
+	if p.Verbosity == nil {
 		return ""
 	}
 
-	return *c.Verbosity
+	return *p.Verbosity
 }
 
 // SetOrg sets the Organization.
@@ -212,79 +226,15 @@ func (p *Profile) SetOrg(name string) *Profile {
 	return p
 }
 
-// Core stores configuration settings that impact the CLIs behavior.
-type Core struct {
-	// NoColor disables color output
-	NoColor *bool `hcl:"no_color,optional" json:",omitempty"`
-
-	// Verbosity is the default verbosity to log at
-	Verbosity *string `hcl:"verbosity,optional" json:",omitempty"`
-
-	// Quiet is whether the CLI should minimize output
-	Quiet *bool `hcl:"quiet,optional" json:",omitempty"`
-}
-
-// Predict predicts the HCL key names and basic settable values for core configuration.
-func (c *Core) Predict(args complete.Args) []string {
-	properties := map[string][]string{
-		"core/no_color":  {"true", "false"},
-		"core/verbosity": {"trace", "debug", "info", "warn", "error"},
-	}
-
-	// If the property has been specified, return possible values.
-	if len(args.All) >= 1 {
-		prediction, ok := properties[args.All[0]]
-		if ok {
-			return prediction
-		}
-	}
-
-	// Predicting the property
-	if len(args.All) == 1 {
-		keys := maps.Keys(properties)
-		slices.Sort(keys)
-		return keys
-	}
-
-	return nil
-}
-
-// Validate validates the core configuration values.
-func (c *Core) Validate() error {
-	if c == nil {
-		return nil
-	}
-
-	var err *multierror.Error
-	allowedVerbosities := []string{"trace", "debug", "info", "warn", "error"}
-	if f := c.GetVerbosity(); f != "" && !slices.Contains(allowedVerbosities, f) {
-		err = multierror.Append(err, fmt.Errorf("invalid verbosity %q. Must be one of: %q", f, allowedVerbosities))
-	}
-
-	return err.ErrorOrNil()
-}
-
-func (c *Core) isEmpty() bool {
-	if c == nil {
-		return true
-	}
-
-	if c.NoColor != nil || c.Verbosity != nil {
-		return false
-	}
-
-	return true
-}
-
 // IsQuiet returns whether the quiet property has been configured to be quiet.
-func (c *Core) IsQuiet() bool {
-	if c == nil {
+func (p *Profile) IsQuiet() bool {
+	if p == nil {
 		return false
 	}
 
-	if c.Quiet == nil {
+	if p.Quiet == nil {
 		return false
 	}
 
-	return *c.Quiet
+	return *p.Quiet
 }
