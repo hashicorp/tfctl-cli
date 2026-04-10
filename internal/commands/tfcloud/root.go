@@ -6,6 +6,7 @@ package tfcloud
 
 import (
 	"github.com/hashicorp/tfcloud/internal/commands/api"
+	"github.com/hashicorp/tfcloud/internal/commands/profile"
 	"github.com/hashicorp/tfcloud/internal/commands/variable"
 	"github.com/hashicorp/tfcloud/internal/config"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
@@ -31,6 +32,7 @@ func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
 	// Add the subcommands
 	c.AddChild(api.NewCmdAPI(ctx))
 	c.AddChild(variable.NewCmdVariable(ctx))
+	c.AddChild(profile.NewCmdProfile(ctx))
 
 	// Configure the command as the root command.
 	cmd.ConfigureRootCommand(ctx, c)

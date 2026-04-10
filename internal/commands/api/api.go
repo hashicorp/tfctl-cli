@@ -60,9 +60,8 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	}
 
 	cmd := &cmd.Command{
-		Name:           "api",
-		NoAuthRequired: true,
-		ShortHelp:      "Perform any API request",
+		Name:      "api",
+		ShortHelp: "Perform any API request",
 		LongHelp: heredoc.New(ctx.IO).Must(`
 		The {{ template "mdCodeOrBold" "tfcloud api" }} command performs any API v2 request.
 		`),

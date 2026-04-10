@@ -140,13 +140,19 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 			return err
 		}
 
-		client, err := ctx.newAPIClient()
+		c.io = ctx.IO
+
+		err := isAuthenticated(ctx, c, args)
 		if err != nil {
 			return err
 		}
-		ctx.APIClient = client
 
-		return isAuthenticated(ctx, c, args)
+		client, err := ctx.newAPIClient()
+		if err != nil && !c.NoAuthRequired {
+			return err
+		}
+		ctx.APIClient = client
+		return nil
 	}
 }
 

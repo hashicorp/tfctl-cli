@@ -52,7 +52,7 @@ func (c *ActiveProfile) Write() error {
 	return os.WriteFile(path, f.Bytes(), 0o666)
 }
 
-// Profile is a named set of configuration for the HCP CLI. It captures common
+// Profile is a named set of configuration for the tfcloud CLI. It captures common
 // configuration values such as the organization and project being interacted
 // with, but also allows storing service specific configuration.
 type Profile struct {
@@ -157,8 +157,9 @@ func (p *Profile) Write() error {
 }
 
 // String returns an HCL formatted string representation of the profile.
-func (p *Profile) String() string {
+func (p Profile) String() string {
 	f := hclwrite.NewEmptyFile()
+	p.Token = "(sensitive)"
 	gohcl.EncodeIntoBody(p, f.Body())
 	return strings.TrimSpace(string(f.Bytes()))
 }
