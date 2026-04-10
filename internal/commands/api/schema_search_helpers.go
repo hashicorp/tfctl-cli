@@ -56,6 +56,10 @@ func parseSchemaSearchIntent(query string) schemaSearchIntent {
 		resources = append(resources, token)
 	}
 
+	if verb == "" && len(resources) > 0 {
+		verb = "get"
+	}
+
 	return schemaSearchIntent{
 		Tokens:    tokens,
 		Verb:      verb,
