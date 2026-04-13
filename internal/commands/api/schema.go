@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -19,7 +20,7 @@ type schemaOperation struct {
 }
 
 type schemaSearcher interface {
-	Search(query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error)
+	Search(ctx context.Context, query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error)
 }
 
 var (
@@ -72,7 +73,7 @@ func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 
-			results, err := schemaOperationSearcher.Search(query, operations, maxSchemaSearchResults)
+			results, err := schemaOperationSearcher.Search(schemaSearchContext(ctx), query, operations, maxSchemaSearchResults)
 			if err != nil {
 				return err
 			}
@@ -148,4 +149,11 @@ func joinSchemaQuery(args []string) string {
 func writeSchemaNoResults(ctx *cmd.Context, query string) {
 	cs := ctx.IO.ColorScheme()
 	_, _ = fmt.Fprintf(ctx.IO.Out(), "%s No API operations matched %q.\n", cs.WarningLabel(), query)
+}
+
+func schemaSearchContext(ctx *cmd.Context) context.Context {
+	if ctx != nil && ctx.ShutdownCtx != nil {
+		return ctx.ShutdownCtx
+	}
+	return context.Background()
 }

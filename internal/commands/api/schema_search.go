@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"sort"
 	"strings"
@@ -16,7 +17,7 @@ type schemaSearchResult struct {
 
 type hybridSchemaSearcher struct{}
 
-func (s hybridSchemaSearcher) Search(query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error) {
+func (s hybridSchemaSearcher) Search(ctx context.Context, query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error) {
 	candidateLimit := limit * 3
 	if candidateLimit < 10 {
 		candidateLimit = 10
@@ -25,7 +26,7 @@ func (s hybridSchemaSearcher) Search(query string, operations []schemaOperation,
 		candidateLimit = len(operations)
 	}
 
-	results, err := blugeRetrieve(query, operations, candidateLimit)
+	results, err := blugeRetrieve(ctx, query, operations, candidateLimit)
 	if err != nil {
 		return nil, err
 	}

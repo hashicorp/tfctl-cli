@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -190,7 +191,8 @@ func TestCmdAPISchemaGetRun(t *testing.T) {
 
 func testCommandContext(io *iostreams.Testing) *cmd.Context {
 	return &cmd.Context{
-		IO: io,
+		IO:          io,
+		ShutdownCtx: context.Background(),
 	}
 }
 

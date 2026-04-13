@@ -8,9 +8,12 @@ import (
 	"github.com/blugelabs/bluge"
 )
 
-func blugeRetrieve(query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error) {
+func blugeRetrieve(ctx context.Context, query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error) {
 	if limit <= 0 || limit > len(operations) {
 		limit = len(operations)
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	writer, err := bluge.OpenWriter(bluge.InMemoryOnlyConfig())
@@ -36,7 +39,7 @@ func blugeRetrieve(query string, operations []schemaOperation, limit int) ([]sch
 
 	searchQuery := blugeQueryForIntent(parseSchemaSearchIntent(query))
 	request := bluge.NewTopNSearch(limit, searchQuery)
-	iterator, err := reader.Search(context.Background(), request)
+	iterator, err := reader.Search(ctx, request)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -45,7 +46,7 @@ func TestRepresentativeSchemaQueriesStayWithinResource(t *testing.T) {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
 
-			results, err := schemaOperationSearcher.Search(fixture.query, fixture.operations, 3)
+			results, err := schemaOperationSearcher.Search(context.Background(), fixture.query, fixture.operations, 3)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -77,7 +78,7 @@ func TestHybridSchemaSearcherLimitsAndShapesResults(t *testing.T) {
 		})
 	}
 
-	results, err := schemaOperationSearcher.Search("workspace", operations, maxSchemaSearchResults)
+	results, err := schemaOperationSearcher.Search(context.Background(), "workspace", operations, maxSchemaSearchResults)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +109,7 @@ func TestSchemaSearchSummary(t *testing.T) {
 	rows = append(rows, fmt.Sprintf("%-18s  %s", "query", "top results"))
 
 	for _, fixture := range fixtures {
-		results, err := schemaOperationSearcher.Search(fixture.query, fixture.operations, maxSchemaSearchResults)
+		results, err := schemaOperationSearcher.Search(context.Background(), fixture.query, fixture.operations, maxSchemaSearchResults)
 		if err != nil {
 			t.Fatalf("query=%q error: %v", fixture.query, err)
 		}
@@ -138,7 +139,7 @@ func TestSpecBackedSchemaSearch(t *testing.T) {
 	for _, fixture := range fixtures {
 		fixture := fixture
 		t.Run(fixture.name, func(t *testing.T) {
-			results, err := schemaOperationSearcher.Search(fixture.query, operations, maxSchemaSearchResults)
+			results, err := schemaOperationSearcher.Search(context.Background(), fixture.query, operations, maxSchemaSearchResults)
 			if err != nil {
 				t.Fatal(err)
 			}
