@@ -169,7 +169,7 @@ func normalizeToken(token string) string {
 		return "create"
 	case "show", "fetch", "read", "find":
 		return "get"
-	case "all", "browse":
+	case "all", "browse", "collection", "index":
 		return "list"
 	case "remove", "destroy":
 		return "delete"
