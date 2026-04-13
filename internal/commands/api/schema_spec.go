@@ -25,6 +25,7 @@ type openAPIOperation struct {
 	Tags        []string `json:"tags"`
 }
 
+//go:embed openapi/spec.json
 var embeddedOpenAPISpec []byte
 
 var (
