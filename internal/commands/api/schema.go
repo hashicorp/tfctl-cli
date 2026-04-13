@@ -32,6 +32,7 @@ var (
 	schemaOperationSearcher       schemaSearcher         = hybridSchemaSearcher{}
 )
 
+// NewCmdAPISchema creates the api schema command group.
 func NewCmdAPISchema(ctx *cmd.Context) *cmd.Command {
 	c := &cmd.Command{
 		Name:           "schema",
