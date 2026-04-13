@@ -19,14 +19,17 @@ type schemaOperation struct {
 	Summary     string
 }
 
+type schemaOperationsLoader func(ctx *cmd.Context) ([]schemaOperation, error)
+type schemaDocumentLoader func(ctx *cmd.Context) (map[string]any, error)
+
 type schemaSearcher interface {
 	Search(ctx context.Context, query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error)
 }
 
 var (
-	loadSchemaOperationsForSearch                = cachedSchemaOperations
-	loadSchemaDocumentForGet                     = cachedSchemaDocument
-	schemaOperationSearcher       schemaSearcher = hybridSchemaSearcher{}
+	loadSchemaOperationsForSearch schemaOperationsLoader = cachedSchemaOperations
+	loadSchemaDocumentForGet      schemaDocumentLoader   = cachedSchemaDocument
+	schemaOperationSearcher       schemaSearcher         = hybridSchemaSearcher{}
 )
 
 func NewCmdAPISchema(ctx *cmd.Context) *cmd.Command {
@@ -68,7 +71,7 @@ func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
 		}},
 		RunF: func(_ *cmd.Command, args []string) error {
 			query := joinSchemaQuery(args)
-			operations, err := loadSchemaOperationsForSearch()
+			operations, err := loadSchemaOperationsForSearch(ctx)
 			if err != nil {
 				return err
 			}
@@ -121,7 +124,7 @@ func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 			Command:  "$ tfcloud api schema get getWorkspace",
 		}},
 		RunF: func(_ *cmd.Command, args []string) error {
-			document, err := loadSchemaDocumentForGet()
+			document, err := loadSchemaDocumentForGet(ctx)
 			if err != nil {
 				return err
 			}

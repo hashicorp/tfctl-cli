@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 )
 
 type schemaSearchFixture struct {
@@ -120,7 +122,7 @@ func TestSchemaSearchSummary(t *testing.T) {
 }
 
 func TestSpecBackedSchemaSearch(t *testing.T) {
-	operations, err := loadSchemaOperationsForSearch()
+	operations, err := loadSchemaOperationsForSearch(testCommandContext(iostreams.Test()))
 	if err != nil {
 		t.Fatal(err)
 	}

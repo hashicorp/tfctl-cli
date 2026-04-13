@@ -47,7 +47,7 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 	io := iostreams.Test()
 	originalLoader := loadSchemaOperationsForSearch
 	originalSearcher := schemaOperationSearcher
-	loadSchemaOperationsForSearch = func() ([]schemaOperation, error) {
+	loadSchemaOperationsForSearch = func(*cmd.Context) ([]schemaOperation, error) {
 		return testSchemaOperations, nil
 	}
 	schemaOperationSearcher = hybridSchemaSearcher{}
@@ -162,7 +162,7 @@ func TestCmdAPISchemaGetRun(t *testing.T) {
 
 	io := iostreams.Test()
 	originalLoader := loadSchemaDocumentForGet
-	loadSchemaDocumentForGet = func() (map[string]any, error) {
+	loadSchemaDocumentForGet = func(*cmd.Context) (map[string]any, error) {
 		return map[string]any{
 			"openapi": "3.0.0",
 			"paths": map[string]any{
@@ -187,6 +187,22 @@ func TestCmdAPISchemaGetRun(t *testing.T) {
 	r.Contains(output, `"operationId": "getWorkspace"`)
 	r.Contains(output, `"/workspaces/{workspace_id}"`)
 	r.Empty(io.Error.String())
+}
+
+func TestLoadSchemaSpecBytesFallsBackToEmbedded(t *testing.T) {
+	t.Parallel()
+
+	ctx := testCommandContext(iostreams.Test())
+	data, source, err := loadSchemaSpecBytes(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(data) == 0 {
+		t.Fatal("expected embedded spec bytes")
+	}
+	if source != "from embedded fallback" {
+		t.Fatalf("expected embedded fallback source, got %q", source)
+	}
 }
 
 func testCommandContext(io *iostreams.Testing) *cmd.Context {

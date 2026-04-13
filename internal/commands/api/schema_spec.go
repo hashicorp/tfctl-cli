@@ -3,12 +3,15 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
+
+	_ "embed"
+
+	"github.com/hashicorp/tfcloud/internal/pkg/client"
+	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 )
 
 type openAPISpec struct {
@@ -22,6 +25,8 @@ type openAPIOperation struct {
 	Tags        []string `json:"tags"`
 }
 
+var embeddedOpenAPISpec []byte
+
 var (
 	schemaOperationsOnce  sync.Once
 	schemaOperationsCache []schemaOperation
@@ -31,53 +36,79 @@ var (
 	schemaDocumentErr     error
 )
 
-func cachedSchemaOperations() ([]schemaOperation, error) {
+func cachedSchemaOperations(ctx *cmd.Context) ([]schemaOperation, error) {
 	schemaOperationsOnce.Do(func() {
-		specPath, err := defaultOpenAPISpecPath()
+		data, source, err := loadSchemaSpecBytes(ctx)
 		if err != nil {
 			schemaOperationsErr = err
 			return
 		}
-		schemaOperationsCache, schemaOperationsErr = loadSchemaOperationsFromSpec(specPath)
+		schemaOperationsCache, schemaOperationsErr = loadSchemaOperationsFromBytes(data, source)
 	})
 	return schemaOperationsCache, schemaOperationsErr
 }
 
-func cachedSchemaDocument() (map[string]any, error) {
+func cachedSchemaDocument(ctx *cmd.Context) (map[string]any, error) {
 	schemaDocumentOnce.Do(func() {
-		specPath, err := defaultOpenAPISpecPath()
+		data, source, err := loadSchemaSpecBytes(ctx)
 		if err != nil {
 			schemaDocumentErr = err
 			return
 		}
-		schemaDocumentCache, schemaDocumentErr = loadSchemaDocumentFromSpec(specPath)
+		schemaDocumentCache, schemaDocumentErr = loadSchemaDocumentFromBytes(data, source)
 	})
 	return schemaDocumentCache, schemaDocumentErr
 }
 
-func loadSchemaDocumentFromSpec(specPath string) (map[string]any, error) {
-	data, err := os.ReadFile(specPath)
-	if err != nil {
-		return nil, fmt.Errorf("read OpenAPI spec %q: %w", specPath, err)
+func loadSchemaSpecBytes(ctx *cmd.Context) ([]byte, string, error) {
+	if hosted, err := fetchHostedOpenAPISpec(ctx); err == nil {
+		return hosted, "from host", nil
+	}
+	if len(embeddedOpenAPISpec) == 0 {
+		return nil, "", fmt.Errorf("embedded OpenAPI spec is empty")
+	}
+	return embeddedOpenAPISpec, "from embedded fallback", nil
+}
+
+func fetchHostedOpenAPISpec(ctx *cmd.Context) ([]byte, error) {
+	if ctx == nil || ctx.APIClient == nil || ctx.APIClient.BaseURL == nil {
+		return nil, fmt.Errorf("hosted OpenAPI spec unavailable without API client")
 	}
 
+	requestURL, err := client.ResolveURL(ctx.APIClient.BaseURL, "/api/v2/openapi.json")
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := ctx.APIClient.RawRequest(schemaSearchContext(ctx), &client.Request{
+		Method: http.MethodGet,
+		URL:    requestURL,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("hosted OpenAPI spec unavailable: %s", resp.Status)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("fetch hosted OpenAPI spec: %s", resp.Status)
+	}
+	return resp.Body, nil
+}
+
+func loadSchemaDocumentFromBytes(data []byte, source string) (map[string]any, error) {
 	var document map[string]any
 	if err := json.Unmarshal(data, &document); err != nil {
-		return nil, fmt.Errorf("parse OpenAPI spec %q: %w", specPath, err)
+		return nil, fmt.Errorf("parse OpenAPI spec %s: %w", source, err)
 	}
 
 	return document, nil
 }
 
-func loadSchemaOperationsFromSpec(specPath string) ([]schemaOperation, error) {
-	data, err := os.ReadFile(specPath)
-	if err != nil {
-		return nil, fmt.Errorf("read OpenAPI spec %q: %w", specPath, err)
-	}
-
+func loadSchemaOperationsFromBytes(data []byte, source string) ([]schemaOperation, error) {
 	var spec openAPISpec
 	if err := json.Unmarshal(data, &spec); err != nil {
-		return nil, fmt.Errorf("parse OpenAPI spec %q: %w", specPath, err)
+		return nil, fmt.Errorf("parse OpenAPI spec %s: %w", source, err)
 	}
 
 	operations := make([]schemaOperation, 0, len(spec.Paths))
@@ -126,42 +157,10 @@ func loadSchemaOperationsFromSpec(specPath string) ([]schemaOperation, error) {
 	})
 
 	if len(operations) == 0 {
-		return nil, fmt.Errorf("no API operations found in OpenAPI spec %q", specPath)
+		return nil, fmt.Errorf("no API operations found in OpenAPI spec %s", source)
 	}
 
 	return operations, nil
-}
-
-func defaultOpenAPISpecPath() (string, error) {
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", fmt.Errorf("resolve schema command source path")
-	}
-
-	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
-	goModPath := filepath.Join(repoRoot, "go.mod")
-	candidates := []string{filepath.Join(repoRoot, "openapi", "spec.json")}
-
-	if replaceTarget, err := goModReplaceTarget(goModPath, "github.com/hashicorp/go-tfe"); err == nil && replaceTarget != "" {
-		if !filepath.IsAbs(replaceTarget) {
-			replaceTarget = filepath.Join(repoRoot, replaceTarget)
-		}
-		candidates = append(candidates, filepath.Join(replaceTarget, "openapi", "spec.json"))
-	}
-
-	candidates = append(candidates,
-		filepath.Join(repoRoot, "..", "go-tfe", "openapi", "spec.json"),
-		filepath.Join(filepath.Dir(repoRoot), "go-tfe", "openapi", "spec.json"),
-		"/Users/shweta.murali/go-tfe/openapi/spec.json",
-	)
-
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
-		}
-	}
-
-	return "", fmt.Errorf("could not locate an OpenAPI spec; checked %s", strings.Join(candidates, ", "))
 }
 
 func schemaOperationDocument(spec map[string]any, operationID string) (map[string]any, error) {
@@ -336,31 +335,6 @@ func cloneValue(value any) any {
 	default:
 		return value
 	}
-}
-
-func goModReplaceTarget(goModPath, modulePath string) (string, error) {
-	data, err := os.ReadFile(goModPath)
-	if err != nil {
-		return "", err
-	}
-
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "replace ") || !strings.Contains(line, modulePath) || !strings.Contains(line, "=>") {
-			continue
-		}
-		parts := strings.Fields(line)
-		if len(parts) < 4 {
-			continue
-		}
-		for i := 0; i < len(parts)-1; i++ {
-			if parts[i] == "=>" {
-				return parts[i+1], nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("replace target for %s not found", modulePath)
 }
 
 func isHTTPMethod(method string) bool {
