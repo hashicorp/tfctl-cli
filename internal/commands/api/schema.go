@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
@@ -141,14 +142,7 @@ func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 }
 
 func joinSchemaQuery(args []string) string {
-	if len(args) == 0 {
-		return ""
-	}
-	query := args[0]
-	for i := 1; i < len(args); i++ {
-		query += " " + args[i]
-	}
-	return query
+	return strings.Join(args, " ")
 }
 
 func writeSchemaNoResults(ctx *cmd.Context, query string) {
