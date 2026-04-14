@@ -8,14 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
 
-	"github.com/go-openapi/runtime"
 	"github.com/hashicorp/cli"
+	"github.com/hashicorp/go-tfe"
 	"github.com/muesli/reflow/indent"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/posener/complete"
@@ -26,20 +27,56 @@ import (
 	"github.com/hashicorp/tfcloud/internal/pkg/ld"
 )
 
+func (c *Command) errorToExitCode(args []string, err error) int {
+	io := c.io
+	cs := io.ColorScheme()
+
+	exitCode := 1
+	var exitCodeErr *ExitCodeError
+	var netErr *net.OpError
+	var apiErr *tfe.APIError
+
+	if errors.Is(err, ErrDisplayHelp) {
+		return cli.RunResultHelp
+	} else if errors.Is(err, ErrDisplayUsage) {
+		fmt.Fprint(io.Err(), c.usageHelp())
+		return 1
+	} else if errors.Is(err, tfe.ErrNotFound) {
+		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), notFoundErrorHelp(io))
+		return 2
+	} else if errors.Is(err, tfe.ErrUnauthorized) {
+		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), authErrorHelp(io, c.commandPath(), args))
+		return 3
+	} else if errors.As(err, &netErr) {
+		fmt.Fprintf(io.Err(), "%s Network error: %s\n", cs.ErrorLabel(), netErr)
+		return 4
+	} else if errors.As(err, &apiErr) {
+		if apiErr.StatusCode >= http.StatusInternalServerError {
+			fmt.Fprintf(io.Err(), "%s Server error: %s\n", cs.ErrorLabel(), apiErr)
+			return 5
+		}
+	} else if errors.As(err, &exitCodeErr) {
+		exitCode = exitCodeErr.Code
+	}
+
+	fmt.Fprintf(io.Err(), "%s %s\n", cs.ErrorLabel(), wordWrap(err.Error(), 120))
+	return exitCode
+}
+
 // Run runs the given command.
 func (c *Command) Run(args []string) int {
+	// Get the colorscheme
+	io := c.getIO()
+	cs := c.getIO().ColorScheme()
+
 	if c.RunF == nil {
 		if len(c.children) != 0 {
 			return cli.RunResultHelp
 		}
 
-		fmt.Println("Command has no run function or children. This is an invalid command")
+		fmt.Fprintln(io.Err(), "Command has no run function or children. This is an invalid command")
 		return 1
 	}
-
-	// Get the colorscheme
-	io := c.getIO()
-	cs := c.getIO().ColorScheme()
 
 	// Parse the flags
 	if err := c.parseFlags(args); err != nil {
@@ -101,28 +138,18 @@ func (c *Command) Run(args []string) int {
 
 	// Run the command
 	if err := c.RunF(c, parsedArgs); err != nil {
-		exitCode := 1
-		var runtimeErr runtime.ClientResponseStatus
-		var exitCodeErr *ExitCodeError
-		if errors.Is(err, ErrDisplayHelp) {
-			return cli.RunResultHelp
-		} else if errors.Is(err, ErrDisplayUsage) {
-			fmt.Fprint(io.Err(), c.usageHelp())
-			return 1
-		} else if errors.As(err, &runtimeErr) && runtimeErr.IsCode(http.StatusUnauthorized) {
-			// TODO: This runtimeErr is inaccurate for HCPTF
-			// Request failed because of authentication issues.
-			fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), authErrorHelp(io, c.commandPath(), args))
-			return 1
-		} else if errors.As(err, &exitCodeErr) {
-			exitCode = exitCodeErr.Code
-		}
-
-		fmt.Fprintf(io.Err(), "%s %s\n", cs.ErrorLabel(), wordWrap(err.Error(), 120))
-		return exitCode
+		return c.errorToExitCode(args, err)
 	}
 
 	return 0
+}
+
+func notFoundErrorHelp(io iostreams.IOStreams) string {
+	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Must(`
+		Resource not found or you are unauthorized to this action. Check your account permissions.
+
+		  {{ Bold "$ tfcloud auth info" }}
+	`)
 }
 
 // authErrorHelp returns a help message for recovering from authentication errors.

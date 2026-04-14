@@ -5,11 +5,14 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hashicorp/cli"
+	"github.com/hashicorp/go-tfe"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 )
 
@@ -131,4 +134,44 @@ func TestCommand_ExitCode(t *testing.T) {
 	}
 	r.Equal(code, root.Run([]string{}))
 	r.Contains(io.Error.String(), err.Error())
+}
+
+func TestCommand_GlobalExitCode(t *testing.T) {
+	t.Parallel()
+
+	opErr := &net.OpError{Err: fmt.Errorf("some network error")}
+
+	tests := []struct {
+		err         error
+		expected    int
+		errContains string
+	}{
+		{err: ErrDisplayHelp, expected: cli.RunResultHelp},
+		{err: ErrDisplayUsage, expected: 1},
+		{err: tfe.ErrNotFound, expected: 2, errContains: "Resource not found or you are unauthorized to this action"},
+		{err: tfe.ErrUnauthorized, expected: 3, errContains: "tfcloud auth login"},
+		{err: opErr, expected: 4, errContains: "network error"},
+		{err: tfe.ErrInternalServer, expected: 5, errContains: "Internal Server Error"},
+		{err: fmt.Errorf("some other error"), expected: 1, errContains: "ERROR: some other error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("err %T exits with code %d", tt.err, tt.expected), func(t *testing.T) {
+			r := require.New(t)
+
+			// Create the command tree
+			io := iostreams.Test()
+			root := &Command{
+				Name: "root",
+				io:   io,
+				RunF: func(c *Command, args []string) error {
+					return tt.err
+				},
+			}
+			r.Equal(tt.expected, root.Run([]string{}))
+			if tt.errContains != "" {
+				r.Contains(io.Error.String(), tt.errContains)
+			}
+		})
+	}
 }
