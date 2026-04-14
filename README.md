@@ -88,7 +88,7 @@ Import variables from a tfvars file or the process environment into the current 
 
 | Exit | Meaning                          | Solution                    |
 |------|----------------------------------|-----------------------------|
-| 0    | OK                               | &emdash;                    |
+| 0    | OK                               | &mdash;                     |
 | 1    | Usage error                      | Read `tfcloud <cmd> --help` |
 | 2    | Not Found or Authorization Error | Verify URL/ID               |
 | 3    | Authentication Error             | `tfcloud auth login`        |
