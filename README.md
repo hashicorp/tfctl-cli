@@ -83,3 +83,14 @@ Perform an API request. See `tfcloud api --help` for usage and examples.
 **`tfcloud variable import [tfvars-file] [flags]`**
 
 Import variables from a tfvars file or the process environment into the current workspace or a variable set. See `tfcloud variable import --help` for usage and examples.
+
+#### Exit Codes
+
+| Exit | Meaning                          | Solution                    |
+|------|----------------------------------|-----------------------------|
+| 0    | OK                               | &mdash;                     |
+| 1    | Usage error                      | Read `tfcloud <cmd> --help` |
+| 2    | Not Found or Authorization Error | Verify URL/ID               |
+| 3    | Authentication Error             | `tfcloud auth login`        |
+| 4    | Network error                    | Check connectivity          |
+| 5    | API Server Error Persists        | Try again later             |
