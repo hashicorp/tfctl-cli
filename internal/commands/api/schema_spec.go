@@ -3,14 +3,12 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"sort"
 	"strings"
 	"sync"
 
 	_ "embed"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/client"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 )
 
@@ -62,40 +60,50 @@ func cachedSchemaDocument(ctx *cmd.Context) (map[string]any, error) {
 }
 
 func loadSchemaSpecBytes(ctx *cmd.Context) ([]byte, string, error) {
-	if hosted, err := fetchHostedOpenAPISpec(ctx); err == nil {
-		return hosted, "from host", nil
-	}
+	// Always use the embedded fallback until the hosted OpenAPI endpoint is
+	// confirmed and deployed consistently on the platform.
+	_ = ctx
+	//
+	// When the platform endpoint is known and deployed consistently, restore the
+	// hosted-first path here:
+	//
+	// if hosted, err := fetchHostedOpenAPISpec(ctx); err == nil {
+	// 	return hosted, "from host", nil
+	// }
 	if len(embeddedOpenAPISpec) == 0 {
 		return nil, "", fmt.Errorf("embedded OpenAPI spec is empty")
 	}
 	return embeddedOpenAPISpec, "from embedded fallback", nil
 }
 
-func fetchHostedOpenAPISpec(ctx *cmd.Context) ([]byte, error) {
-	if ctx == nil || ctx.APIClient == nil || ctx.APIClient.BaseURL == nil {
-		return nil, fmt.Errorf("hosted OpenAPI spec unavailable without API client")
-	}
-
-	requestURL, err := client.ResolveURL(ctx.APIClient.BaseURL, "/api/v2/openapi.json")
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := ctx.APIClient.RawRequest(schemaSearchContext(ctx), &client.Request{
-		Method: http.MethodGet,
-		URL:    requestURL,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
-		return nil, fmt.Errorf("hosted OpenAPI spec unavailable: %s", resp.Status)
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("fetch hosted OpenAPI spec: %s", resp.Status)
-	}
-	return resp.Body, nil
-}
+// Future hosted fetch path, intentionally disabled until the real endpoint is
+// confirmed and deployed consistently on the platform.
+//
+// func fetchHostedOpenAPISpec(ctx *cmd.Context) ([]byte, error) {
+// 	if ctx == nil || ctx.APIClient == nil || ctx.APIClient.BaseURL == nil {
+// 		return nil, fmt.Errorf("hosted OpenAPI spec unavailable without API client")
+// 	}
+//
+// 	requestURL, err := client.ResolveURL(ctx.APIClient.BaseURL, "/api/v2/openapi.json")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	resp, err := ctx.APIClient.RawRequest(schemaSearchContext(ctx), &client.Request{
+// 		Method: http.MethodGet,
+// 		URL:    requestURL,
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
+// 		return nil, fmt.Errorf("hosted OpenAPI spec unavailable: %s", resp.Status)
+// 	}
+// 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+// 		return nil, fmt.Errorf("fetch hosted OpenAPI spec: %s", resp.Status)
+// 	}
+// 	return resp.Body, nil
+// }
 
 func loadSchemaDocumentFromBytes(data []byte, source string) (map[string]any, error) {
 	var document map[string]any
