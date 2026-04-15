@@ -277,6 +277,8 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		},
 	}
 
+	cmd.AddChild(NewCmdAPISchema(ctx))
+
 	return cmd
 }
 
