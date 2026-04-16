@@ -316,8 +316,12 @@ func (o *Outputter) Display(d Displayer) error {
 		return o.outputPretty(d)
 	case Table:
 		return o.outputTable(d)
+	case Markdown:
+		return o.outputMarkdown(d)
 	case JSON:
 		return o.outputJSON(d)
+	case Agent:
+		return o.outputAgent(d)
 	}
 
 	return fmt.Errorf("invalid output format")
@@ -347,6 +351,10 @@ func (o *Outputter) outputJSON(d Displayer) error {
 
 	fmt.Fprintln(o.io.Out(), string(data))
 	return nil
+}
+
+func (o *Outputter) outputAgent(d Displayer) error {
+	return o.outputJSON(d)
 }
 
 // outputPretty outputs the payload using a key/value format where each field

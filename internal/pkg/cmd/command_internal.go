@@ -123,7 +123,7 @@ func (c *Command) Run(args []string) int {
 	slices.Reverse(prerunFuncs)
 	for _, f := range prerunFuncs {
 		if err := f(c, parsedArgs); err != nil {
-			fmt.Fprintln(io.Err(), err)
+			fmt.Fprintf(io.Err(), "%s %s\n", cs.ErrorLabel(), err)
 			return 1
 		}
 	}

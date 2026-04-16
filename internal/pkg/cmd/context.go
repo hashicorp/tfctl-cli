@@ -51,10 +51,12 @@ type GlobalFlags struct {
 
 	// Unexported global flags. These should generally be access via other
 	// helpers exported in the Context.
-	profile string
-	json    bool
-	agent   bool
-	debug   int
+	profile  string
+	json     bool
+	agent    bool
+	markdown bool
+	noColor  bool
+	debug    int
 
 	// Version indicates the user has requested the version of the CLI
 	Version bool
@@ -100,19 +102,33 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 			return profiles
 		}),
 	}, &Flag{
-		Name:        "json",
-		Description: "Sets the output format.",
-		Value:       flagvalue.Simple(false, &ctx.flags.json),
-		global:      true,
+		Name:          "json",
+		Description:   "Sets the output format.",
+		Value:         flagvalue.Simple(false, &ctx.flags.json),
+		IsBooleanFlag: true,
+		global:        true,
 	}, &Flag{
-		Name:        "agent",
-		Description: "Sets the output format.",
-		Value:       flagvalue.Simple(false, &ctx.flags.agent),
-		global:      true,
+		Name:          "agent",
+		Description:   "Sets the output format.",
+		Value:         flagvalue.Simple(false, &ctx.flags.agent),
+		IsBooleanFlag: true,
+		global:        true,
+	}, &Flag{
+		Name:          "markdown",
+		Description:   "Sets the output format to markdown.",
+		Value:         flagvalue.Simple(false, &ctx.flags.markdown),
+		IsBooleanFlag: true,
+		global:        true,
 	}, &Flag{
 		Name:          "quiet",
 		Description:   "Minimizes output and disables interactive prompting.",
 		Value:         flagvalue.Simple(false, &ctx.flags.Quiet),
+		IsBooleanFlag: true,
+		global:        true,
+	}, &Flag{
+		Name:          "no-color",
+		Description:   "Disables color output.",
+		Value:         flagvalue.Simple(false, &ctx.flags.noColor),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
@@ -207,21 +223,27 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 	}
 
 	// Set the output format if the flag is set.
-	// f := ctx.flags.format
-	// if f == "" {
-	// 	f = ctx.Profile.Core.GetOutputFormat()
-	// }
-	// if f != "" {
-	// 	format, err := format.FromString(f)
-	// 	if err != nil {
-	// 		return err
-	// 	}
+	f := format.Unset
+	if ctx.flags.json {
+		f = format.JSON
+	}
+	if ctx.flags.agent {
+		f = format.Agent
+	}
+	if ctx.flags.markdown {
+		if f == format.Unset {
+			f = format.Markdown
+		} else {
+			return fmt.Errorf("cannot set multiple output formats")
+		}
+	}
 
-	// 	ctx.Output.SetFormat(format)
-	// }
+	if f != format.Unset {
+		ctx.Output.SetFormat(f)
+	}
 
 	// Disable color if set
-	if ctx.Profile != nil && ctx.Profile.NoColor != nil && *ctx.Profile.NoColor {
+	if ctx.flags.noColor || (ctx.Profile != nil && ctx.Profile.NoColor != nil && *ctx.Profile.NoColor) {
 		ctx.IO.ForceNoColor()
 	}
 
