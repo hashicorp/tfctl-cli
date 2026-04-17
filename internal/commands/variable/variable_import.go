@@ -150,12 +150,17 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				return errors.New("could not resolve target workspace; set --organization and --workspace or run inside a repository with terraform cloud configuration") // this should be impossible to hit due to the previous block, but we'll check again before API calls just in case
 			}
 
-			target, err := resolveTarget(ctx.ShutdownCtx, ctx.APIClient, opts)
+			apiClient, err := ctx.NewAPIClient()
+			if err != nil {
+				return fmt.Errorf("unable to create API client: %w", err)
+			}
+
+			target, err := resolveTarget(ctx.ShutdownCtx, apiClient, opts)
 			if err != nil {
 				return err
 			}
 
-			existing, err := listExistingVariables(ctx.ShutdownCtx, ctx.APIClient, target)
+			existing, err := listExistingVariables(ctx.ShutdownCtx, apiClient, target)
 			if err != nil {
 				return err
 			}
@@ -176,13 +181,13 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 			for _, variable := range imported {
 				key := existingKey(variable.Key, variable.Category)
 				if current, ok := existing[key]; ok {
-					if err := updateVariable(ctx.ShutdownCtx, ctx.APIClient, target, current.ID, variable); err != nil {
+					if err := updateVariable(ctx.ShutdownCtx, apiClient, target, current.ID, variable); err != nil {
 						return err
 					}
 					updated++
 					continue
 				}
-				if err := createVariable(ctx.ShutdownCtx, ctx.APIClient, target, variable); err != nil {
+				if err := createVariable(ctx.ShutdownCtx, apiClient, target, variable); err != nil {
 					return err
 				}
 				created++
@@ -239,7 +244,7 @@ func resolveTarget(ctx context.Context, apiClient *client.Client, opts *ImportOp
 }
 
 func resolveWorkspace(ctx context.Context, apiClient *client.Client, opts *ImportOpts) (string, error) {
-	endpoint, err := client.ResolveURL(apiClient.BaseURL, fmt.Sprintf("/organizations/%s/workspaces/%s", url.PathEscape(opts.Organization), url.PathEscape(opts.Workspace)))
+	endpoint, err := client.ResolveURL(*apiClient.BaseURL, fmt.Sprintf("/organizations/%s/workspaces/%s", url.PathEscape(opts.Organization), url.PathEscape(opts.Workspace)))
 	if err != nil {
 		return "", err
 	}
@@ -265,7 +270,7 @@ func resolveWorkspace(ctx context.Context, apiClient *client.Client, opts *Impor
 }
 
 func resolveVariableSet(ctx context.Context, apiClient *client.Client, opts *ImportOpts) (string, error) {
-	endpoint, err := client.ResolveURL(apiClient.BaseURL, fmt.Sprintf("/organizations/%s/varsets", url.PathEscape(opts.Organization)))
+	endpoint, err := client.ResolveURL(*apiClient.BaseURL, fmt.Sprintf("/organizations/%s/varsets", url.PathEscape(opts.Organization)))
 	if err != nil {
 		return "", err
 	}
@@ -332,7 +337,7 @@ func resolveVariableSet(ctx context.Context, apiClient *client.Client, opts *Imp
 }
 
 func listExistingVariables(ctx context.Context, apiClient *client.Client, target *variableTarget) (map[string]existingVariable, error) {
-	endpoint, err := client.ResolveURL(apiClient.BaseURL, target.Path)
+	endpoint, err := client.ResolveURL(*apiClient.BaseURL, target.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +368,7 @@ func listExistingVariables(ctx context.Context, apiClient *client.Client, target
 }
 
 func createVariable(ctx context.Context, apiClient *client.Client, target *variableTarget, variable terraformcfg.ImportedVariable) error {
-	endpoint, err := client.ResolveURL(apiClient.BaseURL, target.Path)
+	endpoint, err := client.ResolveURL(*apiClient.BaseURL, target.Path)
 	if err != nil {
 		return err
 	}
@@ -382,7 +387,7 @@ func createVariable(ctx context.Context, apiClient *client.Client, target *varia
 }
 
 func updateVariable(ctx context.Context, apiClient *client.Client, target *variableTarget, variableID string, variable terraformcfg.ImportedVariable) error {
-	endpoint, err := client.ResolveURL(apiClient.BaseURL, fmt.Sprintf(target.ItemPath, url.PathEscape(variableID)))
+	endpoint, err := client.ResolveURL(*apiClient.BaseURL, fmt.Sprintf(target.ItemPath, url.PathEscape(variableID)))
 	if err != nil {
 		return err
 	}

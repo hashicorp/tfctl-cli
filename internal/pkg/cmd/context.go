@@ -40,8 +40,6 @@ type Context struct {
 	flags GlobalFlags
 
 	Profile *profile.Profile
-
-	APIClient *client.Client
 }
 
 // GlobalFlags contains the global flags.
@@ -163,23 +161,8 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 			return err
 		}
 
-		client, err := ctx.newAPIClient()
-		if err != nil && !c.NoAuthRequired {
-			return err
-		}
-		ctx.APIClient = client
 		return nil
 	}
-}
-
-func (ctx *Context) newAPIClient() (*client.Client, error) {
-	apiClient, err := client.New(ctx.Profile, http.Header{
-		"User-Agent": []string{fmt.Sprintf("tfcloud-cli/%s", config.Version)},
-	})
-	if err != nil {
-		return nil, err
-	}
-	return apiClient, nil
 }
 
 // applyGlobalFlags applies the global flags.
@@ -253,6 +236,17 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 	}
 
 	return nil
+}
+
+// NewAPIClient returns a new API Client configured using the context Profile.
+func (ctx *Context) NewAPIClient() (*client.Client, error) {
+	apiClient, err := client.New(ctx.Profile, http.Header{
+		"User-Agent": []string{fmt.Sprintf("tfcloud-cli/%s", config.Version)},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return apiClient, nil
 }
 
 // ParseFlags can be used to parse the flags for a given command before it is

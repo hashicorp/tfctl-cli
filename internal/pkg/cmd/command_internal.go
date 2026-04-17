@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -57,6 +58,9 @@ func (c *Command) errorToExitCode(args []string, err error) int {
 		}
 	} else if errors.As(err, &exitCodeErr) {
 		exitCode = exitCodeErr.Code
+	} else if errors.Is(err, context.Canceled) {
+		fmt.Fprintf(io.Err(), "%s Operation canceled", cs.FailureIcon())
+		return 130
 	}
 
 	fmt.Fprintf(io.Err(), "%s %s\n", cs.ErrorLabel(), wordWrap(err.Error(), 120))
@@ -67,7 +71,7 @@ func (c *Command) errorToExitCode(args []string, err error) int {
 func (c *Command) Run(args []string) int {
 	// Get the colorscheme
 	io := c.getIO()
-	cs := c.getIO().ColorScheme()
+	cs := io.ColorScheme()
 
 	if c.RunF == nil {
 		if len(c.children) != 0 {

@@ -57,7 +57,7 @@ type Response struct {
 	Body []byte
 }
 
-// New constructs a configured API client from CLI configuration.
+// New constructs a configured API client from CLI configuration profile.
 func New(p *profile.Profile, defaultHeaders http.Header) (*Client, error) {
 	tfeClient, err := tfe.NewClient(&tfe.Config{
 		Address: fmt.Sprintf("https://%s", p.Hostname),
@@ -134,7 +134,7 @@ func (c *Client) RawRequest(ctx context.Context, req *Request) (*Response, error
 }
 
 // ResolveURL resolves an absolute or base-relative API path against base.
-func ResolveURL(base *url.URL, path string) (*url.URL, error) {
+func ResolveURL(base url.URL, path string) (*url.URL, error) {
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		return url.Parse(path)
 	}
@@ -143,10 +143,11 @@ func ResolveURL(base *url.URL, path string) (*url.URL, error) {
 		path = "/" + path
 	}
 
-	resolved := *base
+	resolved := base
 	resolved.Path = strings.TrimRight(base.Path, "/") + path
 	resolved.RawQuery = ""
 	resolved.Fragment = ""
+
 	return &resolved, nil
 }
 
