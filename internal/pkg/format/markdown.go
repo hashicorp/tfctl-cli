@@ -53,7 +53,6 @@ func (o *Outputter) outputMarkdown(d Displayer) error {
 	} else {
 		// Pivot the table if the payload is not a slice, rendering each field as a row and adding
 		// it to the table.
-		rv = reflect.Indirect(rv)
 		tbl.AddRow("Field", "Value")
 		for _, f := range fields {
 			row, err := renderNameValue(p, f.Name, fields)

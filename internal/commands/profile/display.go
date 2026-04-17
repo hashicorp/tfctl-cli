@@ -4,7 +4,6 @@
 package profile
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
@@ -23,10 +22,13 @@ func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
 		The {{ template "mdCodeOrBold" "tfcloud profile display" }} command displays the active profile.
 		`),
 		RunF: func(_ *cmd.Command, _ []string) error {
+			profileNoToken := ctx.Profile
+			profileNoToken.Token = ""
+
 			return displayRun(&DisplayOpts{
 				IO:      ctx.IO,
-				Profile: ctx.Profile,
-				Format:  ctx.Output.GetFormat(),
+				Output:  ctx.Output,
+				Profile: profileNoToken,
 			})
 		},
 		NoAuthRequired: true,
@@ -39,20 +41,42 @@ func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
 type DisplayOpts struct {
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
-	Format  format.Format
+	Output  *format.Outputter
 }
 
 func displayRun(opts *DisplayOpts) error {
-	if opts.Format == format.JSON {
-		data, err := json.MarshalIndent(opts.Profile, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to JSON encode profile: %w", err)
-		}
-
-		fmt.Fprintln(opts.IO.Out(), string(data))
-	} else {
-		fmt.Fprintln(opts.IO.Out(), opts.Profile.String())
+	d := &displayDisplayer{
+		profile: opts.Profile,
 	}
 
+	if opts.Output.GetFormat() != format.Unset {
+		return opts.Output.Display(d)
+	}
+
+	fmt.Fprint(opts.IO.Out(), opts.Profile.String())
 	return nil
+}
+
+type displayDisplayer struct {
+	profile *profile.Profile
+}
+
+func (p *displayDisplayer) DefaultFormat() format.Format { return format.Pretty }
+func (p *displayDisplayer) Payload() any                 { return p.profile }
+
+func (p *displayDisplayer) FieldTemplates() []format.Field {
+	return []format.Field{
+		{
+			Name:        "Name",
+			ValueFormat: "{{ .Name }}",
+		},
+		{
+			Name:        "Organization",
+			ValueFormat: "{{ .Organization }}",
+		},
+		{
+			Name:        "Hostname",
+			ValueFormat: "{{ .Hostname }}",
+		},
+	}
 }

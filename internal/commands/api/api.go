@@ -21,9 +21,10 @@ import (
 	"github.com/hashicorp/tfcloud/internal/pkg/client"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/render"
+	"github.com/hashicorp/tfcloud/internal/pkg/profile"
 )
 
 type apiRequester interface {
@@ -46,7 +47,11 @@ func (c *realAPIClient) RawRequest(ctx context.Context, req *client.Request) (*c
 // Opts stores the options parsed from flags for the API command.
 type Opts struct {
 	IO           iostreams.IOStreams
+	Output       *format.Outputter
+	Client       *client.Client
+	Profile      *profile.Profile
 	Headers      []string
+	url          *url.URL
 	Attributes   map[string]string
 	Query        map[string]string
 	PathTokens   map[string]string
@@ -59,7 +64,9 @@ type Opts struct {
 // NewCmdAPI creates the `tfcloud api` command.
 func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	opts := &Opts{
-		IO: ctx.IO,
+		IO:      ctx.IO,
+		Output:  ctx.Output,
+		Profile: ctx.Profile,
 	}
 
 	cmd := &cmd.Command{
@@ -190,96 +197,95 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			if err != nil {
 				return err
 			}
+			opts.url = resolvedURL
+			opts.Client = ctx.APIClient
 
-			for _, item := range opts.Query {
-				key, value, err := splitPair(item, '=')
-				if err != nil {
-					return err
-				}
-				query := resolvedURL.Query()
-				query.Set(key, value)
-				resolvedURL.RawQuery = query.Encode()
-			}
-
-			body, contentType, err := buildRequestBody(path, opts.InputRequest, opts.Attributes, opts.ResourceType, ctx.IO.In())
-			if err != nil {
-				return err
-			}
-
-			method := inferMethod(opts.Method, len(opts.Attributes) > 0, opts.InputRequest != "")
-			requestHeaders, err := parseHeaders(opts.Headers)
-			if err != nil {
-				return err
-			}
-			if contentType != "" && requestHeaders.Get("Content-Type") == "" {
-				requestHeaders.Set("Content-Type", contentType)
-			}
-			if requestHeaders.Get("Accept") == "" {
-				requestHeaders.Set("Accept", "application/vnd.api+json")
-			}
-
-			response, err := ctx.APIClient.RawRequest(context.Background(), &client.Request{
-				Method:  method,
-				URL:     resolvedURL,
-				Headers: requestHeaders,
-				Body:    body,
-			})
-			if err != nil {
-				return err
-			}
-
-			verbose := false
-			if ctx.Profile.GetVerbosity() == "debug" || ctx.Profile.GetVerbosity() == "trace" {
-				logRequestResponse(ctx.IO.Err(), method, resolvedURL, requestHeaders, response)
-				verbose = true
-			}
-
-			if opts.Paginate && response.StatusCode >= 200 && response.StatusCode < 300 {
-				response, err = paginateResponse(context.Background(), &realAPIClient{client: ctx.APIClient}, response, requestHeaders, verbose, ctx.IO.Err())
-				if err != nil {
-					return err
-				}
-			}
-
-			if response.Headers.Get("Content-Type") != "" && strings.Contains(response.Headers.Get("Content-Type"), "text/html") {
-				return errors.New("an HTML response was received, likely an error page")
-			}
-
-			if response.StatusCode < 200 || response.StatusCode >= 300 {
-				message := client.SummarizeAPIErrors(response.Body)
-				if message == "" {
-					message = string(bytes.TrimSpace(response.Body))
-				}
-				if message != "" {
-					return fmt.Errorf("%s: %s", response.Status, message)
-				}
-				return errors.New(response.Status)
-			}
-
-			if ctx.Profile.IsQuiet() || len(bytes.TrimSpace(response.Body)) == 0 {
-				return nil
-			}
-
-			// TODO: output should be determined by global flags and the ctx should
-			// contain the displayer output device. This thing shoulld just write a data structure
-			// to the displayer and let it handle formatting and output.
-			table, ok, err := render.JSONAPITable(response.Body)
-			if err != nil {
-				return err
-			}
-			if ok {
-				_, _ = ctx.IO.Out().Write([]byte(table))
-				return nil
-			}
-
-			_, _ = ctx.IO.Out().Write(response.Body)
-			return nil
+			return runAPI(ctx.ShutdownCtx, opts)
 		},
 	}
 
 	cmd.AddChild(NewCmdAPISchema(ctx))
 
 	return cmd
+}
+
+func runAPI(ctx context.Context, opts *Opts) error {
+	query := opts.url.Query()
+	for _, item := range opts.Query {
+		key, value, err := splitPair(item, '=')
+		if err != nil {
+			return err
+		}
+		query.Set(key, value)
+	}
+	opts.url.RawQuery = query.Encode()
+
+	body, contentType, err := buildRequestBody(opts.url.Path, opts.InputRequest, opts.Attributes, opts.ResourceType, opts.IO.In())
+	if err != nil {
+		return err
+	}
+
+	method := inferMethod(opts.Method, len(opts.Attributes) > 0, opts.InputRequest != "")
+	requestHeaders, err := parseHeaders(opts.Headers)
+	if err != nil {
+		return err
+	}
+	if contentType != "" && requestHeaders.Get("Content-Type") == "" {
+		requestHeaders.Set("Content-Type", contentType)
+	}
+	if requestHeaders.Get("Accept") == "" {
+		requestHeaders.Set("Accept", "application/vnd.api+json")
+	}
+
+	response, err := opts.Client.RawRequest(ctx, &client.Request{
+		Method:  method,
+		URL:     opts.url,
+		Headers: requestHeaders,
+		Body:    body,
+	})
+	if err != nil {
+		return err
+	}
+
+	verbose := false
+	if opts.Profile.GetVerbosity() == "debug" || opts.Profile.GetVerbosity() == "trace" {
+		logRequestResponse(opts.IO.Err(), method, opts.url, requestHeaders, response)
+		verbose = true
+	}
+
+	if opts.Paginate && response.StatusCode >= 200 && response.StatusCode < 300 {
+		response, err = paginateResponse(ctx, &realAPIClient{client: opts.Client}, response, requestHeaders, verbose, opts.IO.Err())
+		if err != nil {
+			return err
+		}
+	}
+
+	if response.Headers.Get("Content-Type") != "" && strings.Contains(response.Headers.Get("Content-Type"), "text/html") {
+		return errors.New("an HTML response was received, likely an error page")
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		message := client.SummarizeAPIErrors(response.Body)
+		if message == "" {
+			message = string(bytes.TrimSpace(response.Body))
+		}
+		if message != "" {
+			return fmt.Errorf("%s: %s", response.Status, message)
+		}
+		return errors.New(response.Status)
+	}
+
+	if opts.Profile.IsQuiet() || len(bytes.TrimSpace(response.Body)) == 0 {
+		return nil
+	}
+
+	// Render the result
+	disp, err := format.NewJSONAPIDisplayer(response.Body)
+	if err != nil {
+		return err
+	}
+
+	return opts.Output.Display(disp)
 }
 
 func inferMethod(explicit string, hasAttributes, hasInput bool) string {

@@ -5,6 +5,7 @@ package profile
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
+	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 	"github.com/hashicorp/tfcloud/internal/pkg/profile"
@@ -19,12 +21,6 @@ import (
 
 // NewCmdGet returns the `tfcloud profile get` command for getting a tfcloud CLI property.
 func NewCmdGet(ctx *cmd.Context) *cmd.Command {
-	opts := &GetOpts{
-		Ctx:     ctx.ShutdownCtx,
-		IO:      ctx.IO,
-		Profile: ctx.Profile,
-	}
-
 	cmd := &cmd.Command{
 		Name:      "get",
 		ShortHelp: "Get a tfcloud CLI Property.",
@@ -34,7 +30,7 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 		To view all currently set properties, run {{ template "mdCodeOrBold" "tfcloud profile display" }}.
 		`),
 		Args: cmd.PositionalArguments{
-			Autocomplete: opts.Profile,
+			Autocomplete: ctx.Profile,
 			Args: []cmd.PositionalArgument{
 				{
 					Name: "PROPERTY",
@@ -53,6 +49,13 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, args []string) error {
+			opts := &GetOpts{
+				Ctx:     ctx.ShutdownCtx,
+				IO:      ctx.IO,
+				Output:  ctx.Output,
+				Profile: ctx.Profile,
+			}
+
 			opts.Property = args[0]
 
 			return getRun(opts)
@@ -67,6 +70,7 @@ type GetOpts struct {
 	Ctx     context.Context
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
+	Output  *format.Outputter
 
 	Property string
 }
@@ -124,10 +128,21 @@ func getRun(opts *GetOpts) error {
 
 	v := reflect.ValueOf(value)
 	if v.Kind() == reflect.Pointer {
-		value = v.Elem()
 		if v.IsNil() {
 			return fmt.Errorf("property %q is not set", opts.Property)
 		}
+	}
+
+	value = reflect.Indirect(v).Interface()
+
+	if opts.Output.GetFormat().IsJSONOrAgent() {
+		data, err := json.MarshalIndent(value, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to JSON encode property value: %w", err)
+		}
+
+		fmt.Fprintln(opts.IO.Out(), string(data))
+		return nil
 	}
 
 	fmt.Fprintf(opts.IO.Out(), "%v\n", value)

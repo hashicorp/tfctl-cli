@@ -47,6 +47,7 @@ var (
 	}
 )
 
+// IsJSONOrAgent returns true if the format is machine-readable output.
 func (f Format) IsJSONOrAgent() bool {
 	return f == JSON || f == Agent
 }

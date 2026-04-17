@@ -17,10 +17,11 @@ func TestDisplay(t *testing.T) {
 	t.Parallel()
 
 	io := iostreams.Test()
+	output := format.New(io)
 	p := profile.TestProfile(t)
 	p.Organization = "123"
 	p.Hostname = "app.eu.terraform.io"
-	p.NoColor = new(bool)
+	p.NoColor = func() *bool { b := true; return &b }()
 
 	t.Run("default", func(t *testing.T) {
 		t.Parallel()
@@ -29,7 +30,9 @@ func TestDisplay(t *testing.T) {
 		opts := &DisplayOpts{
 			IO:      io,
 			Profile: p,
+			Output:  output,
 		}
+
 		r.NoError(displayRun(opts))
 		r.Contains(io.Output.String(), "hostname")
 		r.Contains(io.Output.String(), "no_color")
@@ -39,13 +42,15 @@ func TestDisplay(t *testing.T) {
 		t.Parallel()
 		r := require.New(t)
 
+		output.SetFormat(format.JSON)
+
 		opts := &DisplayOpts{
 			IO:      io,
 			Profile: p,
-			Format:  format.JSON,
+			Output:  output,
 		}
 		r.NoError(displayRun(opts))
-		r.Contains(io.Output.String(), "hostname")
-		r.Contains(io.Output.String(), "no_color")
+		r.Contains(io.Output.String(), "\"Hostname\": \"app.eu.terraform.io\"")
+		r.Contains(io.Output.String(), "\"NoColor\": true")
 	})
 }

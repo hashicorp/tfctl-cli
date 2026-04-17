@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"sort"
 	"strings"
 )
@@ -89,21 +88,4 @@ func resourceKeyForOperation(resources []string, operation schemaOperation) stri
 		return ""
 	}
 	return resource
-}
-
-func schemaSearchJSONAPIResponse(results []schemaSearchResult) ([]byte, error) {
-	data := make([]map[string]any, 0, len(results))
-	for _, result := range results {
-		data = append(data, map[string]any{
-			"attributes": map[string]any{
-				"operation-id": result.Operation.OperationID,
-				"method":       result.Operation.Method,
-				"path":         result.Operation.Path,
-				"summary":      result.Operation.Summary,
-			},
-		})
-	}
-
-	payload := map[string]any{"data": data}
-	return json.Marshal(payload)
 }

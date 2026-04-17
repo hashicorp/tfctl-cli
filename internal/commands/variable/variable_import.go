@@ -188,7 +188,7 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				created++
 			}
 
-			_, _ = fmt.Fprintf(ctx.IO.Err(), "%s imported %d variables into %s (%d created, %d updated)", opts.IO.ColorScheme().SuccessIcon(), len(imported), target.DisplayName, created, updated)
+			fmt.Fprintf(ctx.IO.Err(), "%s imported %d variables into %s (%d created, %d updated)", opts.IO.ColorScheme().SuccessIcon(), len(imported), target.DisplayName, created, updated)
 			return nil
 		},
 	}
