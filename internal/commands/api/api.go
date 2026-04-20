@@ -27,12 +27,15 @@ import (
 )
 
 const (
-	MaxPaginateRecords = 1000
+	// MaxPaginateRecords is the maximum number of records that will be returned
+	// when using the --paginate argument, regardless of how many records are available.
+	MaxPaginateRecords = 2000
 )
 
 // Opts stores the options parsed from flags for the API command.
 type Opts struct {
 	IO           iostreams.IOStreams
+	Output       *format.Outputter
 	ShutdownCtx  context.Context
 	Client       *client.Client
 	Quiet        bool
@@ -53,6 +56,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	opts := &Opts{
 		IO:          ctx.IO,
 		ShutdownCtx: ctx.ShutdownCtx,
+		Output:      ctx.Output,
 	}
 
 	cmd := &cmd.Command{
@@ -102,7 +106,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 				},
 				{
 					Name:          "paginate",
-					Description:   "Automatically paginate through results and stream them, one resource at a time. Only applies to successful responses with JSON:API document bodies.",
+					Description:   fmt.Sprintf("Automatically paginate through results and stream them, one resource at a time, up to %d records. Only applies to successful responses with JSON:API document bodies.", MaxPaginateRecords),
 					Value:         flagvalue.Simple(false, &opts.Paginate),
 					IsBooleanFlag: true,
 				},
@@ -206,11 +210,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 func runAPI(opts *Opts) error {
 	// Handle -f query fields
 	query := opts.URL.Query()
-	for _, item := range opts.Query {
-		key, value, err := splitPair(item, '=')
-		if err != nil {
-			return err
-		}
+	for key, value := range opts.Query {
 		query.Set(key, value)
 	}
 	opts.URL.RawQuery = query.Encode()
@@ -282,8 +282,7 @@ func runAPI(opts *Opts) error {
 		return err
 	}
 
-	output := format.New(opts.IO)
-	return output.Display(disp)
+	return opts.Output.Display(disp)
 }
 
 func inferMethod(explicit string, hasAttributes, hasInput bool) string {

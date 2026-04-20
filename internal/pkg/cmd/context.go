@@ -240,7 +240,7 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 
 // NewAPIClient returns a new API Client configured using the context Profile.
 func (ctx *Context) NewAPIClient() (*client.Client, error) {
-	apiClient, err := client.New(ctx.Profile, http.Header{
+	apiClient, err := client.New(fmt.Sprintf("https://%s", ctx.Profile.Hostname), ctx.Profile.Token, http.Header{
 		"User-Agent": []string{fmt.Sprintf("tfcloud-cli/%s", config.Version)},
 	})
 	if err != nil {
