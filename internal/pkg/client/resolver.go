@@ -1,0 +1,59 @@
+package client
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/hashicorp/go-tfe/api/organizations"
+	abstractions "github.com/microsoft/kiota-abstractions-go"
+)
+
+// Resolver abstracts helpers for resolving resources by name, with options for creating the
+// the resource if it does not exist.
+type Resolver struct {
+	client           *Client
+	createIfNotFound bool
+	dryRun           bool
+}
+
+// NewResolver creates a new Resolver.
+func NewResolver(client *Client, createIfNotFound, dryRun bool) *Resolver {
+	return &Resolver{
+		client:           client,
+		createIfNotFound: createIfNotFound,
+		dryRun:           dryRun,
+	}
+}
+
+// VariableSet resolves a variable set by organization + name.
+func (r Resolver) VariableSet(ctx context.Context, organization, name string) (*string, error) {
+	requestConfig := &abstractions.RequestConfiguration[organizations.ItemVarsetsRequestBuilderGetQueryParameters]{
+		QueryParameters: &organizations.ItemVarsetsRequestBuilderGetQueryParameters{
+			Q: &name,
+		},
+	}
+
+	items, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Varsets().Get(ctx, requestConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, item := range items.GetData() {
+		att := item.GetAttributes()
+		if *att.GetName() == name {
+			return item.GetId(), nil
+		}
+	}
+
+	if r.createIfNotFound {
+		// Create the Variable Set
+		created, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Varsets().Post(ctx, NewOrganizationsVarsetsPostBody(name), nil)
+		if err != nil {
+			return nil, fmt.Errorf("variable set named %q could not be created: %w", name, err)
+		}
+
+		return created.GetData().GetId(), nil
+	}
+
+	return nil, fmt.Errorf("variable set named %q was not found", name)
+}

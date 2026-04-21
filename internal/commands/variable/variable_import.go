@@ -5,11 +5,8 @@ package variable
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
 
@@ -29,6 +26,17 @@ type ImportOpts struct {
 	Organization    string
 	Workspace       string
 	Overwrite       bool
+}
+
+type existingVariables map[string]existingVariable
+
+func (e existingVariables) Add(v existingVariable) {
+	e[v.Category+"\x00"+v.Key] = v
+}
+
+func (e existingVariables) Get(category, key string) (existingVariable, bool) {
+	result, ok := e[category+"\x00"+key]
+	return result, ok
 }
 
 // NewCmdVariableImport creates the `tfcloud variable import` command.
@@ -160,18 +168,18 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 
-			existing, err := listExistingVariables(ctx.ShutdownCtx, apiClient, target)
+			existing, err := target.listExistingVariables(ctx.ShutdownCtx)
 			if err != nil {
 				return err
 			}
 
 			duplicates := make([]string, 0)
 			for _, variable := range imported {
-				key := existingKey(variable.Key, variable.Category)
-				if _, ok := existing[key]; ok && !opts.Overwrite {
+				if _, ok := existing.Get(variable.Category, variable.Key); ok && !opts.Overwrite {
 					duplicates = append(duplicates, fmt.Sprintf("%s (%s)", variable.Key, variable.Category))
 				}
 			}
+
 			if len(duplicates) > 0 {
 				return fmt.Errorf("variables already exist; rerun with --overwrite to update: %s", strings.Join(duplicates, ", "))
 			}
@@ -179,21 +187,20 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 			created := 0
 			updated := 0
 			for _, variable := range imported {
-				key := existingKey(variable.Key, variable.Category)
-				if current, ok := existing[key]; ok {
-					if err := updateVariable(ctx.ShutdownCtx, apiClient, target, current.ID, variable); err != nil {
+				if current, ok := existing.Get(variable.Category, variable.Key); ok {
+					if err := target.updateVariable(ctx.ShutdownCtx, current.ID, variable); err != nil {
 						return err
 					}
 					updated++
 					continue
 				}
-				if err := createVariable(ctx.ShutdownCtx, apiClient, target, variable); err != nil {
+				if err := target.createVariable(ctx.ShutdownCtx, variable); err != nil {
 					return err
 				}
 				created++
 			}
 
-			fmt.Fprintf(ctx.IO.Err(), "%s imported %d variables into %s (%d created, %d updated)", opts.IO.ColorScheme().SuccessIcon(), len(imported), target.DisplayName, created, updated)
+			fmt.Fprintf(ctx.IO.Err(), "%s imported %d variables into %s (%d created, %d updated)", opts.IO.ColorScheme().SuccessIcon(), len(imported), target.String(), created, updated)
 			return nil
 		},
 	}
@@ -201,232 +208,20 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-type variableTarget struct {
-	Kind        string
-	ID          string
-	DisplayName string
-	Path        string
-	ItemPath    string
-}
-
-type existingVariable struct {
-	ID       string
-	Key      string
-	Category string
-}
-
 func resolveTarget(ctx context.Context, apiClient *client.Client, opts *ImportOpts) (*variableTarget, error) {
+	resolver := client.NewResolver(apiClient, opts.VariableSetName != "", false)
+
 	if opts.VariableSetName != "" {
-		id, err := resolveVariableSet(ctx, apiClient, opts)
+		result, err := resolver.VariableSet(ctx, opts.Organization, opts.VariableSetName)
 		if err != nil {
 			return nil, err
 		}
-		return &variableTarget{
-			Kind:        "variable set",
-			ID:          id,
-			DisplayName: fmt.Sprintf("variable set %q", opts.VariableSetName),
-			Path:        fmt.Sprintf("/varsets/%s/relationships/vars", url.PathEscape(id)),
-			ItemPath:    fmt.Sprintf("/varsets/%s/relationships/vars/%%s", url.PathEscape(id)),
-		}, nil
+		return newVariableSetVariableTarget(apiClient, *result, opts.VariableSetName), nil
 	}
 
-	workspaceID, err := resolveWorkspace(ctx, apiClient, opts)
+	workspace, err := apiClient.TFE.API.Organizations().ByOrganization_name(opts.Organization).Workspaces().ByWorkspace_name(opts.Workspace).Get(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &variableTarget{
-		Kind:        "workspace",
-		ID:          workspaceID,
-		DisplayName: fmt.Sprintf("workspace %q", opts.Workspace),
-		Path:        fmt.Sprintf("/workspaces/%s/vars", url.PathEscape(workspaceID)),
-		ItemPath:    fmt.Sprintf("/workspaces/%s/vars/%%s", url.PathEscape(workspaceID)),
-	}, nil
-}
-
-func resolveWorkspace(ctx context.Context, apiClient *client.Client, opts *ImportOpts) (string, error) {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, fmt.Sprintf("/organizations/%s/workspaces/%s", url.PathEscape(opts.Organization), url.PathEscape(opts.Workspace)))
-	if err != nil {
-		return "", err
-	}
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodGet, URL: endpoint, Headers: jsonAPIHeaders()})
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-	var payload struct {
-		Data struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(resp.Body, &payload); err != nil {
-		return "", err
-	}
-	if payload.Data.ID == "" {
-		return "", fmt.Errorf("workspace %q returned no id", opts.Workspace)
-	}
-	return payload.Data.ID, nil
-}
-
-func resolveVariableSet(ctx context.Context, apiClient *client.Client, opts *ImportOpts) (string, error) {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, fmt.Sprintf("/organizations/%s/varsets", url.PathEscape(opts.Organization)))
-	if err != nil {
-		return "", err
-	}
-	query := endpoint.Query()
-	query.Set("q", opts.VariableSetName)
-	endpoint.RawQuery = query.Encode()
-
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodGet, URL: endpoint, Headers: jsonAPIHeaders()})
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-
-	var payload struct {
-		Data []struct {
-			ID         string `json:"id"`
-			Attributes struct {
-				Name string `json:"name"`
-			} `json:"attributes"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(resp.Body, &payload); err != nil {
-		return "", err
-	}
-	for _, item := range payload.Data {
-		if item.Attributes.Name == opts.VariableSetName {
-			return item.ID, nil
-		}
-	}
-
-	body := map[string]any{
-		"data": map[string]any{
-			"type": "varsets",
-			"attributes": map[string]any{
-				"name": opts.VariableSetName,
-			},
-		},
-	}
-	encoded, err := json.Marshal(body)
-	if err != nil {
-		return "", err
-	}
-	createResp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodPost, URL: endpoint, Headers: jsonAPIHeaders(), Body: encoded})
-	if err != nil {
-		return "", err
-	}
-	if createResp.StatusCode < 200 || createResp.StatusCode >= 300 {
-		return "", fmt.Errorf("%s: %s", createResp.Status, client.SummarizeAPIErrors(createResp.Body))
-	}
-	var created struct {
-		Data struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(createResp.Body, &created); err != nil {
-		return "", err
-	}
-	if created.Data.ID == "" {
-		return "", fmt.Errorf("created variable set %q returned no id", opts.VariableSetName)
-	}
-	return created.Data.ID, nil
-}
-
-func listExistingVariables(ctx context.Context, apiClient *client.Client, target *variableTarget) (map[string]existingVariable, error) {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, target.Path)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodGet, URL: endpoint, Headers: jsonAPIHeaders()})
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-	var payload struct {
-		Data []struct {
-			ID         string `json:"id"`
-			Attributes struct {
-				Key      string `json:"key"`
-				Category string `json:"category"`
-			} `json:"attributes"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(resp.Body, &payload); err != nil {
-		return nil, err
-	}
-	existing := make(map[string]existingVariable, len(payload.Data))
-	for _, item := range payload.Data {
-		existing[existingKey(item.Attributes.Key, item.Attributes.Category)] = existingVariable{ID: item.ID, Key: item.Attributes.Key, Category: item.Attributes.Category}
-	}
-	return existing, nil
-}
-
-func createVariable(ctx context.Context, apiClient *client.Client, target *variableTarget, variable terraformcfg.ImportedVariable) error {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, target.Path)
-	if err != nil {
-		return err
-	}
-	body, err := json.Marshal(variablePayload(variable))
-	if err != nil {
-		return err
-	}
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodPost, URL: endpoint, Headers: jsonAPIHeaders(), Body: body})
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-	return nil
-}
-
-func updateVariable(ctx context.Context, apiClient *client.Client, target *variableTarget, variableID string, variable terraformcfg.ImportedVariable) error {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, fmt.Sprintf(target.ItemPath, url.PathEscape(variableID)))
-	if err != nil {
-		return err
-	}
-	body, err := json.Marshal(variablePayload(variable))
-	if err != nil {
-		return err
-	}
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodPatch, URL: endpoint, Headers: jsonAPIHeaders(), Body: body})
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-	return nil
-}
-
-func variablePayload(variable terraformcfg.ImportedVariable) map[string]any {
-	return map[string]any{
-		"data": map[string]any{
-			"type": "vars",
-			"attributes": map[string]any{
-				"key":       variable.Key,
-				"value":     variable.Value,
-				"category":  variable.Category,
-				"hcl":       variable.HCL,
-				"sensitive": variable.Sensitive,
-			},
-		},
-	}
-}
-
-func existingKey(key, category string) string {
-	return category + "\x00" + key
-}
-
-func jsonAPIHeaders() http.Header {
-	return http.Header{
-		"Accept":       []string{"application/vnd.api+json"},
-		"Content-Type": []string{"application/vnd.api+json"},
-	}
+	return newWorkspaceVariableTarget(apiClient, *workspace.GetData().GetId(), opts.Workspace), nil
 }
