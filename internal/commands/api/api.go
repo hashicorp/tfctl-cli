@@ -24,34 +24,24 @@ import (
 	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
 )
 
-type apiRequester interface {
-	Base() *url.URL
-	RawRequest(context.Context, *client.Request) (*client.Response, error)
-}
-
-type realAPIClient struct {
-	client *client.Client
-}
-
-func (c *realAPIClient) Base() *url.URL {
-	return c.client.BaseURL
-}
-
-func (c *realAPIClient) RawRequest(ctx context.Context, req *client.Request) (*client.Response, error) {
-	return c.client.RawRequest(ctx, req)
-}
+const (
+	// MaxPaginateRecords is the maximum number of records that will be returned
+	// when using the --paginate argument, regardless of how many records are available.
+	MaxPaginateRecords = 2000
+)
 
 // Opts stores the options parsed from flags for the API command.
 type Opts struct {
 	IO           iostreams.IOStreams
 	Output       *format.Outputter
+	ShutdownCtx  context.Context
 	Client       *client.Client
-	Profile      *profile.Profile
+	Quiet        bool
+	Debug        bool
 	Headers      []string
-	url          *url.URL
+	URL          *url.URL
 	Attributes   map[string]string
 	Query        map[string]string
 	PathTokens   map[string]string
@@ -64,9 +54,9 @@ type Opts struct {
 // NewCmdAPI creates the `tfcloud api` command.
 func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	opts := &Opts{
-		IO:      ctx.IO,
-		Output:  ctx.Output,
-		Profile: ctx.Profile,
+		IO:          ctx.IO,
+		ShutdownCtx: ctx.ShutdownCtx,
+		Output:      ctx.Output,
 	}
 
 	cmd := &cmd.Command{
@@ -116,7 +106,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 				},
 				{
 					Name:          "paginate",
-					Description:   "Automatically paginate through results and stream them, one resource at a time. Only applies to successful responses with JSON:API document bodies.",
+					Description:   fmt.Sprintf("Automatically paginate through results and stream them, one resource at a time, up to %d records. Only applies to successful responses with JSON:API document bodies.", MaxPaginateRecords),
 					Value:         flagvalue.Simple(false, &opts.Paginate),
 					IsBooleanFlag: true,
 				},
@@ -186,21 +176,29 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
-			// TODO: replace `return err` statements with something that can be shown to the user.
 			if len(args) < 1 {
 				return cmd.ErrDisplayUsage
 			}
 
 			path := args[0]
 
-			resolvedURL, err := client.ResolveURL(ctx.APIClient.BaseURL, path)
+			apiClient, err := ctx.NewAPIClient()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create API client: %w", err)
 			}
-			opts.url = resolvedURL
-			opts.Client = ctx.APIClient
 
-			return runAPI(ctx.ShutdownCtx, opts)
+			resolvedURL, err := client.ResolveURL(*apiClient.BaseURL, path)
+			if err != nil {
+				return fmt.Errorf("invalid input path/URL %q", path)
+			}
+
+			opts.URL = resolvedURL
+			opts.Client = apiClient
+
+			opts.Debug = ctx.Profile.GetVerbosity() == "debug" || ctx.Profile.GetVerbosity() == "trace"
+			opts.Quiet = ctx.Profile.IsQuiet()
+
+			return runAPI(opts)
 		},
 	}
 
@@ -209,18 +207,16 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-func runAPI(ctx context.Context, opts *Opts) error {
-	query := opts.url.Query()
-	for _, item := range opts.Query {
-		key, value, err := splitPair(item, '=')
-		if err != nil {
-			return err
-		}
+func runAPI(opts *Opts) error {
+	// Handle -f query fields
+	query := opts.URL.Query()
+	for key, value := range opts.Query {
 		query.Set(key, value)
 	}
-	opts.url.RawQuery = query.Encode()
+	opts.URL.RawQuery = query.Encode()
 
-	body, contentType, err := buildRequestBody(opts.url.Path, opts.InputRequest, opts.Attributes, opts.ResourceType, opts.IO.In())
+	// Construct a request
+	body, contentType, err := buildRequestBody(opts.URL.Path, opts.InputRequest, opts.Attributes, opts.ResourceType, opts.IO.In())
 	if err != nil {
 		return err
 	}
@@ -237,9 +233,10 @@ func runAPI(ctx context.Context, opts *Opts) error {
 		requestHeaders.Set("Accept", "application/vnd.api+json")
 	}
 
-	response, err := opts.Client.RawRequest(ctx, &client.Request{
+	// Make the request
+	response, err := opts.Client.RawRequest(opts.ShutdownCtx, &client.Request{
 		Method:  method,
-		URL:     opts.url,
+		URL:     opts.URL,
 		Headers: requestHeaders,
 		Body:    body,
 	})
@@ -248,13 +245,13 @@ func runAPI(ctx context.Context, opts *Opts) error {
 	}
 
 	verbose := false
-	if opts.Profile.GetVerbosity() == "debug" || opts.Profile.GetVerbosity() == "trace" {
-		logRequestResponse(opts.IO.Err(), method, opts.url, requestHeaders, response)
+	if opts.Debug {
+		logRequestResponse(opts.IO.Err(), method, opts.URL, requestHeaders, response)
 		verbose = true
 	}
 
 	if opts.Paginate && response.StatusCode >= 200 && response.StatusCode < 300 {
-		response, err = paginateResponse(ctx, &realAPIClient{client: opts.Client}, response, requestHeaders, verbose, opts.IO.Err())
+		response, err = paginateResponse(opts.ShutdownCtx, opts.Client, response, requestHeaders, verbose, opts.IO.Err())
 		if err != nil {
 			return err
 		}
@@ -275,7 +272,7 @@ func runAPI(ctx context.Context, opts *Opts) error {
 		return errors.New(response.Status)
 	}
 
-	if opts.Profile.IsQuiet() || len(bytes.TrimSpace(response.Body)) == 0 {
+	if opts.Quiet || len(bytes.TrimSpace(response.Body)) == 0 {
 		return nil
 	}
 
@@ -406,13 +403,13 @@ func splitPair(item string, sep rune) (string, string, error) {
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
 }
 
-func paginateResponse(ctx context.Context, apiClient apiRequester, initial *client.Response, headers http.Header, verbose bool, stderr io.Writer) (*client.Response, error) {
+func paginateResponse(ctx context.Context, apiClient *client.Client, initial *client.Response, headers http.Header, verbose bool, stderr io.Writer) (*client.Response, error) {
 	combined, nextURL, err := parsePaginationPayload(initial.Body)
 	if err != nil || nextURL == nil {
 		return initial, err
 	}
 
-	for len(combined) < 1000 && nextURL != nil {
+	for len(combined) < MaxPaginateRecords && nextURL != nil {
 		resp, reqErr := apiClient.RawRequest(ctx, &client.Request{
 			Method:  http.MethodGet,
 			URL:     nextURL,
@@ -434,8 +431,8 @@ func paginateResponse(ctx context.Context, apiClient apiRequester, initial *clie
 		}
 		combined = append(combined, pageData...)
 		nextURL = pageNext
-		if len(combined) > 1000 {
-			combined = combined[:1000]
+		if len(combined) > MaxPaginateRecords {
+			combined = combined[:MaxPaginateRecords]
 		}
 		initial = resp
 	}

@@ -94,3 +94,4 @@ Import variables from a tfvars file or the process environment into the current 
 | 3    | Authentication Error             | `tfcloud auth login`        |
 | 4    | Network error                    | Check connectivity          |
 | 5    | API Server Error Persists        | Try again later             |
+| 130  | Canceled (ctrl-c).               | &mdash;                     |
