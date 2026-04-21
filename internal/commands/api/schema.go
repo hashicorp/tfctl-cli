@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
+	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/render"
 )
 
 type schemaOperation struct {
@@ -71,37 +71,63 @@ func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
 			Command:  "$ tfcloud api schema search workspace",
 		}},
 		RunF: func(_ *cmd.Command, args []string) error {
-			query := joinSchemaQuery(args)
+			query := strings.Join(args, " ")
 			operations, err := loadSchemaOperationsForSearch(ctx)
 			if err != nil {
 				return err
 			}
 
-			results, err := schemaOperationSearcher.Search(schemaSearchContext(ctx), query, operations, maxSchemaSearchResults)
+			results, err := schemaOperationSearcher.Search(ctx.ShutdownCtx, query, operations, maxSchemaSearchResults)
 			if err != nil {
 				return err
 			}
 			if len(results) == 0 {
-				writeSchemaNoResults(ctx, query)
-				return nil
+				return fmt.Errorf("%s No API operations matched %q", ctx.IO.ColorScheme().FailureIcon(), query)
 			}
 
-			body, err := schemaSearchJSONAPIResponse(results)
-			if err != nil {
-				return err
-			}
+			return ctx.Output.Display(SchemaSearchResultsDisplayer{
+				results: results,
+			})
+		},
+	}
+}
 
-			table, ok, err := render.JSONAPITable(body)
-			if err != nil {
-				return err
-			}
-			if ok {
-				_, _ = ctx.IO.Out().Write([]byte(table))
-				return nil
-			}
+// SchemaSearchResultsDisplayer is the displayer for schema search results.
+type SchemaSearchResultsDisplayer struct {
+	results []schemaSearchResult
+}
 
-			_, _ = ctx.IO.Out().Write(body)
-			return nil
+// Check interface at compile time.
+var _ format.Displayer = SchemaSearchResultsDisplayer{}
+
+// DefaultFormat implements the Displayer interface.
+func (d SchemaSearchResultsDisplayer) DefaultFormat() format.Format {
+	return format.Table
+}
+
+// Payload implements the Displayer interface.
+func (d SchemaSearchResultsDisplayer) Payload() any {
+	return d.results
+}
+
+// FieldTemplates implements the Displayer interface.
+func (d SchemaSearchResultsDisplayer) FieldTemplates() []format.Field {
+	return []format.Field{
+		{
+			Name:        "Operation ID",
+			ValueFormat: "{{ .Operation.OperationID }}",
+		},
+		{
+			Name:        "Method",
+			ValueFormat: "{{ .Operation.Method }}",
+		},
+		{
+			Name:        "Path",
+			ValueFormat: "{{ .Operation.Path }}",
+		},
+		{
+			Name:        "Summary",
+			ValueFormat: "{{ .Operation.Summary }}",
 		},
 	}
 }
@@ -140,24 +166,8 @@ func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("marshal operation schema: %w", err)
 			}
 
-			_, _ = ctx.IO.Out().Write(append(body, '\n'))
+			fmt.Fprintln(ctx.IO.Out(), string(body))
 			return nil
 		},
 	}
-}
-
-func joinSchemaQuery(args []string) string {
-	return strings.Join(args, " ")
-}
-
-func writeSchemaNoResults(ctx *cmd.Context, query string) {
-	cs := ctx.IO.ColorScheme()
-	_, _ = fmt.Fprintf(ctx.IO.Out(), "%s No API operations matched %q.\n", cs.WarningLabel(), query)
-}
-
-func schemaSearchContext(ctx *cmd.Context) context.Context {
-	if ctx != nil && ctx.ShutdownCtx != nil {
-		return ctx.ShutdownCtx
-	}
-	return context.Background()
 }

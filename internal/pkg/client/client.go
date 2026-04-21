@@ -7,6 +7,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,8 +16,6 @@ import (
 
 	tfe "github.com/hashicorp/go-tfe"
 	abs "github.com/microsoft/kiota-abstractions-go"
-
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
 )
 
 // Client wraps the configured HCP Terraform API clients and request helpers.
@@ -24,9 +23,7 @@ type Client struct {
 	// TFE is the underlying go-tfe client.
 	TFE *tfe.Client
 	// HTTP is the shared HTTP client used for raw requests.
-	HTTP *http.Client
-	// Adapter is the Kiota request adapter from the go-tfe client.
-	Adapter abs.RequestAdapter
+	Adapter *tfe.TFERequestAdapter
 	// BaseURL is the resolved API base URL.
 	BaseURL *url.URL
 	// DefaultHeaders are applied to every request.
@@ -57,11 +54,11 @@ type Response struct {
 	Body []byte
 }
 
-// New constructs a configured API client from CLI configuration.
-func New(p *profile.Profile, defaultHeaders http.Header) (*Client, error) {
+// New constructs a configured API client from an API address and token.
+func New(address, token string, defaultHeaders http.Header) (*Client, error) {
 	tfeClient, err := tfe.NewClient(&tfe.Config{
-		Address: fmt.Sprintf("https://%s", p.Hostname),
-		Token:   p.Token,
+		Address: address,
+		Token:   token,
 		Headers: defaultHeaders,
 	})
 	if err != nil {
@@ -77,8 +74,7 @@ func New(p *profile.Profile, defaultHeaders http.Header) (*Client, error) {
 	baseURL := tfeClient.BaseURL()
 	return &Client{
 		TFE:            tfeClient,
-		HTTP:           native.Client,
-		Adapter:        adapter,
+		Adapter:        native,
 		BaseURL:        &baseURL,
 		DefaultHeaders: defaultHeaders,
 	}, nil
@@ -114,8 +110,12 @@ func (c *Client) RawRequest(ctx context.Context, req *Request) (*Response, error
 		return nil, fmt.Errorf("unexpected native request type %T", nativeRequest)
 	}
 
-	httpResp, err := c.HTTP.Do(httpReq)
+	httpResp, err := c.Adapter.Client.Do(httpReq)
 	if err != nil {
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			return nil, urlErr.Err
+		}
 		return nil, err
 	}
 	defer httpResp.Body.Close()
@@ -134,7 +134,7 @@ func (c *Client) RawRequest(ctx context.Context, req *Request) (*Response, error
 }
 
 // ResolveURL resolves an absolute or base-relative API path against base.
-func ResolveURL(base *url.URL, path string) (*url.URL, error) {
+func ResolveURL(base url.URL, path string) (*url.URL, error) {
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		return url.Parse(path)
 	}
@@ -143,10 +143,11 @@ func ResolveURL(base *url.URL, path string) (*url.URL, error) {
 		path = "/" + path
 	}
 
-	resolved := *base
+	resolved := base
 	resolved.Path = strings.TrimRight(base.Path, "/") + path
 	resolved.RawQuery = ""
 	resolved.Fragment = ""
+
 	return &resolved, nil
 }
 

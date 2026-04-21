@@ -40,8 +40,6 @@ type Context struct {
 	flags GlobalFlags
 
 	Profile *profile.Profile
-
-	APIClient *client.Client
 }
 
 // GlobalFlags contains the global flags.
@@ -51,10 +49,12 @@ type GlobalFlags struct {
 
 	// Unexported global flags. These should generally be access via other
 	// helpers exported in the Context.
-	profile string
-	json    bool
-	agent   bool
-	debug   int
+	profile  string
+	json     bool
+	agent    bool
+	markdown bool
+	noColor  bool
+	debug    int
 
 	// Version indicates the user has requested the version of the CLI
 	Version bool
@@ -100,19 +100,33 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 			return profiles
 		}),
 	}, &Flag{
-		Name:        "json",
-		Description: "Sets the output format.",
-		Value:       flagvalue.Simple(false, &ctx.flags.json),
-		global:      true,
+		Name:          "json",
+		Description:   "Sets the output format.",
+		Value:         flagvalue.Simple(false, &ctx.flags.json),
+		IsBooleanFlag: true,
+		global:        true,
 	}, &Flag{
-		Name:        "agent",
-		Description: "Sets the output format.",
-		Value:       flagvalue.Simple(false, &ctx.flags.agent),
-		global:      true,
+		Name:          "agent",
+		Description:   "Sets the output format.",
+		Value:         flagvalue.Simple(false, &ctx.flags.agent),
+		IsBooleanFlag: true,
+		global:        true,
+	}, &Flag{
+		Name:          "markdown",
+		Description:   "Sets the output format to markdown.",
+		Value:         flagvalue.Simple(false, &ctx.flags.markdown),
+		IsBooleanFlag: true,
+		global:        true,
 	}, &Flag{
 		Name:          "quiet",
 		Description:   "Minimizes output and disables interactive prompting.",
 		Value:         flagvalue.Simple(false, &ctx.flags.Quiet),
+		IsBooleanFlag: true,
+		global:        true,
+	}, &Flag{
+		Name:          "no-color",
+		Description:   "Disables color output.",
+		Value:         flagvalue.Simple(false, &ctx.flags.noColor),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
@@ -147,23 +161,8 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 			return err
 		}
 
-		client, err := ctx.newAPIClient()
-		if err != nil && !c.NoAuthRequired {
-			return err
-		}
-		ctx.APIClient = client
 		return nil
 	}
-}
-
-func (ctx *Context) newAPIClient() (*client.Client, error) {
-	apiClient, err := client.New(ctx.Profile, http.Header{
-		"User-Agent": []string{fmt.Sprintf("tfcloud-cli/%s", config.Version)},
-	})
-	if err != nil {
-		return nil, err
-	}
-	return apiClient, nil
 }
 
 // applyGlobalFlags applies the global flags.
@@ -207,21 +206,27 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 	}
 
 	// Set the output format if the flag is set.
-	// f := ctx.flags.format
-	// if f == "" {
-	// 	f = ctx.Profile.Core.GetOutputFormat()
-	// }
-	// if f != "" {
-	// 	format, err := format.FromString(f)
-	// 	if err != nil {
-	// 		return err
-	// 	}
+	f := format.Unset
+	if ctx.flags.json {
+		f = format.JSON
+	}
+	if ctx.flags.agent {
+		f = format.Agent
+	}
+	if ctx.flags.markdown {
+		if f == format.Unset {
+			f = format.Markdown
+		} else {
+			return fmt.Errorf("cannot set multiple output formats")
+		}
+	}
 
-	// 	ctx.Output.SetFormat(format)
-	// }
+	if f != format.Unset {
+		ctx.Output.SetFormat(f)
+	}
 
 	// Disable color if set
-	if ctx.Profile != nil && ctx.Profile.NoColor != nil && *ctx.Profile.NoColor {
+	if ctx.flags.noColor || (ctx.Profile != nil && ctx.Profile.NoColor != nil && *ctx.Profile.NoColor) {
 		ctx.IO.ForceNoColor()
 	}
 
@@ -231,6 +236,17 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 	}
 
 	return nil
+}
+
+// NewAPIClient returns a new API Client configured using the context Profile.
+func (ctx *Context) NewAPIClient() (*client.Client, error) {
+	apiClient, err := client.New(fmt.Sprintf("https://%s", ctx.Profile.Hostname), ctx.Profile.Token, http.Header{
+		"User-Agent": []string{fmt.Sprintf("tfcloud-cli/%s", config.Version)},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return apiClient, nil
 }
 
 // ParseFlags can be used to parse the flags for a given command before it is

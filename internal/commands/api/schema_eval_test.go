@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -86,20 +85,6 @@ func TestHybridSchemaSearcherLimitsAndShapesResults(t *testing.T) {
 	}
 	if len(results) != maxSchemaSearchResults {
 		t.Fatalf("got %d results, want %d", len(results), maxSchemaSearchResults)
-	}
-
-	body, err := schemaSearchJSONAPIResponse(results)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal(body, &payload); err != nil {
-		t.Fatal(err)
-	}
-	data, ok := payload["data"].([]any)
-	if !ok || len(data) != maxSchemaSearchResults {
-		t.Fatalf("unexpected payload shape: %#v", payload)
 	}
 }
 

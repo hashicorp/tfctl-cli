@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -55,8 +56,19 @@ func (c *Command) errorToExitCode(args []string, err error) int {
 			fmt.Fprintf(io.Err(), "%s Server error: %s\n", cs.ErrorLabel(), apiErr)
 			return 5
 		}
+		fmt.Fprint(io.Err(), heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
+%s Request error: %s.
+
+{{ Bold "Error Details" }}
+  - %s
+
+`, cs.ErrorLabel(), apiErr.Message, strings.Join(apiErr.Details, "\n  - ")))
+		return 1
 	} else if errors.As(err, &exitCodeErr) {
 		exitCode = exitCodeErr.Code
+	} else if errors.Is(err, context.Canceled) {
+		fmt.Fprintf(io.Err(), "%s Operation canceled", cs.FailureIcon())
+		return 130
 	}
 
 	fmt.Fprintf(io.Err(), "%s %s\n", cs.ErrorLabel(), wordWrap(err.Error(), 120))
@@ -67,7 +79,7 @@ func (c *Command) errorToExitCode(args []string, err error) int {
 func (c *Command) Run(args []string) int {
 	// Get the colorscheme
 	io := c.getIO()
-	cs := c.getIO().ColorScheme()
+	cs := io.ColorScheme()
 
 	if c.RunF == nil {
 		if len(c.children) != 0 {
@@ -123,7 +135,7 @@ func (c *Command) Run(args []string) int {
 	slices.Reverse(prerunFuncs)
 	for _, f := range prerunFuncs {
 		if err := f(c, parsedArgs); err != nil {
-			fmt.Fprintln(io.Err(), err)
+			fmt.Fprintf(io.Err(), "%s %s\n", cs.ErrorLabel(), err)
 			return 1
 		}
 	}

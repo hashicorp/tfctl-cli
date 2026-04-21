@@ -12,6 +12,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
+	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 	"github.com/hashicorp/tfcloud/internal/pkg/profile"
@@ -19,12 +20,6 @@ import (
 
 // NewCmdSet returns the `tfcloud profile set` command for setting a tfcloud CLI property.
 func NewCmdSet(ctx *cmd.Context) *cmd.Command {
-	opts := &SetOpts{
-		Ctx:     ctx.ShutdownCtx,
-		IO:      ctx.IO,
-		Profile: ctx.Profile,
-	}
-
 	cmd := &cmd.Command{
 		Name:      "set",
 		ShortHelp: "Set a tfcloud CLI Property.",
@@ -44,7 +39,7 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 		and {{ template "mdCodeOrBold" "tfcloud profile profiles activate" }} to switch between them.
 		`),
 		Args: cmd.PositionalArguments{
-			Autocomplete: opts.Profile,
+			Autocomplete: ctx.Profile,
 			Args: []cmd.PositionalArgument{
 				{
 					Name: "PROPERTY",
@@ -67,6 +62,13 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, args []string) error {
+			opts := &SetOpts{
+				Ctx:     ctx.ShutdownCtx,
+				IO:      ctx.IO,
+				Profile: ctx.Profile,
+				Output:  ctx.Output,
+			}
+
 			opts.Property = args[0]
 			opts.Value = args[1]
 			return setRun(opts)
@@ -81,6 +83,7 @@ type SetOpts struct {
 	Ctx     context.Context
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
+	Output  *format.Outputter
 
 	// Arguments
 	Property string

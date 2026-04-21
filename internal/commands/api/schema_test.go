@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
+	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 )
 
@@ -63,18 +64,6 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 	output := io.Output.String()
 	r.Contains(output, "getRun")
 	r.Contains(output, "/runs/{run_id}")
-	r.Empty(io.Error.String())
-}
-
-func TestWriteSchemaNoResults(t *testing.T) {
-	t.Parallel()
-	r := require.New(t)
-
-	io := iostreams.Test()
-	writeSchemaNoResults(testCommandContext(io), "zzzznotrealresource")
-
-	output := io.Output.String()
-	r.Contains(output, `No API operations matched "zzzznotrealresource"`)
 	r.Empty(io.Error.String())
 }
 
@@ -208,6 +197,7 @@ func TestLoadSchemaSpecBytesFallsBackToEmbedded(t *testing.T) {
 func testCommandContext(io *iostreams.Testing) *cmd.Context {
 	return &cmd.Context{
 		IO:          io,
+		Output:      format.New(io),
 		ShutdownCtx: context.Background(),
 	}
 }
