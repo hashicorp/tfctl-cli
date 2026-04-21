@@ -21,6 +21,7 @@ import (
 // ImportOpts stores the options parsed from flags for the variable import command.
 type ImportOpts struct {
 	IO                 iostreams.IOStreams
+	ShutdownCtx        context.Context
 	TFVarsFileToImport string
 	Client             *client.Client
 	Env                []string
@@ -44,7 +45,8 @@ func (e existingVariables) Get(category, key string) (existingVariable, bool) {
 // NewCmdVariableImport creates the `tfcloud variable import` command.
 func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 	opts := &ImportOpts{
-		IO: ctx.IO,
+		IO:          ctx.IO,
+		ShutdownCtx: ctx.ShutdownCtx,
 	}
 
 	cmd := &cmd.Command{
@@ -145,14 +147,14 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 
 			opts.Client = apiClient
 
-			return runVariableImport(ctx.ShutdownCtx, opts)
+			return runVariableImport(opts)
 		},
 	}
 
 	return cmd
 }
 
-func runVariableImport(ctx context.Context, opts *ImportOpts) error {
+func runVariableImport(opts *ImportOpts) error {
 	var imported []terraformcfg.ImportedVariable
 	if opts.TFVarsFileToImport != "" {
 		vars, err := terraformcfg.ParseTFVarsFile(opts.TFVarsFileToImport)
@@ -180,12 +182,12 @@ func runVariableImport(ctx context.Context, opts *ImportOpts) error {
 		return cmd.ErrDisplayUsage
 	}
 
-	target, err := resolveTarget(ctx, opts)
+	target, err := resolveTarget(opts.ShutdownCtx, opts)
 	if err != nil {
 		return err
 	}
 
-	existing, err := target.listExistingVariables(ctx)
+	existing, err := target.listExistingVariables(opts.ShutdownCtx)
 	if err != nil {
 		return err
 	}
@@ -205,13 +207,13 @@ func runVariableImport(ctx context.Context, opts *ImportOpts) error {
 	updated := 0
 	for _, variable := range imported {
 		if current, ok := existing.Get(variable.Category, variable.Key); ok {
-			if err := target.updateVariable(ctx, current.ID, variable); err != nil {
+			if err := target.updateVariable(opts.ShutdownCtx, current.ID, variable); err != nil {
 				return err
 			}
 			updated++
 			continue
 		}
-		if err := target.createVariable(ctx, variable); err != nil {
+		if err := target.createVariable(opts.ShutdownCtx, variable); err != nil {
 			return err
 		}
 		created++

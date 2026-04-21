@@ -42,7 +42,7 @@ func TestRunVariable_ImportWorkspaceFromTFVarsFile(t *testing.T) {
 	io := iostreams.Test()
 	tfvars := writeTestTFVarsFile(t, "example = \"value\"\ncount = 3\n")
 
-	err := runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err := runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.Workspace = "test-workspace"
 		opts.TFVarsFileToImport = tfvars
@@ -110,7 +110,7 @@ func TestRunVariable_ImportVariableSetFromEnv(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err := runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.VariableSetName = "my-set"
 		opts.Env = []string{"AWS_ACCESS_KEY_ID"}
@@ -138,7 +138,7 @@ func TestRunVariable_ImportReturnsUsageWhenNothingToImport(t *testing.T) {
 	t.Parallel()
 
 	io := iostreams.Test()
-	err := runVariableImport(context.Background(), &ImportOpts{IO: io})
+	err := runVariableImport(&ImportOpts{IO: io})
 	require.ErrorIs(t, err, cmd.ErrDisplayUsage)
 	require.Empty(t, io.Error.String())
 }
@@ -147,7 +147,7 @@ func TestRunVariable_ImportErrorsWhenEnvVarMissing(t *testing.T) {
 	t.Parallel()
 
 	io := iostreams.Test()
-	err := runVariableImport(context.Background(), &ImportOpts{
+	err := runVariableImport(&ImportOpts{
 		IO:  io,
 		Env: []string{"MISSING_ENV"},
 	})
@@ -182,7 +182,7 @@ func TestRunVariable_ImportErrorsOnDuplicateWithoutOverwrite(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err := runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.Workspace = "test-workspace"
 		opts.Env = []string{"DUPLICATE_ENV"}
@@ -230,7 +230,7 @@ func TestRunVariable_ImportOverwriteUpdatesExistingVariables(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err := runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.VariableSetName = "my-set"
 		opts.Env = []string{"AWS_SECRET_ACCESS_KEY"}
@@ -325,8 +325,9 @@ func newImportTestOpts(t *testing.T, address string, io *iostreams.Testing, muta
 	require.NoError(t, err)
 
 	opts := &ImportOpts{
-		IO:     io,
-		Client: apiClient,
+		IO:          io,
+		ShutdownCtx: context.Background(),
+		Client:      apiClient,
 	}
 	if mutate != nil {
 		mutate(opts)
@@ -403,7 +404,7 @@ func TestRunVariable_ImportParsesJSONTFVarsFile(t *testing.T) {
 	require.NoError(t, err)
 
 	io := iostreams.Test()
-	err = runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err = runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.Workspace = "test-workspace"
 		opts.TFVarsFileToImport = path
