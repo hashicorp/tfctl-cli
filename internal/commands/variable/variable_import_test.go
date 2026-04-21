@@ -13,10 +13,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hashicorp/tfcloud/internal/pkg/client"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRunVariable_ImportWorkspaceFromTFVarsFile(t *testing.T) {
