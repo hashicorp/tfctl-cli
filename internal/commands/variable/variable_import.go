@@ -20,12 +20,14 @@ import (
 
 // ImportOpts stores the options parsed from flags for the variable import command.
 type ImportOpts struct {
-	IO              iostreams.IOStreams
-	Env             []string
-	VariableSetName string
-	Organization    string
-	Workspace       string
-	Overwrite       bool
+	IO                 iostreams.IOStreams
+	TFVarsFileToImport string
+	Client             *client.Client
+	Env                []string
+	VariableSetName    string
+	Organization       string
+	Workspace          string
+	Overwrite          bool
 }
 
 type existingVariables map[string]existingVariable
@@ -105,34 +107,12 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
-			var imported []terraformcfg.ImportedVariable
 			if len(args) > 1 {
 				return cmd.ErrDisplayUsage
 			}
 
 			if len(args) == 1 {
-				vars, err := terraformcfg.ParseTFVarsFile(args[0])
-				if err != nil {
-					return fmt.Errorf("failed parsing tfvars file: %w", err)
-				}
-				imported = append(imported, vars...)
-			}
-
-			for _, name := range opts.Env {
-				value, ok := os.LookupEnv(name)
-				if !ok {
-					return fmt.Errorf("environment variable %q is not set", name)
-				}
-				imported = append(imported, terraformcfg.ImportedVariable{
-					Key:       name,
-					Value:     value,
-					Category:  "env",
-					HCL:       false,
-					Sensitive: true,
-				})
-			}
-			if len(imported) == 0 {
-				return cmd.ErrDisplayUsage
+				opts.TFVarsFileToImport = args[0]
 			}
 
 			if opts.Organization == "" {
@@ -163,65 +143,98 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
-			target, err := resolveTarget(ctx.ShutdownCtx, apiClient, opts)
-			if err != nil {
-				return err
-			}
+			opts.Client = apiClient
 
-			existing, err := target.listExistingVariables(ctx.ShutdownCtx)
-			if err != nil {
-				return err
-			}
-
-			duplicates := make([]string, 0)
-			for _, variable := range imported {
-				if _, ok := existing.Get(variable.Category, variable.Key); ok && !opts.Overwrite {
-					duplicates = append(duplicates, fmt.Sprintf("%s (%s)", variable.Key, variable.Category))
-				}
-			}
-
-			if len(duplicates) > 0 {
-				return fmt.Errorf("variables already exist; rerun with --overwrite to update: %s", strings.Join(duplicates, ", "))
-			}
-
-			created := 0
-			updated := 0
-			for _, variable := range imported {
-				if current, ok := existing.Get(variable.Category, variable.Key); ok {
-					if err := target.updateVariable(ctx.ShutdownCtx, current.ID, variable); err != nil {
-						return err
-					}
-					updated++
-					continue
-				}
-				if err := target.createVariable(ctx.ShutdownCtx, variable); err != nil {
-					return err
-				}
-				created++
-			}
-
-			fmt.Fprintf(ctx.IO.Err(), "%s imported %d variables into %s (%d created, %d updated)", opts.IO.ColorScheme().SuccessIcon(), len(imported), target.String(), created, updated)
-			return nil
+			return runVariableImport(ctx.ShutdownCtx, opts)
 		},
 	}
 
 	return cmd
 }
 
-func resolveTarget(ctx context.Context, apiClient *client.Client, opts *ImportOpts) (*variableTarget, error) {
-	resolver := client.NewResolver(apiClient, opts.VariableSetName != "", false)
+func runVariableImport(ctx context.Context, opts *ImportOpts) error {
+	var imported []terraformcfg.ImportedVariable
+	if opts.TFVarsFileToImport != "" {
+		vars, err := terraformcfg.ParseTFVarsFile(opts.TFVarsFileToImport)
+		if err != nil {
+			return fmt.Errorf("failed parsing tfvars file: %w", err)
+		}
+		imported = append(imported, vars...)
+	}
+
+	for _, name := range opts.Env {
+		value, ok := os.LookupEnv(name)
+		if !ok {
+			return fmt.Errorf("environment variable %q is not set", name)
+		}
+		imported = append(imported, terraformcfg.ImportedVariable{
+			Key:       name,
+			Value:     value,
+			Category:  "env",
+			HCL:       false,
+			Sensitive: true,
+		})
+	}
+
+	if len(imported) == 0 {
+		return cmd.ErrDisplayUsage
+	}
+
+	target, err := resolveTarget(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	existing, err := target.listExistingVariables(ctx)
+	if err != nil {
+		return err
+	}
+
+	duplicates := make([]string, 0)
+	for _, variable := range imported {
+		if _, ok := existing.Get(variable.Category, variable.Key); ok && !opts.Overwrite {
+			duplicates = append(duplicates, fmt.Sprintf("%s (%s)", variable.Key, variable.Category))
+		}
+	}
+
+	if len(duplicates) > 0 {
+		return fmt.Errorf("variables already exist; rerun with --overwrite to update: %s", strings.Join(duplicates, ", "))
+	}
+
+	created := 0
+	updated := 0
+	for _, variable := range imported {
+		if current, ok := existing.Get(variable.Category, variable.Key); ok {
+			if err := target.updateVariable(ctx, current.ID, variable); err != nil {
+				return err
+			}
+			updated++
+			continue
+		}
+		if err := target.createVariable(ctx, variable); err != nil {
+			return err
+		}
+		created++
+	}
+
+	fmt.Fprintf(opts.IO.Err(), "%s imported %d variables into %s (%d created, %d updated)", opts.IO.ColorScheme().SuccessIcon(), len(imported), target.String(), created, updated)
+	return nil
+}
+
+func resolveTarget(ctx context.Context, opts *ImportOpts) (*variableTarget, error) {
+	resolver := client.NewResolver(opts.Client, opts.VariableSetName != "", false)
 
 	if opts.VariableSetName != "" {
 		result, err := resolver.VariableSet(ctx, opts.Organization, opts.VariableSetName)
 		if err != nil {
 			return nil, err
 		}
-		return newVariableSetVariableTarget(apiClient, *result, opts.VariableSetName), nil
+		return newVariableSetVariableTarget(opts.Client, *result, opts.VariableSetName), nil
 	}
 
-	workspace, err := apiClient.TFE.API.Organizations().ByOrganization_name(opts.Organization).Workspaces().ByWorkspace_name(opts.Workspace).Get(ctx, nil)
+	workspace, err := opts.Client.TFE.API.Organizations().ByOrganization_name(opts.Organization).Workspaces().ByWorkspace_name(opts.Workspace).Get(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return newWorkspaceVariableTarget(apiClient, *workspace.GetData().GetId(), opts.Workspace), nil
+	return newWorkspaceVariableTarget(opts.Client, *workspace.GetData().GetId(), opts.Workspace), nil
 }

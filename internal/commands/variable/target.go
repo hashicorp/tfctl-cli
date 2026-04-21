@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-tfe/api"
+
 	"github.com/hashicorp/tfcloud/internal/pkg/client"
 	terraformcfg "github.com/hashicorp/tfcloud/internal/pkg/terraform"
 )
