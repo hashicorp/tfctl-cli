@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	example "github.com/hashicorp/go-tfe/api/account"
+	models "github.com/hashicorp/go-tfe/api/models"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
@@ -166,7 +166,7 @@ func TestWithSlice(t *testing.T) {
     }
   }
 }`
-	thing := example.DetailsGetResponse{}
+	thing := models.UsersEnvelope{}
 	err := json.Unmarshal([]byte(j), &thing)
 	r.NoError(err)
 	io := iostreams.Test()

@@ -90,9 +90,9 @@ func (t *variableTarget) createVariable(ctx context.Context, variable terraformc
 	var err error
 	switch t.Kind {
 	case kindVariableSet:
-		_, err = t.apiClient.Varsets().ByVarset_id(t.ID).Relationships().Vars().Post(ctx, client.NewVarsetsVarsPostBody(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
+		_, err = t.apiClient.Varsets().ByVarset_id(t.ID).Relationships().Vars().Post(ctx, client.NewVarRequest(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
 	case kindWorkspace:
-		_, err = t.apiClient.Workspaces().ByWorkspace_id(t.ID).Vars().Post(ctx, client.NewWorkspacesVarsPostBody(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
+		_, err = t.apiClient.Workspaces().ByWorkspace_id(t.ID).Vars().Post(ctx, client.NewVarRequest(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
 	default:
 		return fmt.Errorf("unknown variable target kind %s, this is a bug in tfcloud", t.Kind)
 	}
@@ -104,9 +104,9 @@ func (t *variableTarget) updateVariable(ctx context.Context, variableID string, 
 	var err error
 	switch t.Kind {
 	case kindVariableSet:
-		_, err = t.apiClient.Varsets().ByVarset_id(t.ID).Relationships().Vars().ById(variableID).Patch(ctx, client.NewVarsetsVarsPatchBody(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
+		_, err = t.apiClient.Varsets().ByVarset_id(t.ID).Relationships().Vars().ById(variableID).Patch(ctx, client.NewVarRequest(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
 	case kindWorkspace:
-		_, err = t.apiClient.Workspaces().ByWorkspace_id(t.ID).Vars().ById(variableID).Patch(ctx, client.NewWorkspacesVarsPatchBody(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
+		_, err = t.apiClient.Workspaces().ByWorkspace_id(t.ID).Vars().ById(variableID).Patch(ctx, client.NewVarRequest(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
 	default:
 		return fmt.Errorf("unknown variable target kind %s, this is a bug in tfcloud", t.Kind)
 	}
