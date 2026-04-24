@@ -4,9 +4,8 @@ import (
 	"github.com/hashicorp/go-tfe/api/models"
 )
 
-// NewVarRequest creates a new varsets.ItemRelationshipsVarsPostRequestBody
-// from parameters.
-func NewVarRequest(key, value, category string, sensitive bool) models.VarsEnvelopeable {
+// NewVar creates a new models.VarsEnvelope for creating a variable from parameters.
+func NewVar(key, value, category string, sensitive bool) *models.VarsEnvelope {
 	hcl := false
 	attrib := &models.Vars_attributes{}
 	attrib.SetKey(&key)
@@ -18,7 +17,7 @@ func NewVarRequest(key, value, category string, sensitive bool) models.VarsEnvel
 	data := &models.Vars{}
 	data.SetAttributes(attrib)
 
-	body := models.NewVarsEnvelope()
+	body := &models.VarsEnvelope{}
 	body.SetData(data)
 
 	return body
@@ -33,14 +32,14 @@ func mustParseCategory(category string) *models.Vars_attributes_category {
 	return result
 }
 
-// NewOrganizationsVarsetsPostBody creates a new organizations.ItemVarsetsPostRequestBody
-// from parameters.
-func NewOrganizationsVarsetsPostBody(variableSetName string) *models.VarsetsEnvelope {
+// NewVarset creates a new models.VarsetsEnvelope for creating a variable set from parameters.
+func NewVarset(variableSetName string) *models.VarsetsEnvelope {
 	attrib := &models.Varsets_attributes{}
 	attrib.SetName(&variableSetName)
 
 	data := &models.Varsets{}
 	data.SetAttributes(attrib)
+
 	body := &models.VarsetsEnvelope{}
 	body.SetData(data)
 

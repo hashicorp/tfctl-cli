@@ -47,7 +47,7 @@ func (r Resolver) VariableSet(ctx context.Context, organization, name string) (*
 
 	if r.createIfNotFound {
 		// Create the Variable Set
-		created, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Varsets().Post(ctx, NewOrganizationsVarsetsPostBody(name), nil)
+		created, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Varsets().Post(ctx, NewVarset(name), nil)
 		if err != nil {
 			return nil, fmt.Errorf("variable set named %q could not be created: %w", name, err)
 		}
