@@ -5,11 +5,8 @@ package variable
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
 
@@ -23,18 +20,33 @@ import (
 
 // ImportOpts stores the options parsed from flags for the variable import command.
 type ImportOpts struct {
-	IO              iostreams.IOStreams
-	Env             []string
-	VariableSetName string
-	Organization    string
-	Workspace       string
-	Overwrite       bool
+	IO                 iostreams.IOStreams
+	ShutdownCtx        context.Context
+	TFVarsFileToImport string
+	Client             *client.Client
+	Env                []string
+	VariableSetName    string
+	Organization       string
+	Workspace          string
+	Overwrite          bool
+}
+
+type existingVariables map[string]existingVariable
+
+func (e existingVariables) Add(v existingVariable) {
+	e[v.Category+"\x00"+v.Key] = v
+}
+
+func (e existingVariables) Get(category, key string) (existingVariable, bool) {
+	result, ok := e[category+"\x00"+key]
+	return result, ok
 }
 
 // NewCmdVariableImport creates the `tfcloud variable import` command.
 func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 	opts := &ImportOpts{
-		IO: ctx.IO,
+		IO:          ctx.IO,
+		ShutdownCtx: ctx.ShutdownCtx,
 	}
 
 	cmd := &cmd.Command{
@@ -97,34 +109,12 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
-			var imported []terraformcfg.ImportedVariable
 			if len(args) > 1 {
 				return cmd.ErrDisplayUsage
 			}
 
 			if len(args) == 1 {
-				vars, err := terraformcfg.ParseTFVarsFile(args[0])
-				if err != nil {
-					return fmt.Errorf("failed parsing tfvars file: %w", err)
-				}
-				imported = append(imported, vars...)
-			}
-
-			for _, name := range opts.Env {
-				value, ok := os.LookupEnv(name)
-				if !ok {
-					return fmt.Errorf("environment variable %q is not set", name)
-				}
-				imported = append(imported, terraformcfg.ImportedVariable{
-					Key:       name,
-					Value:     value,
-					Category:  "env",
-					HCL:       false,
-					Sensitive: true,
-				})
-			}
-			if len(imported) == 0 {
-				return cmd.ErrDisplayUsage
+				opts.TFVarsFileToImport = args[0]
 			}
 
 			if opts.Organization == "" {
@@ -155,278 +145,98 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
-			target, err := resolveTarget(ctx.ShutdownCtx, apiClient, opts)
-			if err != nil {
-				return err
-			}
+			opts.Client = apiClient
 
-			existing, err := listExistingVariables(ctx.ShutdownCtx, apiClient, target)
-			if err != nil {
-				return err
-			}
-
-			duplicates := make([]string, 0)
-			for _, variable := range imported {
-				key := existingKey(variable.Key, variable.Category)
-				if _, ok := existing[key]; ok && !opts.Overwrite {
-					duplicates = append(duplicates, fmt.Sprintf("%s (%s)", variable.Key, variable.Category))
-				}
-			}
-			if len(duplicates) > 0 {
-				return fmt.Errorf("variables already exist; rerun with --overwrite to update: %s", strings.Join(duplicates, ", "))
-			}
-
-			created := 0
-			updated := 0
-			for _, variable := range imported {
-				key := existingKey(variable.Key, variable.Category)
-				if current, ok := existing[key]; ok {
-					if err := updateVariable(ctx.ShutdownCtx, apiClient, target, current.ID, variable); err != nil {
-						return err
-					}
-					updated++
-					continue
-				}
-				if err := createVariable(ctx.ShutdownCtx, apiClient, target, variable); err != nil {
-					return err
-				}
-				created++
-			}
-
-			fmt.Fprintf(ctx.IO.Err(), "%s imported %d variables into %s (%d created, %d updated)", opts.IO.ColorScheme().SuccessIcon(), len(imported), target.DisplayName, created, updated)
-			return nil
+			return runVariableImport(opts)
 		},
 	}
 
 	return cmd
 }
 
-type variableTarget struct {
-	Kind        string
-	ID          string
-	DisplayName string
-	Path        string
-	ItemPath    string
+func runVariableImport(opts *ImportOpts) error {
+	var imported []terraformcfg.ImportedVariable
+	if opts.TFVarsFileToImport != "" {
+		vars, err := terraformcfg.ParseTFVarsFile(opts.TFVarsFileToImport)
+		if err != nil {
+			return fmt.Errorf("failed parsing tfvars file: %w", err)
+		}
+		imported = append(imported, vars...)
+	}
+
+	for _, name := range opts.Env {
+		value, ok := os.LookupEnv(name)
+		if !ok {
+			return fmt.Errorf("environment variable %q is not set", name)
+		}
+		imported = append(imported, terraformcfg.ImportedVariable{
+			Key:       name,
+			Value:     value,
+			Category:  "env",
+			HCL:       false,
+			Sensitive: true,
+		})
+	}
+
+	if len(imported) == 0 {
+		return cmd.ErrDisplayUsage
+	}
+
+	target, err := resolveTarget(opts.ShutdownCtx, opts)
+	if err != nil {
+		return err
+	}
+
+	existing, err := target.listExistingVariables(opts.ShutdownCtx)
+	if err != nil {
+		return err
+	}
+
+	duplicates := make([]string, 0)
+	for _, variable := range imported {
+		if _, ok := existing.Get(variable.Category, variable.Key); ok && !opts.Overwrite {
+			duplicates = append(duplicates, fmt.Sprintf("%s (%s)", variable.Key, variable.Category))
+		}
+	}
+
+	if len(duplicates) > 0 {
+		return fmt.Errorf("variables already exist; rerun with --overwrite to update: %s", strings.Join(duplicates, ", "))
+	}
+
+	created := 0
+	updated := 0
+	for _, variable := range imported {
+		if current, ok := existing.Get(variable.Category, variable.Key); ok {
+			if err := target.updateVariable(opts.ShutdownCtx, current.ID, variable); err != nil {
+				return err
+			}
+			updated++
+			continue
+		}
+		if err := target.createVariable(opts.ShutdownCtx, variable); err != nil {
+			return err
+		}
+		created++
+	}
+
+	fmt.Fprintf(opts.IO.Err(), "%s imported %d variables into %s (%d created, %d updated)", opts.IO.ColorScheme().SuccessIcon(), len(imported), target.String(), created, updated)
+	return nil
 }
 
-type existingVariable struct {
-	ID       string
-	Key      string
-	Category string
-}
+func resolveTarget(ctx context.Context, opts *ImportOpts) (*variableTarget, error) {
+	resolver := client.NewResolver(opts.Client, opts.VariableSetName != "", false)
 
-func resolveTarget(ctx context.Context, apiClient *client.Client, opts *ImportOpts) (*variableTarget, error) {
 	if opts.VariableSetName != "" {
-		id, err := resolveVariableSet(ctx, apiClient, opts)
+		result, err := resolver.VariableSet(ctx, opts.Organization, opts.VariableSetName)
 		if err != nil {
 			return nil, err
 		}
-		return &variableTarget{
-			Kind:        "variable set",
-			ID:          id,
-			DisplayName: fmt.Sprintf("variable set %q", opts.VariableSetName),
-			Path:        fmt.Sprintf("/varsets/%s/relationships/vars", url.PathEscape(id)),
-			ItemPath:    fmt.Sprintf("/varsets/%s/relationships/vars/%%s", url.PathEscape(id)),
-		}, nil
+		return newVariableSetVariableTarget(opts.Client, *result, opts.VariableSetName), nil
 	}
 
-	workspaceID, err := resolveWorkspace(ctx, apiClient, opts)
+	workspace, err := opts.Client.TFE.API.Organizations().ByOrganization_name(opts.Organization).Workspaces().ByWorkspace_name(opts.Workspace).Get(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &variableTarget{
-		Kind:        "workspace",
-		ID:          workspaceID,
-		DisplayName: fmt.Sprintf("workspace %q", opts.Workspace),
-		Path:        fmt.Sprintf("/workspaces/%s/vars", url.PathEscape(workspaceID)),
-		ItemPath:    fmt.Sprintf("/workspaces/%s/vars/%%s", url.PathEscape(workspaceID)),
-	}, nil
-}
-
-func resolveWorkspace(ctx context.Context, apiClient *client.Client, opts *ImportOpts) (string, error) {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, fmt.Sprintf("/organizations/%s/workspaces/%s", url.PathEscape(opts.Organization), url.PathEscape(opts.Workspace)))
-	if err != nil {
-		return "", err
-	}
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodGet, URL: endpoint, Headers: jsonAPIHeaders()})
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-	var payload struct {
-		Data struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(resp.Body, &payload); err != nil {
-		return "", err
-	}
-	if payload.Data.ID == "" {
-		return "", fmt.Errorf("workspace %q returned no id", opts.Workspace)
-	}
-	return payload.Data.ID, nil
-}
-
-func resolveVariableSet(ctx context.Context, apiClient *client.Client, opts *ImportOpts) (string, error) {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, fmt.Sprintf("/organizations/%s/varsets", url.PathEscape(opts.Organization)))
-	if err != nil {
-		return "", err
-	}
-	query := endpoint.Query()
-	query.Set("q", opts.VariableSetName)
-	endpoint.RawQuery = query.Encode()
-
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodGet, URL: endpoint, Headers: jsonAPIHeaders()})
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-
-	var payload struct {
-		Data []struct {
-			ID         string `json:"id"`
-			Attributes struct {
-				Name string `json:"name"`
-			} `json:"attributes"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(resp.Body, &payload); err != nil {
-		return "", err
-	}
-	for _, item := range payload.Data {
-		if item.Attributes.Name == opts.VariableSetName {
-			return item.ID, nil
-		}
-	}
-
-	body := map[string]any{
-		"data": map[string]any{
-			"type": "varsets",
-			"attributes": map[string]any{
-				"name": opts.VariableSetName,
-			},
-		},
-	}
-	encoded, err := json.Marshal(body)
-	if err != nil {
-		return "", err
-	}
-	createResp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodPost, URL: endpoint, Headers: jsonAPIHeaders(), Body: encoded})
-	if err != nil {
-		return "", err
-	}
-	if createResp.StatusCode < 200 || createResp.StatusCode >= 300 {
-		return "", fmt.Errorf("%s: %s", createResp.Status, client.SummarizeAPIErrors(createResp.Body))
-	}
-	var created struct {
-		Data struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(createResp.Body, &created); err != nil {
-		return "", err
-	}
-	if created.Data.ID == "" {
-		return "", fmt.Errorf("created variable set %q returned no id", opts.VariableSetName)
-	}
-	return created.Data.ID, nil
-}
-
-func listExistingVariables(ctx context.Context, apiClient *client.Client, target *variableTarget) (map[string]existingVariable, error) {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, target.Path)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodGet, URL: endpoint, Headers: jsonAPIHeaders()})
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-	var payload struct {
-		Data []struct {
-			ID         string `json:"id"`
-			Attributes struct {
-				Key      string `json:"key"`
-				Category string `json:"category"`
-			} `json:"attributes"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(resp.Body, &payload); err != nil {
-		return nil, err
-	}
-	existing := make(map[string]existingVariable, len(payload.Data))
-	for _, item := range payload.Data {
-		existing[existingKey(item.Attributes.Key, item.Attributes.Category)] = existingVariable{ID: item.ID, Key: item.Attributes.Key, Category: item.Attributes.Category}
-	}
-	return existing, nil
-}
-
-func createVariable(ctx context.Context, apiClient *client.Client, target *variableTarget, variable terraformcfg.ImportedVariable) error {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, target.Path)
-	if err != nil {
-		return err
-	}
-	body, err := json.Marshal(variablePayload(variable))
-	if err != nil {
-		return err
-	}
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodPost, URL: endpoint, Headers: jsonAPIHeaders(), Body: body})
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-	return nil
-}
-
-func updateVariable(ctx context.Context, apiClient *client.Client, target *variableTarget, variableID string, variable terraformcfg.ImportedVariable) error {
-	endpoint, err := client.ResolveURL(*apiClient.BaseURL, fmt.Sprintf(target.ItemPath, url.PathEscape(variableID)))
-	if err != nil {
-		return err
-	}
-	body, err := json.Marshal(variablePayload(variable))
-	if err != nil {
-		return err
-	}
-	resp, err := apiClient.RawRequest(ctx, &client.Request{Method: http.MethodPatch, URL: endpoint, Headers: jsonAPIHeaders(), Body: body})
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("%s: %s", resp.Status, client.SummarizeAPIErrors(resp.Body))
-	}
-	return nil
-}
-
-func variablePayload(variable terraformcfg.ImportedVariable) map[string]any {
-	return map[string]any{
-		"data": map[string]any{
-			"type": "vars",
-			"attributes": map[string]any{
-				"key":       variable.Key,
-				"value":     variable.Value,
-				"category":  variable.Category,
-				"hcl":       variable.HCL,
-				"sensitive": variable.Sensitive,
-			},
-		},
-	}
-}
-
-func existingKey(key, category string) string {
-	return category + "\x00" + key
-}
-
-func jsonAPIHeaders() http.Header {
-	return http.Header{
-		"Accept":       []string{"application/vnd.api+json"},
-		"Content-Type": []string{"application/vnd.api+json"},
-	}
+	return newWorkspaceVariableTarget(opts.Client, *workspace.GetData().GetId(), opts.Workspace), nil
 }

@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/cli v1.1.7
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-tfe v1.78.1-0.20260420185033-6d0ba63f80ef
+	github.com/hashicorp/go-tfe v1.78.1-0.20260423211818-e37f9ff614bd
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/lithammer/dedent v1.1.0
