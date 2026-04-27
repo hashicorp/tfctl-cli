@@ -54,6 +54,7 @@ type GlobalFlags struct {
 	agent    bool
 	markdown bool
 	noColor  bool
+	jq       string
 	debug    int
 
 	// Version indicates the user has requested the version of the CLI
@@ -99,6 +100,12 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 
 			return profiles
 		}),
+	}, &Flag{
+		Name:         "jq",
+		DisplayValue: "EXPRESSION",
+		Description:  "A jq filter expression to apply to JSON output. Implies --json.",
+		Value:        flagvalue.Simple("", &ctx.flags.jq),
+		global:       true,
 	}, &Flag{
 		Name:          "json",
 		Description:   "Sets the output format.",
@@ -207,7 +214,7 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 
 	// Set the output format if the flag is set.
 	f := format.Unset
-	if ctx.flags.json {
+	if ctx.flags.json || ctx.flags.jq != "" {
 		f = format.JSON
 	}
 	if ctx.flags.agent {
@@ -223,6 +230,10 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 
 	if f != format.Unset {
 		ctx.Output.SetFormat(f)
+	}
+
+	if ctx.flags.jq != "" {
+		ctx.Output.SetJQFilter(ctx.flags.jq)
 	}
 
 	// Disable color if set

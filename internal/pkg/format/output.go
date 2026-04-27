@@ -14,6 +14,8 @@ import (
 	"text/template"
 	"unicode"
 
+	"github.com/itchyny/gojq"
+
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 )
 
@@ -277,6 +279,9 @@ type Outputter struct {
 	// forcedFormat is the format to output with regardless of the DefaultFormat
 	// of the passed Displayer.
 	forcedFormat Format
+
+	// jqFilter is an optional jq filter expression to apply to JSON output.
+	jqFilter string
 }
 
 // New returns an new outputter that will write to the provided IOStreams.
@@ -299,6 +304,11 @@ func (o *Outputter) SetFormat(f Format) {
 // GetFormat returns the format if set.
 func (o *Outputter) GetFormat() Format {
 	return o.forcedFormat
+}
+
+// SetJQFilter sets a jq filter expression to apply to JSON output.
+func (o *Outputter) SetJQFilter(filter string) {
+	o.jqFilter = filter
 }
 
 // Display displays the passed Displayer. The format used is the DefaultFormat
@@ -344,12 +354,61 @@ func (o *Outputter) Show(val any, format Format, fields ...string) error {
 
 // outputJSON outputs the payload in JSON.
 func (o *Outputter) outputJSON(d Displayer) error {
-	data, err := json.MarshalIndent(d.Payload(), "", "  ")
+	payload := d.Payload()
+
+	if o.jqFilter != "" {
+		return o.outputJSONWithJQ(payload)
+	}
+
+	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshall result to JSON: %w", err)
 	}
 
 	fmt.Fprintln(o.io.Out(), string(data))
+	return nil
+}
+
+// outputJSONWithJQ applies a jq filter to the payload and outputs the results.
+func (o *Outputter) outputJSONWithJQ(payload any) error {
+	query, err := gojq.Parse(o.jqFilter)
+	if err != nil {
+		return fmt.Errorf("failed to parse jq expression: %w", err)
+	}
+
+	code, err := gojq.Compile(query)
+	if err != nil {
+		return fmt.Errorf("failed to compile jq expression: %w", err)
+	}
+
+	// Convert payload to interface{} via JSON round-trip to ensure compatibility with gojq
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	var input interface{}
+	if err := json.Unmarshal(raw, &input); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	iter := code.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, isErr := v.(error); isErr {
+			return fmt.Errorf("jq filter error: %w", err)
+		}
+
+		data, err := json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal jq result: %w", err)
+		}
+		fmt.Fprintln(o.io.Out(), string(data))
+	}
+
 	return nil
 }
 

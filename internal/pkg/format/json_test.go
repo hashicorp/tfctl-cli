@@ -114,6 +114,64 @@ func TestJSON_Complex_Slice(t *testing.T) {
 	r.Equal(d.Data, parsed)
 }
 
+func TestJSON_JQFilter_Field(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	io := iostreams.Test()
+	out := format.New(io)
+	out.SetFormat(format.JSON)
+	out.SetJQFilter(".Key")
+
+	d := &KVDisplayer{
+		KVs: []*KV{
+			{
+				Key:   "Hello",
+				Value: "World!",
+			},
+		},
+		Default: format.JSON,
+	}
+
+	r.NoError(out.Display(d))
+	r.Equal("\"Hello\"\n", io.Output.String())
+}
+
+func TestJSON_JQFilter_Array(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	io := iostreams.Test()
+	out := format.New(io)
+	out.SetFormat(format.JSON)
+	out.SetJQFilter(".[].Key")
+
+	d := &KVDisplayer{
+		KVs: []*KV{
+			{Key: "First", Value: "A"},
+			{Key: "Second", Value: "B"},
+		},
+		Default: format.JSON,
+	}
+
+	r.NoError(out.Display(d))
+	r.Equal("\"First\"\n\"Second\"\n", io.Output.String())
+}
+
+func TestJSON_JQFilter_InvalidExpression(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	io := iostreams.Test()
+	out := format.New(io)
+	out.SetFormat(format.JSON)
+	out.SetJQFilter("invalid[[[")
+
+	d := &KVDisplayer{
+		KVs:     []*KV{{Key: "Hello", Value: "World!"}},
+		Default: format.JSON,
+	}
+
+	r.Error(out.Display(d))
+}
+
 func TestJSON_Complex_Struct(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
