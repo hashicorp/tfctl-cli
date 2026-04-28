@@ -12,6 +12,7 @@ require (
 	github.com/hashicorp/go-tfe v1.78.1-0.20260423211818-e37f9ff614bd
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/hcl/v2 v2.24.0
+	github.com/itchyny/gojq v0.12.19
 	github.com/lithammer/dedent v1.1.0
 	github.com/microsoft/kiota-abstractions-go v1.9.4
 	github.com/mitchellh/go-homedir v1.1.0
@@ -52,6 +53,8 @@ require (
 	github.com/blugelabs/ice/v2 v2.0.1 // indirect
 	github.com/caio/go-tdigest v3.1.0+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/clipperhouse/stringish v0.1.1 // indirect
+	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-metro v0.0.0-20180109044635-280f6062b5bc // indirect
 	github.com/fatih/color v1.18.0 // indirect
@@ -62,11 +65,12 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
+	github.com/itchyny/timefmt-go v0.1.8 // indirect
 	github.com/klauspost/compress v1.15.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/microsoft/kiota-http-go v1.5.5 // indirect
 	github.com/microsoft/kiota-serialization-form-go v1.1.3 // indirect
 	github.com/microsoft/kiota-serialization-json-go v1.1.2 // indirect

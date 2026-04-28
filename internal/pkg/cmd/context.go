@@ -54,6 +54,7 @@ type GlobalFlags struct {
 	agent    bool
 	markdown bool
 	noColor  bool
+	jq       string
 	debug    int
 	dryRun   bool
 
@@ -105,6 +106,12 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 
 			return profiles
 		}),
+	}, &Flag{
+		Name:         "jq",
+		DisplayValue: "EXPRESSION",
+		Description:  "A jq filter expression to apply to JSON output. Implies --json.",
+		Value:        flagvalue.Simple("", &ctx.flags.jq),
+		global:       true,
 	}, &Flag{
 		Name:          "json",
 		Description:   "Sets the output format.",
@@ -231,6 +238,17 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 		} else {
 			return fmt.Errorf("cannot set multiple output formats")
 		}
+	}
+
+	// --jq implies --json and is only compatible with --json or --agent
+	if ctx.flags.jq != "" {
+		if f == format.Markdown {
+			return fmt.Errorf("--jq cannot be used with --markdown; only --json or --agent output is supported")
+		}
+		if f == format.Unset {
+			f = format.JSON
+		}
+		ctx.Output.SetJQFilter(ctx.flags.jq)
 	}
 
 	if f != format.Unset {
