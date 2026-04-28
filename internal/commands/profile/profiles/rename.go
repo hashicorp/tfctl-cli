@@ -63,6 +63,7 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 			opts.Profiles = l
+			opts.DryRun = ctx.IsDryRun()
 			return renameRun(opts)
 		},
 	}
@@ -76,6 +77,7 @@ type RenameOpts struct {
 	Profiles     *profile.Loader
 	ExistingName string
 	NewName      string
+	DryRun       bool
 }
 
 func renameRun(opts *RenameOpts) error {
@@ -108,8 +110,21 @@ func renameRun(opts *RenameOpts) error {
 		return fmt.Errorf("a profile with name %q already exists", opts.NewName)
 	}
 
+	active, err := opts.Profiles.GetActiveProfile()
+	if err != nil {
+		return fmt.Errorf("failed to get active profile: %w", err)
+	}
+
 	// Update the name and save.
 	existing.Name = opts.NewName
+	if opts.DryRun {
+		cs := opts.IO.ColorScheme()
+		fmt.Fprintf(opts.IO.Err(), "%s would rename profile %q to %q\n", cs.DryRunLabel(), opts.ExistingName, opts.NewName)
+		if active.Name == opts.ExistingName {
+			fmt.Fprintf(opts.IO.Err(), "%s would activate profile %q\n", cs.DryRunLabel(), opts.NewName)
+		}
+		return nil
+	}
 	if err := existing.Write(); err != nil {
 		return fmt.Errorf("error saving renamed profile: %w", err)
 	}
@@ -120,12 +135,6 @@ func renameRun(opts *RenameOpts) error {
 	// Delete the old profile
 	if err := opts.Profiles.DeleteProfile(opts.ExistingName); err != nil {
 		return fmt.Errorf("failed to delete old profile: %w", err)
-	}
-
-	// Get the active profile
-	active, err := opts.Profiles.GetActiveProfile()
-	if err != nil {
-		return fmt.Errorf("failed to get active profile: %w", err)
 	}
 
 	// If the active profile was the profile that we just renamed, update to the

@@ -105,6 +105,11 @@ func (cs *ColorScheme) WarningLabel() String {
 	return cs.String("WARNING:").Color(cs.Orange())
 }
 
+// DryRunLabel returns a colored dry-run label.
+func (cs *ColorScheme) DryRunLabel() String {
+	return cs.String("DRY RUN:").Color(cs.Green())
+}
+
 // ErrorLabel returns a colored error label.
 func (cs *ColorScheme) ErrorLabel() String {
 	return cs.String("ERROR:").Color(cs.Red())

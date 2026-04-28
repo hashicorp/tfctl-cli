@@ -58,6 +58,7 @@ func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 			opts.Profiles = l
+			opts.DryRun = ctx.IsDryRun()
 
 			return unsetRun(opts)
 		},
@@ -74,6 +75,7 @@ type UnsetOpts struct {
 
 	Property string
 	Profiles *profile.Loader
+	DryRun   bool
 }
 
 func unsetRun(opts *UnsetOpts) error {
@@ -158,6 +160,11 @@ func unsetRun(opts *UnsetOpts) error {
 
 		if err := p.Validate(); err != nil {
 			return fmt.Errorf("invalid profile: %w", err)
+		}
+
+		if opts.DryRun {
+			fmt.Fprintf(opts.IO.Err(), "%s would unset profile property %q\n", opts.IO.ColorScheme().DryRunLabel(), opts.Property)
+			return nil
 		}
 
 		if err := p.Write(); err != nil {

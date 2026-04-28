@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 
@@ -599,4 +600,29 @@ func serverURL(r *http.Request) string {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host
+}
+
+func TestWriteDryRunRequest(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	u, err := url.Parse("https://example.com/api/v2/projects")
+	if err != nil {
+		t.Fatal(err)
+	}
+	headers := http.Header{
+		"Accept":       []string{"application/vnd.api+json"},
+		"Content-Type": []string{"application/vnd.api+json"},
+	}
+	body := []byte(`{"data":{"type":"projects"}}`)
+
+	writeDryRunRequest(io.Err(), http.MethodPost, u, headers, body)
+
+	output := io.Error.String()
+	if !strings.Contains(output, "> POST https://example.com/api/v2/projects") {
+		t.Fatalf("expected request line, got %q", output)
+	}
+	if !strings.Contains(output, `"type": "projects"`) {
+		t.Fatalf("expected body, got %q", output)
+	}
 }

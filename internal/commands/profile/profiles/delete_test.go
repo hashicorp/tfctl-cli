@@ -136,3 +136,28 @@ func TestDelete(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteDryRun(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	l := profile.TestLoader(t)
+	io := iostreams.Test()
+
+	for _, name := range []string{"foo", "bar"} {
+		p, err := l.NewProfile(name)
+		r.NoError(err)
+		r.NoError(p.Write())
+	}
+	active, err := l.GetActiveProfile()
+	r.NoError(err)
+	active.Name = "foo"
+	r.NoError(active.Write())
+
+	opts := &DeleteOpts{IO: io, Profiles: l, Names: []string{"bar"}, DryRun: true}
+	r.NoError(deleteRun(opts))
+	r.Contains(io.Error.String(), `would delete profile "bar"`)
+
+	profiles, err := l.ListProfiles()
+	r.NoError(err)
+	r.Contains(profiles, "bar")
+}

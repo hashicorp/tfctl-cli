@@ -64,6 +64,7 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, args []string) error {
 			opts.Name = args[0]
+			opts.DryRun = ctx.IsDryRun()
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
@@ -84,6 +85,7 @@ type CreateOpts struct {
 	Name       string
 	NoActivate bool
 	Hostname   string
+	DryRun     bool
 }
 
 func createRun(opts *CreateOpts) error {
@@ -109,6 +111,15 @@ func createRun(opts *CreateOpts) error {
 	// Set the hostname if provided
 	if opts.Hostname != "" {
 		p.Hostname = opts.Hostname
+	}
+
+	if opts.DryRun {
+		cs := opts.IO.ColorScheme()
+		fmt.Fprintf(opts.IO.Err(), "%s would create profile %q\n", cs.DryRunLabel(), opts.Name)
+		if !opts.NoActivate {
+			fmt.Fprintf(opts.IO.Err(), "%s would activate profile %q\n", cs.DryRunLabel(), opts.Name)
+		}
+		return nil
 	}
 
 	// Save the profile

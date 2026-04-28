@@ -117,3 +117,30 @@ func TestRename(t *testing.T) {
 		})
 	}
 }
+
+func TestRenameDryRun(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	l := profile.TestLoader(t)
+	io := iostreams.Test()
+
+	for _, name := range []string{"foo", "bar"} {
+		p, err := l.NewProfile(name)
+		r.NoError(err)
+		r.NoError(p.Write())
+	}
+	active, err := l.GetActiveProfile()
+	r.NoError(err)
+	active.Name = "bar"
+	r.NoError(active.Write())
+
+	opts := &RenameOpts{IO: io, Profiles: l, ExistingName: "bar", NewName: "baz", DryRun: true}
+	r.NoError(renameRun(opts))
+	r.Contains(io.Error.String(), `would rename profile "bar" to "baz"`)
+	r.Contains(io.Error.String(), `would activate profile "baz"`)
+
+	profiles, err := l.ListProfiles()
+	r.NoError(err)
+	r.Contains(profiles, "bar")
+	r.NotContains(profiles, "baz")
+}

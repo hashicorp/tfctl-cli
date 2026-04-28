@@ -151,3 +151,30 @@ func TestSet_Organization(t *testing.T) {
 	}
 
 }
+
+func TestSetDryRun(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+	io := iostreams.Test()
+	p, err := l.NewProfile("test")
+	r.NoError(err)
+	p.Organization = "original-org"
+	r.NoError(p.Write())
+	o := &SetOpts{
+		IO:       io,
+		Profile:  p,
+		Property: "organization",
+		Value:    "dry-run-org",
+	}
+
+	o.DryRun = true
+	r.NoError(setRun(o))
+	r.Equal("dry-run-org", o.Profile.Organization)
+	r.Contains(io.Error.String(), `would set profile property "organization" to "dry-run-org"`)
+
+	reloaded, err := l.LoadProfile("test")
+	r.NoError(err)
+	r.Equal("original-org", reloaded.Organization)
+}

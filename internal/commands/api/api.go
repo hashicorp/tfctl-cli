@@ -40,6 +40,7 @@ type Opts struct {
 	Client       *client.Client
 	Quiet        bool
 	Debug        bool
+	DryRun       bool
 	Headers      []string
 	URL          *url.URL
 	Attributes   map[string]string
@@ -197,6 +198,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			opts.Debug = ctx.Profile.GetVerbosity() == "debug" || ctx.Profile.GetVerbosity() == "trace"
 			opts.Quiet = ctx.Profile.IsQuiet()
+			opts.DryRun = ctx.IsDryRun()
 
 			return runAPI(opts)
 		},
@@ -231,6 +233,13 @@ func runAPI(opts *Opts) error {
 	}
 	if requestHeaders.Get("Accept") == "" {
 		requestHeaders.Set("Accept", "application/vnd.api+json")
+	}
+
+	// In dry-run mode, skip mutating requests and report what would have happened.
+	if opts.DryRun && isMutationMethod(method) {
+		fmt.Fprintf(opts.IO.Err(), "%s would send %s %s\n", opts.IO.ColorScheme().DryRunLabel(), method, opts.URL.String())
+		writeDryRunRequest(opts.IO.Err(), method, opts.URL, requestHeaders, body)
+		return nil
 	}
 
 	// Make the request
@@ -502,4 +511,39 @@ func writeHeaders(w io.Writer, headers http.Header) {
 	for _, key := range keys {
 		fmt.Fprintf(w, "%s: %s\n", key, strings.Join(headers.Values(key), ", "))
 	}
+}
+
+func isMutationMethod(method string) bool {
+	switch strings.ToUpper(method) {
+	case http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+func writeDryRunRequest(w io.Writer, method string, u *url.URL, headers http.Header, body []byte) {
+	fmt.Fprintf(w, "> %s %s\n", method, u.String())
+	keys := make([]string, 0, len(headers))
+	for key := range headers {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		fmt.Fprintf(w, "%s: %s\n", key, strings.Join(headers.Values(key), ", "))
+	}
+	if len(body) == 0 {
+		return
+	}
+	fmt.Fprintln(w)
+	_, _ = w.Write(formatDryRunBody(body))
+	fmt.Fprintln(w)
+}
+
+func formatDryRunBody(body []byte) []byte {
+	var formatted bytes.Buffer
+	if err := json.Indent(&formatted, body, "", "  "); err == nil {
+		return formatted.Bytes()
+	}
+	return body
 }
