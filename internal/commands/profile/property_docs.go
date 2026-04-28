@@ -41,7 +41,7 @@ func addCoreProperties(b *availablePropertiesBuilder) {
 	b.AddProperty("", "quiet", "If True, prompts will be disabled and output will be minimized.")
 	b.AddProperty("", "verbosity", `
 		Default logging verbosity for {{ template "mdCodeOrBold" "tfcloud" }} commands. This is the
-		equivalent of using the global {{ template "mdCodeOrBold" "--verbose" }} flag. Supported log levels:
+		equivalent of using the global {{ template "mdCodeOrBold" "--debug" }} flag. Supported log levels:
 		{{ template "mdCodeOrBold" "trace" }}, {{ template "mdCodeOrBold" "debug" }},
 		{{ template "mdCodeOrBold" "info" }}, {{ template "mdCodeOrBold" "warn" }}, and
 		{{ template "mdCodeOrBold" "error" }}.`)

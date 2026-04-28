@@ -29,6 +29,7 @@ type ImportOpts struct {
 	Organization       string
 	Workspace          string
 	Overwrite          bool
+	DryRun             bool
 }
 
 type existingVariables map[string]existingVariable
@@ -146,6 +147,7 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 			}
 
 			opts.Client = apiClient
+			opts.DryRun = ctx.IsDryRun()
 
 			return runVariableImport(opts)
 		},
@@ -184,6 +186,15 @@ func runVariableImport(opts *ImportOpts) error {
 
 	target, err := resolveTarget(opts.ShutdownCtx, opts)
 	if err != nil {
+		if opts.DryRun && opts.VariableSetName != "" {
+			// Variable set doesn't exist yet; report what would happen.
+			cs := opts.IO.ColorScheme()
+			fmt.Fprintf(opts.IO.Err(), "%s would create variable set %q\n", cs.DryRunLabel(), opts.VariableSetName)
+			for _, variable := range imported {
+				fmt.Fprintf(opts.IO.Err(), "%s would create %s variable %q in variable set %q\n", cs.DryRunLabel(), variable.Category, variable.Key, opts.VariableSetName)
+			}
+			return nil
+		}
 		return err
 	}
 
@@ -205,12 +216,23 @@ func runVariableImport(opts *ImportOpts) error {
 
 	created := 0
 	updated := 0
+	cs := opts.IO.ColorScheme()
 	for _, variable := range imported {
 		if current, ok := existing.Get(variable.Category, variable.Key); ok {
+			if opts.DryRun {
+				fmt.Fprintf(opts.IO.Err(), "%s would update %s variable %q in %s\n", cs.DryRunLabel(), variable.Category, variable.Key, target.String())
+				updated++
+				continue
+			}
 			if err := target.updateVariable(opts.ShutdownCtx, current.ID, variable); err != nil {
 				return err
 			}
 			updated++
+			continue
+		}
+		if opts.DryRun {
+			fmt.Fprintf(opts.IO.Err(), "%s would create %s variable %q in %s\n", cs.DryRunLabel(), variable.Category, variable.Key, target.String())
+			created++
 			continue
 		}
 		if err := target.createVariable(opts.ShutdownCtx, variable); err != nil {
@@ -219,12 +241,16 @@ func runVariableImport(opts *ImportOpts) error {
 		created++
 	}
 
+	if opts.DryRun {
+		return nil
+	}
+
 	fmt.Fprintf(opts.IO.Err(), "%s imported %d variables into %s (%d created, %d updated)", opts.IO.ColorScheme().SuccessIcon(), len(imported), target.String(), created, updated)
 	return nil
 }
 
 func resolveTarget(ctx context.Context, opts *ImportOpts) (*variableTarget, error) {
-	resolver := client.NewResolver(opts.Client, opts.VariableSetName != "", false)
+	resolver := client.NewResolver(opts.Client, opts.VariableSetName != "" && !opts.DryRun, false)
 
 	if opts.VariableSetName != "" {
 		result, err := resolver.VariableSet(ctx, opts.Organization, opts.VariableSetName)

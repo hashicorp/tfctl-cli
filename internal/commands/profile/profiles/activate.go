@@ -44,6 +44,7 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, args []string) error {
 			opts.Name = args[0]
+			opts.DryRun = ctx.IsDryRun()
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
@@ -61,6 +62,7 @@ type ActivateOpts struct {
 	IO       iostreams.IOStreams
 	Profiles *profile.Loader
 	Name     string
+	DryRun   bool
 }
 
 func activateRun(opts *ActivateOpts) error {
@@ -83,6 +85,11 @@ func activateRun(opts *ActivateOpts) error {
 
 	if !slices.Contains(profileNames, opts.Name) {
 		return fmt.Errorf("profile %q does not exist", opts.Name)
+	}
+
+	if opts.DryRun {
+		fmt.Fprintf(opts.IO.Err(), "%s would activate profile %q\n", opts.IO.ColorScheme().DryRunLabel(), opts.Name)
+		return nil
 	}
 
 	// Save the new active profile

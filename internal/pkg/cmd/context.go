@@ -55,6 +55,7 @@ type GlobalFlags struct {
 	markdown bool
 	noColor  bool
 	debug    int
+	dryRun   bool
 
 	// Version indicates the user has requested the version of the CLI
 	Version bool
@@ -71,6 +72,11 @@ func (ctx *Context) GetGlobalFlags() GlobalFlags {
 	}
 
 	return ctx.flags
+}
+
+// IsDryRun returns true when commands should avoid making mutating changes.
+func (ctx *Context) IsDryRun() bool {
+	return ctx.GetGlobalFlags().dryRun
 }
 
 // ConfigureRootCommand should be only called on the root command. It configures
@@ -115,6 +121,12 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		Name:          "markdown",
 		Description:   "Sets the output format to markdown.",
 		Value:         flagvalue.Simple(false, &ctx.flags.markdown),
+		IsBooleanFlag: true,
+		global:        true,
+	}, &Flag{
+		Name:          "dry-run",
+		Description:   "Shows what would happen without actually changing anything.",
+		Value:         flagvalue.Simple(false, &ctx.flags.dryRun),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{

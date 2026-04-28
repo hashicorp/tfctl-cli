@@ -71,6 +71,7 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 
 			opts.Property = args[0]
 			opts.Value = args[1]
+			opts.DryRun = ctx.IsDryRun()
 			return setRun(opts)
 		},
 	}
@@ -88,6 +89,7 @@ type SetOpts struct {
 	// Arguments
 	Property string
 	Value    string
+	DryRun   bool
 }
 
 func setRun(opts *SetOpts) error {
@@ -162,6 +164,15 @@ func setRun(opts *SetOpts) error {
 		// Clear organization and token to force re-initialization
 		p.Organization = ""
 		p.Token = ""
+	}
+
+	if opts.DryRun {
+		cs := opts.IO.ColorScheme()
+		fmt.Fprintf(opts.IO.Err(), "%s would set profile property %q to %q\n", cs.DryRunLabel(), opts.Property, opts.Value)
+		if hostnameChanged {
+			fmt.Fprintf(opts.IO.Err(), "%s would also clear organization and token for the active profile\n", cs.DryRunLabel())
+		}
+		return nil
 	}
 
 	if err := p.Write(); err != nil {

@@ -36,7 +36,7 @@ func NewCmdProfile(ctx *cmd.Context) *cmd.Command {
 		{{ template "mdCodeOrBold" "tfcloud" }} has several global flags that have matching profile properties.
 		Examples are the {{ template "mdCodeOrBold" "verbosity" }} and
 		{{ template "mdCodeOrBold" "organization" }} properties and their respective flags
-		{{ template "mdCodeOrBold" "--verbose" }} and {{ template "mdCodeOrBold" "--organization" }}.
+		{{ template "mdCodeOrBold" "--debug" }} and {{ template "mdCodeOrBold" "--organization" }}.
 		The difference between properties and flags is that flags apply only on the invoked command,
 		while properties are persistent across all invocations. Thus profiles allow you to conviently
 		maintain the same settings across command executions and multiple profiles allow you to easily

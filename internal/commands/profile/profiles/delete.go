@@ -63,6 +63,7 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 			}
 			opts.Profiles = l
 			opts.Names = args
+			opts.DryRun = ctx.IsDryRun()
 			return deleteRun(opts)
 		},
 	}
@@ -75,7 +76,8 @@ type DeleteOpts struct {
 	IO       iostreams.IOStreams
 	Profiles *profile.Loader
 
-	Names []string
+	Names  []string
+	DryRun bool
 }
 
 func deleteRun(opts *DeleteOpts) error {
@@ -123,6 +125,13 @@ func deleteRun(opts *DeleteOpts) error {
 		if !ok {
 			return nil
 		}
+	}
+
+	if opts.DryRun {
+		for _, toDelete := range opts.Names {
+			fmt.Fprintf(opts.IO.Err(), "%s would delete profile %q\n", cs.DryRunLabel(), toDelete)
+		}
+		return nil
 	}
 
 	for _, toDelete := range opts.Names {

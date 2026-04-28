@@ -90,3 +90,30 @@ func TestUnset(t *testing.T) {
 		})
 	}
 }
+
+func TestUnsetDryRun(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+	p, err := l.NewProfile("test")
+	r.NoError(err)
+	p.Organization = "keep-me"
+	r.NoError(p.Write())
+
+	io := iostreams.Test()
+	o := &UnsetOpts{
+		IO:       io,
+		Profile:  p,
+		Profiles: l,
+		Property: "organization",
+	}
+
+	o.DryRun = true
+	r.NoError(unsetRun(o))
+	r.Contains(io.Error.String(), `would unset profile property "organization"`)
+
+	reloaded, err := l.LoadProfile("test")
+	r.NoError(err)
+	r.Equal("keep-me", reloaded.Organization)
+}
