@@ -242,6 +242,24 @@ func runAPI(opts *Opts) error {
 		return nil
 	}
 
+	// Interactive prompt required for DELETE requests to prevent accidental data loss
+	if method == http.MethodDelete {
+		if opts.Quiet {
+			return errors.New("can't perform DELETE request confirmation with quiet mode enabled")
+		}
+		if !opts.IO.CanPrompt() {
+			return errors.New("can't perform DELETE request without confirmation in non-interactive mode")
+		}
+
+		confirmation, err := opts.IO.PromptConfirm("The request must be confirmed because it is a DELETE action.\n\nDo you want to continue")
+		if err != nil {
+			return fmt.Errorf("failed to confirm DELETE request: %w", err)
+		}
+		if !confirmation {
+			return errors.New("DELETE request canceled")
+		}
+	}
+
 	// Make the request
 	response, err := opts.Client.RawRequest(opts.ShutdownCtx, &client.Request{
 		Method:  method,
