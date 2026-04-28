@@ -214,7 +214,7 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 
 	// Set the output format if the flag is set.
 	f := format.Unset
-	if ctx.flags.json || ctx.flags.jq != "" {
+	if ctx.flags.json {
 		f = format.JSON
 	}
 	if ctx.flags.agent {
@@ -228,12 +228,19 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 		}
 	}
 
-	if f != format.Unset {
-		ctx.Output.SetFormat(f)
+	// --jq implies --json and is only compatible with --json or --agent
+	if ctx.flags.jq != "" {
+		if f == format.Markdown {
+			return fmt.Errorf("--jq cannot be used with --markdown; only --json or --agent output is supported")
+		}
+		if f == format.Unset {
+			f = format.JSON
+		}
+		ctx.Output.SetJQFilter(ctx.flags.jq)
 	}
 
-	if ctx.flags.jq != "" {
-		ctx.Output.SetJQFilter(ctx.flags.jq)
+	if f != format.Unset {
+		ctx.Output.SetFormat(f)
 	}
 
 	// Disable color if set
