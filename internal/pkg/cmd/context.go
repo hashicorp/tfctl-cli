@@ -79,15 +79,6 @@ func (ctx *Context) IsDryRun() bool {
 	return ctx.GetGlobalFlags().dryRun
 }
 
-// RunContext returns the invocation context that should be used for work that
-// may block and should stop on Ctrl-C.
-func (ctx *Context) RunContext() context.Context {
-	if ctx != nil {
-		return ctx.ShutdownCtx
-	}
-	return context.Background()
-}
-
 // ConfigureRootCommand should be only called on the root command. It configures
 // global flags and ensures that the context is configured based on any flags
 // set during a command invocation.

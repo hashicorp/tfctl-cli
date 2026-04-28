@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 )
 
-func TestContextVerboseAndDryRunHelpers(t *testing.T) {
+func TestContextDryRunHelper(t *testing.T) {
 	t.Parallel()
 
 	ctx := &Context{IO: iostreams.Test(), ShutdownCtx: context.Background()}
@@ -16,8 +16,5 @@ func TestContextVerboseAndDryRunHelpers(t *testing.T) {
 
 	if !ctx.IsDryRun() {
 		t.Fatal("expected dry-run to be enabled")
-	}
-	if ctx.RunContext() == nil {
-		t.Fatal("expected run context")
 	}
 }
