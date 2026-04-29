@@ -178,6 +178,68 @@ func TestCmdAPISchemaGetRun(t *testing.T) {
 	r.Empty(io.Error.String())
 }
 
+func TestCmdAPISchemaGetByPath(t *testing.T) {
+	r := require.New(t)
+
+	io := iostreams.Test()
+	originalLoader := loadSchemaDocumentForGet
+	loadSchemaDocumentForGet = func(*cmd.Context) (map[string]any, error) {
+		return map[string]any{
+			"openapi": "3.0.0",
+			"paths": map[string]any{
+				"/workspaces/{workspace_id}": map[string]any{
+					"parameters": []any{
+						map[string]any{"name": "workspace_id", "in": "path", "required": true},
+					},
+					"get": map[string]any{
+						"operationId": "getWorkspace",
+						"summary":     "Get Workspace",
+					},
+					"patch": map[string]any{
+						"operationId": "updateWorkspace",
+						"summary":     "Update a Workspace",
+					},
+				},
+			},
+		}, nil
+	}
+	t.Cleanup(func() {
+		loadSchemaDocumentForGet = originalLoader
+	})
+
+	command := newCmdAPISchemaGet(testCommandContext(io))
+	command.SetIO(io)
+	r.Equal(0, command.Run([]string{"/workspaces/{workspace_id}"}))
+
+	output := io.Output.String()
+	r.Contains(output, `"getWorkspace"`)
+	r.Contains(output, `"updateWorkspace"`)
+	r.Contains(output, `"workspace_id"`)
+	r.Empty(io.Error.String())
+}
+
+func TestCmdAPISchemaGetByPathNotFound(t *testing.T) {
+	r := require.New(t)
+
+	io := iostreams.Test()
+	originalLoader := loadSchemaDocumentForGet
+	loadSchemaDocumentForGet = func(*cmd.Context) (map[string]any, error) {
+		return map[string]any{
+			"openapi": "3.0.0",
+			"paths":   map[string]any{},
+		}, nil
+	}
+	t.Cleanup(func() {
+		loadSchemaDocumentForGet = originalLoader
+	})
+
+	command := newCmdAPISchemaGet(testCommandContext(io))
+	command.SetIO(io)
+	r.Equal(1, command.Run([]string{"/nonexistent"}))
+}
+
+
+
 func TestLoadSchemaSpecBytesFallsBackToEmbedded(t *testing.T) {
 	t.Parallel()
 
