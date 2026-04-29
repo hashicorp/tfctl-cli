@@ -135,21 +135,27 @@ func (d SchemaSearchResultsDisplayer) FieldTemplates() []format.Field {
 func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 	return &cmd.Command{
 		Name:           "get",
-		ShortHelp:      "Show one API operation schema",
+		ShortHelp:      "Show API operation schema by operation ID or path",
 		NoAuthRequired: true,
 		LongHelp: heredoc.New(ctx.IO).Must(`
-		Show a trimmed OpenAPI document for a single operationId.
+		Show a trimmed OpenAPI document for a single operationId or all operations on an exact API path.
 		`),
 		Args: cmd.PositionalArguments{
 			Args: []cmd.PositionalArgument{{
-				Name:          "OPERATION_ID",
-				Documentation: "The exact OpenAPI operationId to inspect.",
+				Name:          "OPERATION_ID_OR_PATH",
+				Documentation: "An exact OpenAPI operationId or an API path (starting with /) to inspect.",
 			}},
 		},
-		Examples: []cmd.Example{{
-			Preamble: "Inspect the getWorkspace operation",
-			Command:  "$ tfcloud api schema get getWorkspace",
-		}},
+		Examples: []cmd.Example{
+			{
+				Preamble: "Inspect the getWorkspace operation",
+				Command:  "$ tfcloud api schema get getWorkspace",
+			},
+			{
+				Preamble: "Show all operations on a path",
+				Command:  "$ tfcloud api schema get /organizations/{organization}/workspaces",
+			},
+		},
 		RunF: func(_ *cmd.Command, args []string) error {
 			document, err := loadSchemaDocumentForGet(ctx)
 			if err != nil {
