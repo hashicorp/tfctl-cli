@@ -322,7 +322,7 @@ func TestRunAPI_QuietSuppressesOutput(t *testing.T) {
 	require.Empty(t, io.Output.String())
 }
 
-func TestRunAPI_EmptyBodyReturnsNil(t *testing.T) {
+func TestRunAPI_EmptyBodyNoOutput(t *testing.T) {
 	t.Parallel()
 
 	server, _ := newAPITestServer(map[string]http.HandlerFunc{
@@ -334,12 +334,66 @@ func TestRunAPI_EmptyBodyReturnsNil(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
+	io.ErrorTTY = true
+	io.InputTTY = true
+	io.Input.Write([]byte("y\n"))
+
 	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
 		opts.Method = http.MethodDelete
 	}))
 	require.NoError(t, err)
 	require.Empty(t, io.Output.String())
+}
+
+func TestRunAPI_DeleteNoConfirmation(t *testing.T) {
+	t.Parallel()
+
+	server, _ := newAPITestServer(map[string]http.HandlerFunc{
+		"DELETE /api/v2/workspaces/ws-1": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/vnd.api+json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("{ \"data\": { \"attributes\": { \"hello\": \"world\" } } }"))
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	io.ErrorTTY = true
+	io.InputTTY = true
+	io.Input.Write([]byte("n\n"))
+
+	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
+		opts.Method = http.MethodDelete
+	}))
+	require.ErrorContains(t, err, "DELETE request canceled")
+}
+
+func TestRunAPI_DeleteQuietMode(t *testing.T) {
+	t.Parallel()
+
+	server, _ := newAPITestServer(map[string]http.HandlerFunc{
+		"DELETE /api/v2/workspaces/ws-1": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/vnd.api+json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("{ \"data\": { \"attributes\": { \"hello\": \"world\" } } }"))
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	io.ErrorTTY = true
+	io.InputTTY = true
+	io.SetQuiet(true)
+	io.Input.Write([]byte("y\n"))
+
+	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
+		opts.Method = http.MethodDelete
+		opts.Quiet = true
+	}))
+	require.ErrorContains(t, err, "can't perform DELETE request confirmation with quiet mode enabled")
 }
 
 func TestRunAPI_ErrorResponseSummarizesJSONAPIErrors(t *testing.T) {

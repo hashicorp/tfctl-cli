@@ -235,9 +235,32 @@ func runAPI(opts *Opts) error {
 		requestHeaders.Set("Accept", "application/vnd.api+json")
 	}
 
+	// Interactive prompt required for DELETE requests to prevent accidental data loss
+	if method == http.MethodDelete {
+		if opts.Quiet {
+			return errors.New("can't perform DELETE request confirmation with quiet mode enabled")
+		}
+		if !opts.IO.CanPrompt() {
+			return errors.New("can't perform DELETE request without confirmation in non-interactive mode")
+		}
+
+		dryRunWarning := ""
+		if opts.DryRun {
+			dryRunWarning = " (no actual request will be sent in dry-run mode)"
+		}
+
+		confirmation, err := opts.IO.PromptConfirm(fmt.Sprintf("The request must be confirmed because it is a DELETE action%s.\n\nDo you want to continue", dryRunWarning))
+		if err != nil {
+			return fmt.Errorf("failed to confirm DELETE request: %w", err)
+		}
+		if !confirmation {
+			return errors.New("DELETE request canceled")
+		}
+	}
+
 	// In dry-run mode, skip mutating requests and report what would have happened.
 	if opts.DryRun && isMutationMethod(method) {
-		fmt.Fprintf(opts.IO.Err(), "%s would send %s %s\n", opts.IO.ColorScheme().DryRunLabel(), method, opts.URL.String())
+		fmt.Fprintf(opts.IO.Err(), "%s would send %s request\n", opts.IO.ColorScheme().DryRunLabel(), method)
 		writeDryRunRequest(opts.IO.Err(), method, opts.URL, requestHeaders, body)
 		return nil
 	}
@@ -530,7 +553,7 @@ func writeDryRunRequest(w io.Writer, method string, u *url.URL, headers http.Hea
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		fmt.Fprintf(w, "%s: %s\n", key, strings.Join(headers.Values(key), ", "))
+		fmt.Fprintf(w, "> %s: %s\n", key, strings.Join(headers.Values(key), ", "))
 	}
 	if len(body) == 0 {
 		return

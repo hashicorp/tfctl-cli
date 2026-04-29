@@ -54,6 +54,7 @@ var excludeColumns = map[string][]string{
 // JSONAPIDisplayer prepares responses within a JSON:API data envelope to be formatted.
 type JSONAPIDisplayer struct {
 	payload      any
+	rawPayload   any
 	resourceType string
 	collection   bool
 }
@@ -69,8 +70,15 @@ func (d JSONAPIDisplayer) DefaultFormat() Format {
 	return Pretty
 }
 
-// Payload implements the Displayer interface.
+// Payload implements the Displayer interface. It returns the full JSON:API
+// envelope for use by the JSON output format.
 func (d JSONAPIDisplayer) Payload() any {
+	return d.rawPayload
+}
+
+// TemplatedPayload implements the TemplatedPayload interface. It returns the
+// flattened attribute rows for use by table and pretty output formats.
+func (d JSONAPIDisplayer) TemplatedPayload() any {
 	return d.payload
 }
 
@@ -150,6 +158,7 @@ func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 
 	return &JSONAPIDisplayer{
 		payload:      rows,
+		rawPayload:   payload,
 		resourceType: resourceType,
 		collection:   collection,
 	}, nil

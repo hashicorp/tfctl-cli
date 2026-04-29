@@ -362,7 +362,7 @@ func (o *Outputter) outputJSON(d Displayer) error {
 
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshall result to JSON: %w", err)
+		return fmt.Errorf("failed to marshal result to JSON: %w", err)
 	}
 
 	fmt.Fprintln(o.io.Out(), string(data))
