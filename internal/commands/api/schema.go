@@ -156,12 +156,17 @@ func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 
-			operationDocument, err := schemaOperationDocument(document, args[0])
+			var result map[string]any
+			if strings.HasPrefix(args[0], "/") {
+				result, err = schemaPathDocument(document, args[0])
+			} else {
+				result, err = schemaOperationDocument(document, args[0])
+			}
 			if err != nil {
 				return err
 			}
 
-			body, err := json.MarshalIndent(operationDocument, "", "  ")
+			body, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return fmt.Errorf("marshal operation schema: %w", err)
 			}
