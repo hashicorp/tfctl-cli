@@ -242,7 +242,7 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 
 	// --jq implies --json and is only compatible with --json or --agent
 	if ctx.flags.jq != "" {
-		if f == format.Markdown {
+		if f != format.Unset && f != format.JSON && f != format.Agent {
 			return fmt.Errorf("--jq cannot be used with --markdown; only --json or --agent output is supported")
 		}
 		if f == format.Unset {
