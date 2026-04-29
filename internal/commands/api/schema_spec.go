@@ -184,11 +184,19 @@ func schemaOperationDocument(spec map[string]any, operationID string) (map[strin
 	}
 
 	resolved := dereferenceSchemaOperation(operation, spec, map[string]bool{})
+	pathItem := map[string]any{
+		strings.ToLower(method): resolved,
+	}
+
+	if rawPathItem, ok := pathValue[path].(map[string]any); ok {
+		if params, ok := rawPathItem["parameters"]; ok {
+			pathItem["parameters"] = dereferenceOpenAPIValue(params, spec, map[string]bool{})
+		}
+	}
+
 	result := map[string]any{
 		"paths": map[string]any{
-			path: map[string]any{
-				strings.ToLower(method): resolved,
-			},
+			path: pathItem,
 		},
 	}
 	if version, ok := spec["openapi"]; ok {
