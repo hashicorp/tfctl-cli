@@ -197,6 +197,50 @@ func schemaOperationDocument(spec map[string]any, operationID string) (map[strin
 	return result, nil
 }
 
+func schemaPathDocument(spec map[string]any, path string) (map[string]any, error) {
+	pathsValue, ok := spec["paths"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("OpenAPI spec does not contain a valid paths object")
+	}
+
+	rawPathItem, ok := pathsValue[path]
+	if !ok {
+		return nil, fmt.Errorf("path %q not found in OpenAPI spec", path)
+	}
+
+	methods, ok := rawPathItem.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid path item for %q", path)
+	}
+
+	pathItem := make(map[string]any)
+
+	if params, ok := methods["parameters"]; ok {
+		pathItem["parameters"] = dereferenceOpenAPIValue(params, spec, map[string]bool{})
+	}
+
+	for method, rawOperation := range methods {
+		if !isHTTPMethod(method) {
+			continue
+		}
+		operation, ok := rawOperation.(map[string]any)
+		if !ok {
+			continue
+		}
+		pathItem[strings.ToLower(method)] = dereferenceSchemaOperation(operation, spec, map[string]bool{})
+	}
+
+	result := map[string]any{
+		"paths": map[string]any{
+			path: pathItem,
+		},
+	}
+	if version, ok := spec["openapi"]; ok {
+		result["openapi"] = version
+	}
+	return result, nil
+}
+
 func dereferenceSchemaOperation(operation map[string]any, root map[string]any, refsInProgress map[string]bool) map[string]any {
 	resolved := make(map[string]any, len(operation))
 	for key, value := range operation {
