@@ -191,7 +191,7 @@ func schemaOperationDocument(spec map[string]any, operationID string) (map[strin
 	paths := doc["paths"].(map[string]any)
 	pathItem := paths[path].(map[string]any)
 	for key := range pathItem {
-		if isHTTPMethod(key) && strings.ToLower(key) != strings.ToLower(method) {
+		if isHTTPMethod(key) && !strings.EqualFold(key, method) {
 			delete(pathItem, key)
 		}
 	}

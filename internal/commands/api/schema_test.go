@@ -238,8 +238,6 @@ func TestCmdAPISchemaGetByPathNotFound(t *testing.T) {
 	r.Equal(1, command.Run([]string{"/nonexistent"}))
 }
 
-
-
 func TestLoadSchemaSpecBytesFallsBackToEmbedded(t *testing.T) {
 	t.Parallel()
 
