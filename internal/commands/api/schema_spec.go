@@ -178,17 +178,63 @@ func schemaOperationDocument(spec map[string]any, operationID string) (map[strin
 		return nil, fmt.Errorf("OpenAPI spec does not contain a valid paths object")
 	}
 
-	path, method, operation, err := findSchemaOperation(pathValue, operationID)
+	path, method, _, err := findSchemaOperation(pathValue, operationID)
 	if err != nil {
 		return nil, err
 	}
 
-	resolved := dereferenceSchemaOperation(operation, spec, map[string]bool{})
+	doc, err := schemaPathDocument(spec, path)
+	if err != nil {
+		return nil, err
+	}
+
+	paths := doc["paths"].(map[string]any)
+	pathItem := paths[path].(map[string]any)
+	for key := range pathItem {
+		if isHTTPMethod(key) && !strings.EqualFold(key, method) {
+			delete(pathItem, key)
+		}
+	}
+
+	return doc, nil
+}
+
+func schemaPathDocument(spec map[string]any, path string) (map[string]any, error) {
+	pathsValue, ok := spec["paths"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("OpenAPI spec does not contain a valid paths object")
+	}
+
+	rawPathItem, ok := pathsValue[path]
+	if !ok {
+		return nil, fmt.Errorf("path %q not found", path)
+	}
+
+	methods, ok := rawPathItem.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid path item for %q", path)
+	}
+
+	pathItem := make(map[string]any)
+
+	if params, ok := methods["parameters"]; ok {
+		pathItem["parameters"] = dereferenceOpenAPIValue(params, spec, map[string]bool{})
+	}
+
+	for method, rawOperation := range methods {
+		if !isHTTPMethod(method) {
+			continue
+		}
+		operation, ok := rawOperation.(map[string]any)
+		if !ok {
+			continue
+		}
+		pathItem[strings.ToLower(method)] = dereferenceSchemaOperation(operation, spec, map[string]bool{})
+	}
+
 	result := map[string]any{
 		"paths": map[string]any{
-			path: map[string]any{
-				strings.ToLower(method): resolved,
-			},
+			path: pathItem,
 		},
 	}
 	if version, ok := spec["openapi"]; ok {
