@@ -135,33 +135,44 @@ func (d SchemaSearchResultsDisplayer) FieldTemplates() []format.Field {
 func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 	return &cmd.Command{
 		Name:           "get",
-		ShortHelp:      "Show one API operation schema",
+		ShortHelp:      "Show API operation schema by operation ID or path",
 		NoAuthRequired: true,
 		LongHelp: heredoc.New(ctx.IO).Must(`
-		Show a trimmed OpenAPI document for a single operationId.
+		Show a trimmed OpenAPI document for a single operationId or all operations on an exact API path.
 		`),
 		Args: cmd.PositionalArguments{
 			Args: []cmd.PositionalArgument{{
-				Name:          "OPERATION_ID",
-				Documentation: "The exact OpenAPI operationId to inspect.",
+				Name:          "OPERATION_ID_OR_PATH",
+				Documentation: "An exact OpenAPI operationId or an API path (starting with /) to inspect.",
 			}},
 		},
-		Examples: []cmd.Example{{
-			Preamble: "Inspect the getWorkspace operation",
-			Command:  "$ tfcloud api schema get getWorkspace",
-		}},
+		Examples: []cmd.Example{
+			{
+				Preamble: "Inspect the getWorkspace operation",
+				Command:  "$ tfcloud api schema get getWorkspace",
+			},
+			{
+				Preamble: "Show all operations on a path",
+				Command:  "$ tfcloud api schema get /organizations/{organization}/workspaces",
+			},
+		},
 		RunF: func(_ *cmd.Command, args []string) error {
 			document, err := loadSchemaDocumentForGet(ctx)
 			if err != nil {
 				return err
 			}
 
-			operationDocument, err := schemaOperationDocument(document, args[0])
+			var result map[string]any
+			if strings.HasPrefix(args[0], "/") {
+				result, err = schemaPathDocument(document, args[0])
+			} else {
+				result, err = schemaOperationDocument(document, args[0])
+			}
 			if err != nil {
 				return err
 			}
 
-			body, err := json.MarshalIndent(operationDocument, "", "  ")
+			body, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return fmt.Errorf("marshal operation schema: %w", err)
 			}
