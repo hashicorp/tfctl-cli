@@ -23,7 +23,7 @@ require (
 	github.com/muesli/reflow v0.3.0
 	github.com/muesli/termenv v0.16.0
 	github.com/posener/complete v1.2.3
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.11.1
 	github.com/zclconf/go-cty v1.16.3
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
@@ -74,7 +74,7 @@ require (
 	github.com/klauspost/compress v1.15.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/microsoft/kiota-http-go v1.5.5 // indirect

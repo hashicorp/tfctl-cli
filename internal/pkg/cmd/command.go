@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-hclog"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 	flag "github.com/spf13/pflag"
 
