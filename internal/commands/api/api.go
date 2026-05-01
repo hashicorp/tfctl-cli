@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	terraformcfg "github.com/hashicorp/tfcloud/internal/pkg/terraform"
 )
 
 const (
@@ -188,6 +189,15 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("failed to create API client: %w", err)
 			}
 
+			// Resolve path tokens ({workspace}, {organization}, etc.) before URL resolution.
+			if strings.Contains(path, "{") {
+				resolvedPath, resolveErr := resolvePathTokensFromContext(ctx, apiClient, path, opts.PathTokens)
+				if resolveErr != nil {
+					return resolveErr
+				}
+				path = resolvedPath
+			}
+
 			resolvedURL, err := client.ResolveURL(*apiClient.BaseURL, path)
 			if err != nil {
 				return fmt.Errorf("invalid input path/URL %q", path)
@@ -207,6 +217,38 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	cmd.AddChild(NewCmdAPISchema(ctx))
 
 	return cmd
+}
+
+// resolvePathTokensFromContext resolves {token} placeholders using the command context.
+// Organization and workspace are auto-resolved from profile config and terraform cloud config.
+func resolvePathTokensFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathTokens map[string]string) (string, error) {
+	// Determine organization context: explicit -p flag > profile > terraform config.
+	organization := ""
+	if v, ok := pathTokens["organization"]; ok {
+		organization = v
+	} else if v, ok := pathTokens["organization_name"]; ok {
+		organization = v
+	}
+	if organization == "" {
+		organization = ctx.Profile.Organization
+	}
+
+	// Determine workspace context from terraform config (workspace is not stored in profile).
+	var workspace string
+	cfg, cfgErr := terraformcfg.FindCloudConfig(".")
+	if cfgErr == nil {
+		if organization == "" {
+			organization = cfg.Organization
+		}
+		workspace = cfg.Workspace
+	}
+
+	resolver := client.NewResolver(apiClient, false, false)
+	return client.ResolvePathTokens(ctx.ShutdownCtx, path, client.PathTokenResolutionOpts{
+		PathTokens:   pathTokens,
+		Organization: organization,
+		Workspace:    workspace,
+	}, resolver)
 }
 
 func runAPI(opts *Opts) error {
