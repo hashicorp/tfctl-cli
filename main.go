@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/cli"
 	"github.com/posener/complete"
 
+	"github.com/hashicorp/tfcloud/internal/commands/profile/profiles"
 	"github.com/hashicorp/tfcloud/internal/commands/tfcloud"
 	"github.com/hashicorp/tfcloud/internal/config"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
@@ -86,11 +87,16 @@ func realMain() int {
 		Autocomplete:               true,
 		AutocompleteNoDefaultFlags: true,
 		AutocompleteGlobalFlags: map[string]complete.Predictor{
-			"--help":    complete.PredictNothing,
-			"--version": complete.PredictNothing,
-			"--json":    complete.PredictAnything,
-			"--quiet":   complete.PredictAnything,
-			"--agent":   complete.PredictAnything,
+			"--help":     complete.PredictNothing,
+			"--version":  complete.PredictNothing,
+			"--agent":    complete.PredictAnything,
+			"--debug":    complete.PredictAnything,
+			"--jq":       complete.PredictAnything,
+			"--json":     complete.PredictAnything,
+			"--markdown": complete.PredictAnything,
+			"--no-color": complete.PredictAnything,
+			"--profile":  profiles.PredictProfiles(false, true),
+			"--quiet":    complete.PredictAnything,
 		},
 	}
 

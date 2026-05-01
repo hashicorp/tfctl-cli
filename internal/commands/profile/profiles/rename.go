@@ -36,7 +36,7 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		Args: cmd.PositionalArguments{
-			Autocomplete: predictProfiles(false, true),
+			Autocomplete: PredictProfiles(false, true),
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "NAME",

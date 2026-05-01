@@ -47,7 +47,7 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 		},
 		NoAuthRequired: true,
 		Args: cmd.PositionalArguments{
-			Autocomplete: predictProfiles(true, false),
+			Autocomplete: PredictProfiles(true, false),
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "PROFILE_NAMES",

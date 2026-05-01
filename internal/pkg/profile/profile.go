@@ -190,7 +190,7 @@ func doWalkStructElements(path string, t reflect.Type, keys map[string]struct{})
 		}
 
 		v := field.Type
-		if v.Kind() == reflect.Ptr {
+		if v.Kind() == reflect.Pointer {
 			v = v.Elem()
 		}
 

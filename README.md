@@ -45,11 +45,23 @@ tfcloud api /organizations/acme/projects -input my-project.json
 tfcloud api /organizations/acme/workspaces -paginate -method GET -f "sort=-created-at"
 ```
 
+#### Shell Completion
+
+**Install**
+
+```
+$ tfcloud --autocomplete-install
+```
+
+**Uninstall**
+
+```
+$ tfcloud --autocomplete-uninstall
+```
+
 #### Configuration Reference
 
 **Profile-level Configuration**
-
-The CLI uses a default profile for now, but will eventually support a global --profile named profile.
 
 Linux/MacOS: `~/.config/tfcloud/profiles/default.hcl`
 Windows: `%AppData%/tfcloud/profiles/default.hcl`
@@ -68,21 +80,17 @@ If information is not found in the profile, the following environment variables 
 
 `TFCLOUD_TOKEN`: An API token to use in conjunction with the default profile.
 
-`TFCLOUD_TOKEN_<profile>`: Reserved for future use with multiple profiles.
+`TFCLOUD_TOKEN_<profile>`: An API token to use in conjunction with the named profile.
 
 `TF_TOKEN_<hostname>`: An API token to use with the specified hostname with punycode formatting, e.g. `TF_TOKEN_app_terraform_io`, only used if the token is not specified in any other way.
 
 #### Usage
 
-You can use `tfcloud --help` for detailed usage instructions.
+You can use `tfcloud <command> --help` for detailed usage instructions.
 
 **`tfcloud api <path> [flags]`**
 
 Perform an API request. See `tfcloud api --help` for usage and examples.
-
-**`tfcloud variable import [tfvars-file] [flags]`**
-
-Import variables from a tfvars file or the process environment into the current workspace or a variable set. See `tfcloud variable import --help` for usage and examples.
 
 #### Exit Codes
 

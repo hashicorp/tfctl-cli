@@ -145,9 +145,9 @@ func inferFields[T any](payload T, columns []string) []Field {
 			parts := append(slices.Clone(namePrefix), f.Name)
 
 			// If the field is a struct, we need to recurse into it
-			if f.Type.Kind() == reflect.Struct || f.Type.Kind() == reflect.Ptr && f.Type.Elem().Kind() == reflect.Struct {
+			if f.Type.Kind() == reflect.Struct || f.Type.Kind() == reflect.Pointer && f.Type.Elem().Kind() == reflect.Struct {
 				t := f.Type
-				if f.Type.Kind() == reflect.Ptr {
+				if f.Type.Kind() == reflect.Pointer {
 					t = f.Type.Elem()
 				}
 				getFields(t, parts)

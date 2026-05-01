@@ -18,12 +18,15 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/posener/complete"
+
 	"github.com/hashicorp/tfcloud/internal/pkg/client"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfcloud/internal/pkg/openapi"
 )
 
 const (
@@ -60,6 +63,12 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		Output:      ctx.Output,
 	}
 
+	oas, oaserr := openapi.SchemaFactory(nil)
+	if oaserr != nil {
+		fmt.Fprintf(ctx.IO.Err(), "%s failed to load embedded openAPI spec, this is always a tfcloud bug", ctx.IO.ColorScheme().ErrorLabel())
+		panic(oaserr)
+	}
+
 	cmd := &cmd.Command{
 		Name:      "api",
 		ShortHelp: "Perform any API request",
@@ -67,6 +76,8 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		The {{ template "mdCodeOrBold" "tfcloud api" }} command performs any API v2 request.
 		`),
 		Args: cmd.PositionalArguments{
+			// Predict paths from the OpenAPI spec for autocompletion.
+			Autocomplete: complete.PredictSet(oas.Paths().Keys()...),
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "PATH",

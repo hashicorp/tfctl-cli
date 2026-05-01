@@ -30,8 +30,10 @@ COPY --chown=tfcloud $BIN_DIR/tfcloud /home/tfcloud/bin/
 
 RUN mkdir -p /home/tfcloud/.config/tfcloud
 
-ENV PATH=$PATH:/local/bin
+ENV PATH=$PATH:/home/tfcloud/bin
 
 WORKDIR /home/tfcloud
+
+RUN tfcloud --autocomplete-install
 
 ENTRYPOINT ["/home/tfcloud/bin/tfcloud"]
