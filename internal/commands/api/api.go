@@ -77,7 +77,15 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		Name:      "api",
 		ShortHelp: "Perform any API request",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "%s api" }} command performs any API v2 request.
+		The {{ template "mdCodeOrBold" "%s api" }} command performs any HCP Terraform API v2 request.
+
+		Use {name} placeholders for path parameters and -p to set their values:
+
+		  tfcloud api /workspaces/{workspace}/runs -p workspace=my-workspace
+
+		Organization resolves automatically from the active profile or local Terraform cloud config.
+		Workspaces, teams, projects, and varsets resolve from name to external ID. Values that
+		already look like IDs (ws-, team-, prj-, varset- prefixes) are used directly.
 		`, config.Name),
 		Args: cmd.PositionalArguments{
 			// Predict paths from the OpenAPI spec for autocompletion.
@@ -85,7 +93,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "PATH",
-					Documentation: "The API path to request, ex. /account/details. Unless -a or -i is used, the command will perform a GET request.",
+					Documentation: "API path or URL. Supports {name} path parameters resolved via -p. Organization auto-fills from profile.",
 				},
 			},
 		},
@@ -154,10 +162,10 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 					Value:        flagvalue.SimpleMap(nil, &opts.Query),
 				},
 				{
-					Name:         "pathtoken",
+					Name:         "pathparam",
 					Shorthand:    "p",
-					DisplayValue: "TOKEN=NAME",
-					Description:  "Resolve a path {token} with the given name. For example, --pathtoken 'workspace=foo' would replace {workspace} in the path with the ID of the foo workspace.",
+					DisplayValue: "KEY=VALUE",
+					Description:  "Provide a hint for path parameter resolution. The TFE API typically requires a resource ID for resource-specific requests. Use of the --pathparam flag allows automatic resolution to resource ID from name (workspaces, teams, projects, varsets). This flag can be used to specify an organization and workspace, but these resource IDs will also be automatically resolved from the active profile or local Terraform config if either is present.",
 					Repeatable:   true,
 					Value:        flagvalue.SimpleMap(nil, &opts.PathTokens),
 				},
@@ -167,6 +175,14 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			{
 				Preamble: "List workspaces in the default organization",
 				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /organizations/{organization}/workspaces`, config.Name),
+			},
+			{
+				Preamble: "List runs for a workspace by name (resolved to ID)",
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud api /workspaces/{workspace}/runs -p workspace=my-workspace`),
+			},
+			{
+				Preamble: "Use a known ID directly (no resolution)",
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud api /workspaces/{workspace}/runs -p workspace=ws-abc123`),
 			},
 			{
 				Preamble: "Create a project using attributes",
@@ -216,7 +232,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			// Resolve path tokens ({workspace}, {organization}, etc.) before URL resolution.
 			if strings.Contains(path, "{") {
-				resolvedPath, resolveErr := resolvePathTokensFromContext(ctx, apiClient, path, opts.PathTokens)
+				resolvedPath, resolveErr := resolvePathParamsFromContext(ctx, apiClient, path, opts.PathTokens)
 				if resolveErr != nil {
 					return resolveErr
 				}
@@ -244,12 +260,12 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// resolvePathTokensFromContext resolves {token} placeholders using the command context.
+// resolvePathParamsFromContext resolves {token} placeholders using the command context.
 // Organization and workspace are auto-filled from profile or terraform cloud config.
 // Tokens preceded by a known resource segment (workspaces, teams, projects, varsets)
 // are resolved from name to external ID via the API.
-func resolvePathTokensFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathTokens map[string]string) (string, error) {
-	tokenSegments := client.ParsePathTokens(path)
+func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathTokens map[string]string) (string, error) {
+	tokenSegments := client.ParsePathParams(path)
 
 	// Auto-fill organization from profile or terraform config if not explicit.
 	org := ""
@@ -305,7 +321,7 @@ func resolvePathTokensFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 		pathTokens[token] = id
 	}
 
-	return client.ResolvePathTokens(path, pathTokens)
+	return client.ResolvePathParams(path, pathTokens)
 }
 
 // resolveOrg returns the organization from profile or terraform cloud config.

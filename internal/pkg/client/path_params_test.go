@@ -7,25 +7,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestResolvePathTokens_NoTokens(t *testing.T) {
+func TestResolvePathParams_NoParams(t *testing.T) {
 	t.Parallel()
-	result, err := ResolvePathTokens("/workspaces", nil)
+	result, err := ResolvePathParams("/workspaces", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "/workspaces", result)
 }
 
-func TestResolvePathTokens_SingleToken(t *testing.T) {
+func TestResolvePathParams_SingleToken(t *testing.T) {
 	t.Parallel()
-	result, err := ResolvePathTokens("/workspaces/{workspace_id}/runs", map[string]string{
+	result, err := ResolvePathParams("/workspaces/{workspace_id}/runs", map[string]string{
 		"workspace_id": "ws-abc123",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "/workspaces/ws-abc123/runs", result)
 }
 
-func TestResolvePathTokens_MultipleTokens(t *testing.T) {
+func TestResolvePathParams_MultipleParams(t *testing.T) {
 	t.Parallel()
-	result, err := ResolvePathTokens("/organizations/{organization_name}/workspaces/{workspace_name}", map[string]string{
+	result, err := ResolvePathParams("/organizations/{organization_name}/workspaces/{workspace_name}", map[string]string{
 		"organization_name": "my-org",
 		"workspace_name":    "my-ws",
 	})
@@ -33,40 +33,40 @@ func TestResolvePathTokens_MultipleTokens(t *testing.T) {
 	assert.Equal(t, "/organizations/my-org/workspaces/my-ws", result)
 }
 
-func TestResolvePathTokens_UnresolvedToken(t *testing.T) {
+func TestResolvePathParams_UnresolvedToken(t *testing.T) {
 	t.Parallel()
-	_, err := ResolvePathTokens("/workspaces/{workspace_id}/runs", map[string]string{})
+	_, err := ResolvePathParams("/workspaces/{workspace_id}/runs", map[string]string{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workspace_id")
 	assert.Contains(t, err.Error(), "-p")
 }
 
-func TestResolvePathTokens_PartialResolution(t *testing.T) {
+func TestResolvePathParams_PartialResolution(t *testing.T) {
 	t.Parallel()
-	_, err := ResolvePathTokens("/organizations/{org}/workspaces/{ws}", map[string]string{
+	_, err := ResolvePathParams("/organizations/{org}/workspaces/{ws}", map[string]string{
 		"org": "my-org",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ws")
 }
 
-func TestResolvePathTokens_NoBraces(t *testing.T) {
+func TestResolvePathParams_NoBraces(t *testing.T) {
 	t.Parallel()
-	result, err := ResolvePathTokens("/account/details", map[string]string{"foo": "bar"})
+	result, err := ResolvePathParams("/account/details", map[string]string{"foo": "bar"})
 	require.NoError(t, err)
 	assert.Equal(t, "/account/details", result)
 }
 
-func TestResolvePathTokens_RepeatedToken(t *testing.T) {
+func TestResolvePathParams_RepeatedToken(t *testing.T) {
 	t.Parallel()
-	result, err := ResolvePathTokens("/workspaces/{id}/varsets/{id}", map[string]string{
+	result, err := ResolvePathParams("/workspaces/{id}/varsets/{id}", map[string]string{
 		"id": "ws-123",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "/workspaces/ws-123/varsets/ws-123", result)
 }
 
-func TestParsePathTokens(t *testing.T) {
+func TestParsePathParams(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
@@ -102,7 +102,7 @@ func TestParsePathTokens(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			result := ParsePathTokens(tc.path)
+			result := ParsePathParams(tc.path)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
