@@ -683,7 +683,7 @@ func newTestOpts(t *testing.T, address string, io *iostreams.Testing, mutate fun
 		Headers:     []string{},
 		Attributes:  map[string]string{},
 		Query:       map[string]string{},
-		PathTokens:  map[string]string{},
+		PathParams:  map[string]string{},
 	}
 	mutate(opts)
 	return opts

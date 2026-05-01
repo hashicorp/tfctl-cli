@@ -14,7 +14,7 @@ func TestResolvePathParams_NoParams(t *testing.T) {
 	assert.Equal(t, "/workspaces", result)
 }
 
-func TestResolvePathParams_SingleToken(t *testing.T) {
+func TestResolvePathParams_SingleParam(t *testing.T) {
 	t.Parallel()
 	result, err := ResolvePathParams("/workspaces/{workspace_id}/runs", map[string]string{
 		"workspace_id": "ws-abc123",
@@ -33,7 +33,7 @@ func TestResolvePathParams_MultipleParams(t *testing.T) {
 	assert.Equal(t, "/organizations/my-org/workspaces/my-ws", result)
 }
 
-func TestResolvePathParams_UnresolvedToken(t *testing.T) {
+func TestResolvePathParams_UnresolvedParam(t *testing.T) {
 	t.Parallel()
 	_, err := ResolvePathParams("/workspaces/{workspace_id}/runs", map[string]string{})
 	require.Error(t, err)
@@ -57,7 +57,7 @@ func TestResolvePathParams_NoBraces(t *testing.T) {
 	assert.Equal(t, "/account/details", result)
 }
 
-func TestResolvePathParams_RepeatedToken(t *testing.T) {
+func TestResolvePathParams_RepeatedParam(t *testing.T) {
 	t.Parallel()
 	result, err := ResolvePathParams("/workspaces/{id}/varsets/{id}", map[string]string{
 		"id": "ws-123",
@@ -74,22 +74,22 @@ func TestParsePathParams(t *testing.T) {
 		expected map[string]string
 	}{
 		{
-			name:     "single token",
+			name:     "single param",
 			path:     "/workspaces/{workspace_id}/runs",
 			expected: map[string]string{"workspace_id": "workspaces"},
 		},
 		{
-			name:     "multiple tokens",
+			name:     "multiple params",
 			path:     "/organizations/{org_name}/workspaces/{workspace_id}",
 			expected: map[string]string{"org_name": "organizations", "workspace_id": "workspaces"},
 		},
 		{
-			name:     "no tokens",
+			name:     "no params",
 			path:     "/account/details",
 			expected: map[string]string{},
 		},
 		{
-			name:     "token at root",
+			name:     "param at root",
 			path:     "/{resource_id}",
 			expected: map[string]string{"resource_id": ""},
 		},

@@ -5,26 +5,26 @@ import (
 	"strings"
 )
 
-// ResolvePathParams replaces all {token} placeholders in a URL path with values
-// from the tokens map. Any unresolved tokens are returned as an error.
-func ResolvePathParams(path string, tokens map[string]string) (string, error) {
+// ResolvePathParams replaces all {param} placeholders in a URL path with values
+// from the params map. Any unresolved params are returned as an error.
+func ResolvePathParams(path string, params map[string]string) (string, error) {
 	result := path
-	for k, v := range tokens {
+	for k, v := range params {
 		result = strings.ReplaceAll(result, "{"+k+"}", v)
 	}
 
-	// Check for unresolved tokens.
+	// Check for unresolved params.
 	if start := strings.IndexByte(result, '{'); start >= 0 {
 		if end := strings.IndexByte(result[start:], '}'); end >= 0 {
-			token := result[start+1 : start+end]
-			return "", fmt.Errorf("unresolved path token {%s}; use -p '%s=VALUE'", token, token)
+			param := result[start+1 : start+end]
+			return "", fmt.Errorf("unresolved path param {%s}; use -p '%s=VALUE'", param, param)
 		}
 	}
 
 	return result, nil
 }
 
-// ParsePathParams returns a map of token names to their preceding path segments.
+// ParsePathParams returns a map of param names to their preceding path segments.
 // For example, "/workspaces/{workspace_id}/runs" returns {"workspace_id": "workspaces"}.
 func ParsePathParams(path string) map[string]string {
 	result := make(map[string]string)

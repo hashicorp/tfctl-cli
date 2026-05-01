@@ -230,7 +230,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("failed to create API client: %w", err)
 			}
 
-			// Resolve path tokens ({workspace}, {organization}, etc.) before URL resolution.
+			// Resolve path params ({workspace}, {organization}, etc.) before URL resolution.
 			if strings.Contains(path, "{") {
 				resolvedPath, resolveErr := resolvePathParamsFromContext(ctx, apiClient, path, opts.PathParams)
 				if resolveErr != nil {
@@ -260,29 +260,31 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// resolvePathParamsFromContext resolves {token} placeholders using the command context.
-// Organization and workspace are auto-filled from profile or terraform cloud config.
+// resolvePathParamsFromContext resolves {param} placeholders using the command context.
 // Params preceded by a known resource segment (workspaces, teams, projects, varsets)
 // are resolved from name to external ID via the API.
 func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathParams map[string]string) (string, error) {
-	tokenSegments := client.ParsePathParams(path)
+	if pathParams == nil {
+		pathParams = make(map[string]string)
+	}
+	paramSegments := client.ParsePathParams(path)
 
 	// Load terraform cloud config once for org/workspace auto-fill.
 	cloudCfg, _ := terraformcfg.FindCloudConfig(".")
 
 	// Auto-fill organization from profile or terraform config if not explicit.
 	org := ""
-	for token, segment := range tokenSegments {
+	for param, segment := range paramSegments {
 		if segment == "organizations" {
-			if _, ok := pathParams[token]; !ok {
+			if _, ok := pathParams[param]; !ok {
 				if org == "" {
 					org = resolveOrg(ctx, cloudCfg)
 				}
 				if org != "" {
-					pathParams[token] = org
+					pathParams[param] = org
 				}
 			} else {
-				org = pathParams[token]
+				org = pathParams[param]
 			}
 		}
 	}
@@ -291,20 +293,20 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 	}
 
 	// Auto-fill workspace from terraform config if not explicit.
-	for token, segment := range tokenSegments {
+	for param, segment := range paramSegments {
 		if segment == "workspaces" {
-			if _, ok := pathParams[token]; !ok {
-				if cfg, err := terraformcfg.FindCloudConfig("."); err == nil && cfg.Workspace != "" {
-					pathParams[token] = cfg.Workspace
+			if _, ok := pathParams[param]; !ok {
+				if cloudCfg != nil && cloudCfg.Workspace != "" {
+					pathParams[param] = cloudCfg.Workspace
 				}
 			}
 		}
 	}
 
-	// Resolve names → external IDs for tokens preceded by known resource segments.
+	// Resolve names → external IDs for params preceded by known resource segments.
 	resolver := client.NewResolver(apiClient, false, false)
-	for token, segment := range tokenSegments {
-		value, ok := pathParams[token]
+	for param, segment := range paramSegments {
+		value, ok := pathParams[param]
 		if !ok {
 			continue
 		}
@@ -315,13 +317,13 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 			continue
 		}
 		if org == "" {
-			return "", fmt.Errorf("organization required to resolve %s name %q; configure a profile or use -p with an organization token", segment, value)
+			return "", fmt.Errorf("organization required to resolve %s name %q; configure a profile or use -p with an organization param", segment, value)
 		}
 		id, err := lookupResource(ctx.ShutdownCtx, resolver, segment, org, value)
 		if err != nil {
 			return "", err
 		}
-		pathParams[token] = id
+		pathParams[param] = id
 	}
 
 	return client.ResolvePathParams(path, pathParams)
