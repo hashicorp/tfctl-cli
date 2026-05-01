@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
+	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
 )
 
 const (
@@ -213,6 +214,15 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("failed to create API client: %w", err)
 			}
 
+			// Resolve path tokens ({workspace}, {organization}, etc.) before URL resolution.
+			if strings.Contains(path, "{") {
+				resolvedPath, resolveErr := resolvePathTokensFromContext(ctx, apiClient, path, opts.PathTokens)
+				if resolveErr != nil {
+					return resolveErr
+				}
+				path = resolvedPath
+			}
+
 			resolvedURL, err := client.ResolveURL(*apiClient.BaseURL, path)
 			if err != nil {
 				return fmt.Errorf("invalid input path/URL %q", path)
@@ -232,6 +242,106 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	cmd.AddChild(NewCmdAPISchema(ctx))
 
 	return cmd
+}
+
+// resolvePathTokensFromContext resolves {token} placeholders using the command context.
+// Organization and workspace are auto-filled from profile or terraform cloud config.
+// Tokens preceded by a known resource segment (workspaces, teams, projects, varsets)
+// are resolved from name to external ID via the API.
+func resolvePathTokensFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathTokens map[string]string) (string, error) {
+	tokenSegments := client.ParsePathTokens(path)
+
+	// Auto-fill organization from profile or terraform config if not explicit.
+	org := ""
+	for token, segment := range tokenSegments {
+		if segment == "organizations" {
+			if _, ok := pathTokens[token]; !ok {
+				if org == "" {
+					org = resolveOrg(ctx)
+				}
+				if org != "" {
+					pathTokens[token] = org
+				}
+			} else {
+				org = pathTokens[token]
+			}
+		}
+	}
+	if org == "" {
+		org = resolveOrg(ctx)
+	}
+
+	// Auto-fill workspace from terraform config if not explicit.
+	for token, segment := range tokenSegments {
+		if segment == "workspaces" {
+			if _, ok := pathTokens[token]; !ok {
+				if cfg, err := terraformcfg.FindCloudConfig("."); err == nil && cfg.Workspace != "" {
+					pathTokens[token] = cfg.Workspace
+				}
+			}
+		}
+	}
+
+	// Resolve names → external IDs for tokens preceded by known resource segments.
+	resolver := client.NewResolver(apiClient, false, false)
+	for token, segment := range tokenSegments {
+		value, ok := pathTokens[token]
+		if !ok {
+			continue
+		}
+		if !client.IsResolvableSegment(segment) {
+			continue
+		}
+		if client.LooksLikeExternalID(segment, value) {
+			continue
+		}
+		if org == "" {
+			return "", fmt.Errorf("organization required to resolve %s name %q; configure a profile or use -p with an organization token", segment, value)
+		}
+		id, err := lookupResource(ctx.ShutdownCtx, resolver, segment, org, value)
+		if err != nil {
+			return "", err
+		}
+		pathTokens[token] = id
+	}
+
+	return client.ResolvePathTokens(path, pathTokens)
+}
+
+// resolveOrg returns the organization from profile or terraform cloud config.
+func resolveOrg(ctx *cmd.Context) string {
+	if ctx.Profile.Organization != "" {
+		return ctx.Profile.Organization
+	}
+	if cfg, err := terraformcfg.FindCloudConfig("."); err == nil && cfg.Organization != "" {
+		return cfg.Organization
+	}
+	return ""
+}
+
+// lookupResource resolves a resource name to its external ID via the API.
+func lookupResource(goCtx context.Context, resolver *client.Resolver, segment, org, name string) (string, error) {
+	var id *string
+	var err error
+	switch segment {
+	case "workspaces":
+		id, err = resolver.Workspace(goCtx, org, name)
+	case "teams":
+		id, err = resolver.Team(goCtx, org, name)
+	case "projects":
+		id, err = resolver.Project(goCtx, org, name)
+	case "varsets":
+		id, err = resolver.VariableSet(goCtx, org, name)
+	default:
+		return name, nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if id == nil {
+		return "", fmt.Errorf("%s %q resolved to nil ID", segment, name)
+	}
+	return *id, nil
 }
 
 func runAPI(opts *Opts) error {

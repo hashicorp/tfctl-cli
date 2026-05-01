@@ -1,0 +1,134 @@
+package client
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestResolvePathTokens_NoTokens(t *testing.T) {
+	t.Parallel()
+	result, err := ResolvePathTokens("/workspaces", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "/workspaces", result)
+}
+
+func TestResolvePathTokens_SingleToken(t *testing.T) {
+	t.Parallel()
+	result, err := ResolvePathTokens("/workspaces/{workspace_id}/runs", map[string]string{
+		"workspace_id": "ws-abc123",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "/workspaces/ws-abc123/runs", result)
+}
+
+func TestResolvePathTokens_MultipleTokens(t *testing.T) {
+	t.Parallel()
+	result, err := ResolvePathTokens("/organizations/{organization_name}/workspaces/{workspace_name}", map[string]string{
+		"organization_name": "my-org",
+		"workspace_name":    "my-ws",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "/organizations/my-org/workspaces/my-ws", result)
+}
+
+func TestResolvePathTokens_UnresolvedToken(t *testing.T) {
+	t.Parallel()
+	_, err := ResolvePathTokens("/workspaces/{workspace_id}/runs", map[string]string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace_id")
+	assert.Contains(t, err.Error(), "-p")
+}
+
+func TestResolvePathTokens_PartialResolution(t *testing.T) {
+	t.Parallel()
+	_, err := ResolvePathTokens("/organizations/{org}/workspaces/{ws}", map[string]string{
+		"org": "my-org",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ws")
+}
+
+func TestResolvePathTokens_NoBraces(t *testing.T) {
+	t.Parallel()
+	result, err := ResolvePathTokens("/account/details", map[string]string{"foo": "bar"})
+	require.NoError(t, err)
+	assert.Equal(t, "/account/details", result)
+}
+
+func TestResolvePathTokens_RepeatedToken(t *testing.T) {
+	t.Parallel()
+	result, err := ResolvePathTokens("/workspaces/{id}/varsets/{id}", map[string]string{
+		"id": "ws-123",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "/workspaces/ws-123/varsets/ws-123", result)
+}
+
+func TestParsePathTokens(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		path     string
+		expected map[string]string
+	}{
+		{
+			name:     "single token",
+			path:     "/workspaces/{workspace_id}/runs",
+			expected: map[string]string{"workspace_id": "workspaces"},
+		},
+		{
+			name:     "multiple tokens",
+			path:     "/organizations/{org_name}/workspaces/{workspace_id}",
+			expected: map[string]string{"org_name": "organizations", "workspace_id": "workspaces"},
+		},
+		{
+			name:     "no tokens",
+			path:     "/account/details",
+			expected: map[string]string{},
+		},
+		{
+			name:     "token at root",
+			path:     "/{resource_id}",
+			expected: map[string]string{"resource_id": ""},
+		},
+		{
+			name:     "nested path",
+			path:     "/varsets/{varset_id}/relationships/vars",
+			expected: map[string]string{"varset_id": "varsets"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			result := ParsePathTokens(tc.path)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestIsResolvableSegment(t *testing.T) {
+	t.Parallel()
+	assert.True(t, IsResolvableSegment("workspaces"))
+	assert.True(t, IsResolvableSegment("teams"))
+	assert.True(t, IsResolvableSegment("projects"))
+	assert.True(t, IsResolvableSegment("varsets"))
+	assert.False(t, IsResolvableSegment("runs"))
+	assert.False(t, IsResolvableSegment("organizations"))
+	assert.False(t, IsResolvableSegment(""))
+}
+
+func TestLooksLikeExternalID(t *testing.T) {
+	t.Parallel()
+	assert.True(t, LooksLikeExternalID("workspaces", "ws-abc123"))
+	assert.True(t, LooksLikeExternalID("teams", "team-abc123"))
+	assert.True(t, LooksLikeExternalID("projects", "prj-abc123"))
+	assert.True(t, LooksLikeExternalID("varsets", "varset-abc123"))
+
+	assert.False(t, LooksLikeExternalID("workspaces", "my-workspace"))
+	assert.False(t, LooksLikeExternalID("teams", "owners"))
+	assert.False(t, LooksLikeExternalID("projects", "default"))
+	assert.False(t, LooksLikeExternalID("varsets", "my-varset"))
+	assert.False(t, LooksLikeExternalID("runs", "run-abc123"))
+}
