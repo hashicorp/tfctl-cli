@@ -55,7 +55,7 @@ func (w *wrapper) OperationByID(operationID string) (*openapi3.Operation, error)
 func SchemaFactory(_ *cmd.Context) (Schema, error) {
 	schemaOnce.Do(func() {
 		loader := openapi3.NewLoader()
-		var root *openapi3.T = nil
+		var root *openapi3.T
 		root, schemaErr = loader.LoadFromData(embeddedOpenAPISpec)
 		if schemaErr == nil {
 			cachedSchema = &wrapper{T: root}
