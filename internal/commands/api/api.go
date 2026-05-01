@@ -50,7 +50,7 @@ type Opts struct {
 	URL          *url.URL
 	Attributes   map[string]string
 	Query        map[string]string
-	PathTokens   map[string]string
+	PathParams   map[string]string
 	InputRequest string
 	Method       string
 	ResourceType string
@@ -167,7 +167,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 					DisplayValue: "KEY=VALUE",
 					Description:  "Provide a hint for path parameter resolution. The TFE API typically requires a resource ID for resource-specific requests. Use of the --pathparam flag allows automatic resolution to resource ID from name (workspaces, teams, projects, varsets). This flag can be used to specify an organization and workspace, but these resource IDs will also be automatically resolved from the active profile or local Terraform config if either is present.",
 					Repeatable:   true,
-					Value:        flagvalue.SimpleMap(nil, &opts.PathTokens),
+					Value:        flagvalue.SimpleMap(nil, &opts.PathParams),
 				},
 			},
 		},
@@ -232,7 +232,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			// Resolve path tokens ({workspace}, {organization}, etc.) before URL resolution.
 			if strings.Contains(path, "{") {
-				resolvedPath, resolveErr := resolvePathParamsFromContext(ctx, apiClient, path, opts.PathTokens)
+				resolvedPath, resolveErr := resolvePathParamsFromContext(ctx, apiClient, path, opts.PathParams)
 				if resolveErr != nil {
 					return resolveErr
 				}
@@ -262,24 +262,24 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 // resolvePathParamsFromContext resolves {token} placeholders using the command context.
 // Organization and workspace are auto-filled from profile or terraform cloud config.
-// Tokens preceded by a known resource segment (workspaces, teams, projects, varsets)
+// Params preceded by a known resource segment (workspaces, teams, projects, varsets)
 // are resolved from name to external ID via the API.
-func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathTokens map[string]string) (string, error) {
+func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathParams map[string]string) (string, error) {
 	tokenSegments := client.ParsePathParams(path)
 
 	// Auto-fill organization from profile or terraform config if not explicit.
 	org := ""
 	for token, segment := range tokenSegments {
 		if segment == "organizations" {
-			if _, ok := pathTokens[token]; !ok {
+			if _, ok := pathParams[token]; !ok {
 				if org == "" {
 					org = resolveOrg(ctx)
 				}
 				if org != "" {
-					pathTokens[token] = org
+					pathParams[token] = org
 				}
 			} else {
-				org = pathTokens[token]
+				org = pathParams[token]
 			}
 		}
 	}
@@ -290,9 +290,9 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 	// Auto-fill workspace from terraform config if not explicit.
 	for token, segment := range tokenSegments {
 		if segment == "workspaces" {
-			if _, ok := pathTokens[token]; !ok {
+			if _, ok := pathParams[token]; !ok {
 				if cfg, err := terraformcfg.FindCloudConfig("."); err == nil && cfg.Workspace != "" {
-					pathTokens[token] = cfg.Workspace
+					pathParams[token] = cfg.Workspace
 				}
 			}
 		}
@@ -301,7 +301,7 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 	// Resolve names → external IDs for tokens preceded by known resource segments.
 	resolver := client.NewResolver(apiClient, false, false)
 	for token, segment := range tokenSegments {
-		value, ok := pathTokens[token]
+		value, ok := pathParams[token]
 		if !ok {
 			continue
 		}
@@ -318,10 +318,10 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 		if err != nil {
 			return "", err
 		}
-		pathTokens[token] = id
+		pathParams[token] = id
 	}
 
-	return client.ResolvePathParams(path, pathTokens)
+	return client.ResolvePathParams(path, pathParams)
 }
 
 // resolveOrg returns the organization from profile or terraform cloud config.

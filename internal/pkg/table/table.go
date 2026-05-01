@@ -61,6 +61,9 @@ func (t *Table) String() string {
 	// Determine the maximum column width by subtracting from the total line LineLength
 	// the width of column separators and then dividing by the number of columns.
 	numHeaders := len(t.rows[0].cells)
+	if numHeaders == 0 {
+		return ""
+	}
 	headerSpacing := uint((numHeaders - 1)) * t.SeparatorSpaces
 	t.maxColWidth = (t.LineLength - headerSpacing) / uint(numHeaders)
 
