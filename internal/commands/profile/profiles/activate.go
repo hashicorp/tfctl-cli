@@ -33,7 +33,7 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		Args: cmd.PositionalArguments{
-			Autocomplete: predictProfiles(false, false),
+			Autocomplete: PredictProfiles(false, false),
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "NAME",

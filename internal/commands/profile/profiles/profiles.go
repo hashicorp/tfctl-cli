@@ -57,11 +57,11 @@ func IsValidProperty(property string) error {
 	return fmt.Errorf("property with name %q does not exist", property)
 }
 
-// predictProfiles is an argument prediction function that predicts a
+// PredictProfiles is an argument prediction function that predicts a
 // profile name. If repeated is true, multiple profiles will be predicted. This
 // is useful for commands that accept lists of profiles. If predictActive is set
 // to true, the active profile will be included in the prediction set.
-func predictProfiles(repeated, predictActive bool) complete.PredictFunc {
+func PredictProfiles(repeated, predictActive bool) complete.PredictFunc {
 	return func(args complete.Args) []string {
 		if len(args.Completed) >= 1 && !repeated {
 			return nil
