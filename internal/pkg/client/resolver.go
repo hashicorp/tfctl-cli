@@ -122,7 +122,8 @@ func (r Resolver) Team(ctx context.Context, organization, name string) (*string,
 	}
 
 	for _, item := range items.GetData() {
-		if *item.GetAttributes().GetName() == name {
+		att := item.GetAttributes()
+		if att.GetName() != nil && *att.GetName() == name {
 			return item.GetId(), nil
 		}
 	}
@@ -144,7 +145,8 @@ func (r Resolver) Project(ctx context.Context, organization, name string) (*stri
 	}
 
 	for _, item := range items.GetData() {
-		if *item.GetAttributes().GetName() == name {
+		att := item.GetAttributes()
+		if att.GetName() != nil && *att.GetName() == name {
 			return item.GetId(), nil
 		}
 	}

@@ -267,13 +267,16 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathParams map[string]string) (string, error) {
 	tokenSegments := client.ParsePathParams(path)
 
+	// Load terraform cloud config once for org/workspace auto-fill.
+	cloudCfg, _ := terraformcfg.FindCloudConfig(".")
+
 	// Auto-fill organization from profile or terraform config if not explicit.
 	org := ""
 	for token, segment := range tokenSegments {
 		if segment == "organizations" {
 			if _, ok := pathParams[token]; !ok {
 				if org == "" {
-					org = resolveOrg(ctx)
+					org = resolveOrg(ctx, cloudCfg)
 				}
 				if org != "" {
 					pathParams[token] = org
@@ -284,7 +287,7 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 		}
 	}
 	if org == "" {
-		org = resolveOrg(ctx)
+		org = resolveOrg(ctx, cloudCfg)
 	}
 
 	// Auto-fill workspace from terraform config if not explicit.
@@ -325,12 +328,12 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 }
 
 // resolveOrg returns the organization from profile or terraform cloud config.
-func resolveOrg(ctx *cmd.Context) string {
+func resolveOrg(ctx *cmd.Context, cloudCfg *terraformcfg.CloudConfig) string {
 	if ctx.Profile.Organization != "" {
 		return ctx.Profile.Organization
 	}
-	if cfg, err := terraformcfg.FindCloudConfig("."); err == nil && cfg.Organization != "" {
-		return cfg.Organization
+	if cloudCfg != nil && cloudCfg.Organization != "" {
+		return cloudCfg.Organization
 	}
 	return ""
 }
