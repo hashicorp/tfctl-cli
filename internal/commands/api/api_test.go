@@ -741,6 +741,33 @@ func serverURL(r *http.Request) string {
 	return scheme + "://" + r.Host
 }
 
+func TestLookupResource_ErrNotFound(t *testing.T) {
+	t.Parallel()
+
+	// Mock server that returns 404 for workspace lookup.
+	server, _ := newAPITestServer(map[string]http.HandlerFunc{
+		"GET /api/v2/organizations/my-org/workspaces/nonexistent": func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/vnd.api+json")
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"errors": []map[string]any{
+					{"status": "404", "title": "not found"},
+				},
+			})
+		},
+	})
+	defer server.Close()
+
+	apiClient, err := client.New(server.URL, "test-token", http.Header{})
+	require.NoError(t, err)
+
+	resolver := client.NewResolver(apiClient, false, false)
+	_, err = lookupResource(context.Background(), resolver, "workspaces", "my-org", "nonexistent")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `workspaces named "nonexistent" not found in organization "my-org"`)
+}
+
 func TestWriteDryRunRequest(t *testing.T) {
 	t.Parallel()
 

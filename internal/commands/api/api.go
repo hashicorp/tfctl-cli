@@ -20,6 +20,8 @@ import (
 
 	"github.com/posener/complete"
 
+	tfe "github.com/hashicorp/go-tfe"
+
 	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -84,7 +86,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		  tfcloud api /workspaces/{workspace}/runs -p workspace=my-workspace
 
 		Organization resolves automatically from the active profile or local Terraform cloud config.
-		Workspaces, teams, projects, and varsets resolve from name to external ID. Values that
+		Workspaces, teams, projects, and varsets resolve from name to ID. Values that
 		already look like IDs (ws-, team-, prj-, varset- prefixes) are used directly.
 		`, config.Name),
 		Args: cmd.PositionalArguments{
@@ -93,7 +95,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "PATH",
-					Documentation: "API path or URL. Supports {name} path parameters resolved via -p. Organization auto-fills from profile.",
+					Documentation: "API path or URL. Supports {name} path parameter name resolution",
 				},
 			},
 		},
@@ -173,7 +175,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		},
 		Examples: []cmd.Example{
 			{
-				Preamble: "List workspaces in the default organization",
+				Preamble: "List workspaces in the active profile's organization",
 				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /organizations/{organization}/workspaces`, config.Name),
 			},
 			{
@@ -262,7 +264,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 // resolvePathParamsFromContext resolves {param} placeholders using the command context.
 // Params preceded by a known resource segment (workspaces, teams, projects, varsets)
-// are resolved from name to external ID via the API.
+// are resolved from name to ID via the API.
 func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathParams map[string]string) (string, error) {
 	if pathParams == nil {
 		pathParams = make(map[string]string)
@@ -303,7 +305,7 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 		}
 	}
 
-	// Resolve names → external IDs for params preceded by known resource segments.
+	// Resolve names → IDs for params preceded by known resource segments.
 	resolver := client.NewResolver(apiClient, false, false)
 	for param, segment := range paramSegments {
 		value, ok := pathParams[param]
@@ -313,7 +315,7 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 		if !client.IsResolvableSegment(segment) {
 			continue
 		}
-		if client.LooksLikeExternalID(segment, value) {
+		if client.LooksLikeID(segment, value) {
 			continue
 		}
 		if org == "" {
@@ -340,23 +342,14 @@ func resolveOrg(ctx *cmd.Context, cloudCfg *terraformcfg.CloudConfig) string {
 	return ""
 }
 
-// lookupResource resolves a resource name to its external ID via the API.
+// lookupResource resolves a resource name to its ID via the API.
 func lookupResource(goCtx context.Context, resolver *client.Resolver, segment, org, name string) (string, error) {
-	var id *string
-	var err error
-	switch segment {
-	case "workspaces":
-		id, err = resolver.Workspace(goCtx, org, name)
-	case "teams":
-		id, err = resolver.Team(goCtx, org, name)
-	case "projects":
-		id, err = resolver.Project(goCtx, org, name)
-	case "varsets":
-		id, err = resolver.VariableSet(goCtx, org, name)
-	default:
-		return name, nil
-	}
+	id, err := resolver.ResolveFromName(goCtx, segment, org, name)
 	if err != nil {
+		if errors.Is(err, tfe.ErrNotFound) {
+			return "", fmt.Errorf("%s named %q not found in organization %q", segment, name, org)
+		}
+
 		return "", err
 	}
 	if id == nil {

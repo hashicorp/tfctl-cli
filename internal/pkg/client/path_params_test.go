@@ -119,16 +119,16 @@ func TestIsResolvableSegment(t *testing.T) {
 	assert.False(t, IsResolvableSegment(""))
 }
 
-func TestLooksLikeExternalID(t *testing.T) {
+func TestLooksLikeID(t *testing.T) {
 	t.Parallel()
-	assert.True(t, LooksLikeExternalID("workspaces", "ws-abc123"))
-	assert.True(t, LooksLikeExternalID("teams", "team-abc123"))
-	assert.True(t, LooksLikeExternalID("projects", "prj-abc123"))
-	assert.True(t, LooksLikeExternalID("varsets", "varset-abc123"))
+	assert.True(t, LooksLikeID("workspaces", "ws-abc123"))
+	assert.True(t, LooksLikeID("teams", "team-abc123"))
+	assert.True(t, LooksLikeID("projects", "prj-abc123"))
+	assert.True(t, LooksLikeID("varsets", "varset-abc123"))
 
-	assert.False(t, LooksLikeExternalID("workspaces", "my-workspace"))
-	assert.False(t, LooksLikeExternalID("teams", "owners"))
-	assert.False(t, LooksLikeExternalID("projects", "default"))
-	assert.False(t, LooksLikeExternalID("varsets", "my-varset"))
-	assert.False(t, LooksLikeExternalID("runs", "run-abc123"))
+	assert.False(t, LooksLikeID("workspaces", "my-workspace"))
+	assert.False(t, LooksLikeID("teams", "owners"))
+	assert.False(t, LooksLikeID("projects", "default"))
+	assert.False(t, LooksLikeID("varsets", "my-varset"))
+	assert.False(t, LooksLikeID("runs", "run-abc123"))
 }

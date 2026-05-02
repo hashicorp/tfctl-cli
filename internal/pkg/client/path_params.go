@@ -68,9 +68,9 @@ func IsResolvableSegment(segment string) bool {
 	return false
 }
 
-// LooksLikeExternalID returns true if the value already appears to be an
-// external ID for the given resource segment, based on known prefixes.
-func LooksLikeExternalID(segment, value string) bool {
+// LooksLikeID returns true if the value already appears to be an
+// ID for the given resource segment, based on known prefixes.
+func LooksLikeID(segment, value string) bool {
 	switch segment {
 	case "workspaces":
 		return strings.HasPrefix(value, "ws-")
