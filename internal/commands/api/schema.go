@@ -46,8 +46,7 @@ func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
 		ShortHelp:      "Search API operations",
 		NoAuthRequired: true,
 		LongHelp: heredoc.New(ctx.IO).Must(`
-		Search API operations from the OpenAPI spec. Results are ranked by Bluge and
-		rendered as a compact table when possible.
+		Search API operations by keywords.
 		`),
 		Args: cmd.PositionalArguments{
 			Args: []cmd.PositionalArgument{{
