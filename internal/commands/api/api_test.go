@@ -276,6 +276,39 @@ func TestRunAPI_Paginate(t *testing.T) {
 	require.Contains(t, io.Output.String(), "beta")
 }
 
+func TestMergePaginatedBody_UpdatesMeta(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{
+		"data": [{"id": "ws-2", "type": "workspaces"}],
+		"meta": {"pagination": {"current-page": 2, "page-size": 1, "total-count": 2, "total-pages": 2}},
+		"links": {"next": "https://example.com/next"}
+	}`)
+	combined := []any{
+		map[string]any{"id": "ws-1", "type": "workspaces"},
+		map[string]any{"id": "ws-2", "type": "workspaces"},
+	}
+
+	merged, err := mergePaginatedBody(body, combined)
+	require.NoError(t, err)
+
+	var result map[string]any
+	require.NoError(t, json.Unmarshal(merged, &result))
+
+	data := result["data"].([]any)
+	require.Len(t, data, 2)
+
+	meta := result["meta"].(map[string]any)
+	pagination := meta["pagination"].(map[string]any)
+	require.EqualValues(t, 2, pagination["total-count"])
+	require.EqualValues(t, 2, pagination["page-size"])
+	require.EqualValues(t, 1, pagination["current-page"])
+	require.EqualValues(t, 1, pagination["total-pages"])
+
+	links := result["links"].(map[string]any)
+	require.Nil(t, links["next"])
+}
+
 func TestRunAPI_DebugLogsRequestAndResponse(t *testing.T) {
 	t.Parallel()
 
