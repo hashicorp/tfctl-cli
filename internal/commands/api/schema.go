@@ -2,34 +2,24 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
+	"github.com/hashicorp/tfcloud/internal/pkg/openapi"
 )
 
-type schemaOperation struct {
-	OperationID string
-	Method      string
-	Path        string
-	Tags        []string
-	Summary     string
-}
-
-type schemaOperationsLoader func(ctx *cmd.Context) ([]schemaOperation, error)
-type schemaDocumentLoader func(ctx *cmd.Context) (map[string]any, error)
+type schemaOperationsLoader func(ctx *cmd.Context) (openapi.Schema, error)
 
 type schemaSearcher interface {
-	Search(ctx context.Context, query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error)
+	Search(ctx context.Context, query string, operations []*openapi.Operation, limit int) ([]schemaSearchResult, error)
 }
 
 var (
-	loadSchemaOperationsForSearch schemaOperationsLoader = cachedSchemaOperations
-	loadSchemaDocumentForGet      schemaDocumentLoader   = cachedSchemaDocument
-	schemaOperationSearcher       schemaSearcher         = hybridSchemaSearcher{}
+	loadSchemaOperationsForSchemaCommand schemaOperationsLoader = openapi.SchemaFactory
+	schemaOperationSearcher              schemaSearcher         = hybridSchemaSearcher{}
 )
 
 // NewCmdAPISchema creates the api schema command group.
@@ -72,12 +62,12 @@ func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
 		}},
 		RunF: func(_ *cmd.Command, args []string) error {
 			query := strings.Join(args, " ")
-			operations, err := loadSchemaOperationsForSearch(ctx)
+			schema, err := openapi.SchemaFactory(ctx)
 			if err != nil {
 				return err
 			}
 
-			results, err := schemaOperationSearcher.Search(ctx.ShutdownCtx, query, operations, maxSchemaSearchResults)
+			results, err := schemaOperationSearcher.Search(ctx.ShutdownCtx, query, schema.Operations(), maxSchemaSearchResults)
 			if err != nil {
 				return err
 			}
@@ -157,24 +147,24 @@ func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
-			document, err := loadSchemaDocumentForGet(ctx)
+			schema, err := loadSchemaOperationsForSchemaCommand(ctx)
 			if err != nil {
 				return err
 			}
 
-			var result map[string]any
+			var result openapi.Schema
 			if strings.HasPrefix(args[0], "/") {
-				result, err = schemaPathDocument(document, args[0])
+				result, err = schema.AtomizePath(args[0])
 			} else {
-				result, err = schemaOperationDocument(document, args[0])
+				result, err = schema.AtomizeOperation(args[0])
 			}
 			if err != nil {
 				return err
 			}
 
-			body, err := json.MarshalIndent(result, "", "  ")
+			body, err := result.MarshalJSON()
 			if err != nil {
-				return fmt.Errorf("marshal operation schema: %w", err)
+				return fmt.Errorf("failed to marshal operation schema: %w", err)
 			}
 
 			fmt.Fprintln(ctx.IO.Out(), string(body))

@@ -5,16 +5,11 @@
 package profiles
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/muesli/reflow/indent"
 	"github.com/posener/complete"
 	"golang.org/x/exp/maps"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/ld"
 	"github.com/hashicorp/tfcloud/internal/pkg/profile"
 )
 
@@ -40,21 +35,6 @@ func NewCmdProfiles(ctx *cmd.Context) *cmd.Command {
 	cmd.AddChild(NewCmdRename(ctx))
 
 	return cmd
-}
-
-// IsValidProperty returns an error if the given property is invalid.
-func IsValidProperty(property string) error {
-	valid := profile.PropertyNames()
-	if _, ok := valid[property]; ok {
-		return nil
-	}
-
-	if suggestions := ld.Suggestions(property, maps.Keys(valid), 3, true); len(suggestions) != 0 {
-		return fmt.Errorf("property with name %q does not exist; did you mean to type one of the following properties: \n\n%s",
-			property, indent.String(strings.Join(suggestions, "\n"), 2))
-	}
-
-	return fmt.Errorf("property with name %q does not exist", property)
 }
 
 // PredictProfiles is an argument prediction function that predicts a
