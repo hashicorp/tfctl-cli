@@ -524,6 +524,7 @@ func mergePaginatedBody(body []byte, combined []any) ([]byte, error) {
 			pagination["page-size"] = len(combined)
 			pagination["current-page"] = 1
 			pagination["total-pages"] = 1
+			pagination["prev-page"] = nil
 		}
 	}
 	if links, ok := payload["links"].(map[string]any); ok {
