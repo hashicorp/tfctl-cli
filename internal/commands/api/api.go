@@ -118,7 +118,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 				},
 				{
 					Name:          "paginate",
-					Description:   fmt.Sprintf("Automatically paginate through results and stream them, one resource at a time, up to %d records. Only applies to successful responses with JSON:API document bodies.", MaxPaginateRecords),
+					Description:   fmt.Sprintf("Automatically paginate through all pages and return them as a single response with up to %d records. Only applies to successful responses with JSON:API document bodies.", MaxPaginateRecords),
 					Value:         flagvalue.Simple(false, &opts.Paginate),
 					IsBooleanFlag: true,
 				},
@@ -521,6 +521,10 @@ func mergePaginatedBody(body []byte, combined []any) ([]byte, error) {
 	if meta, ok := payload["meta"].(map[string]any); ok {
 		if pagination, ok := meta["pagination"].(map[string]any); ok {
 			pagination["total-count"] = len(combined)
+			pagination["page-size"] = len(combined)
+			pagination["current-page"] = 1
+			pagination["total-pages"] = 1
+			pagination["prev-page"] = nil
 		}
 	}
 	if links, ok := payload["links"].(map[string]any); ok {

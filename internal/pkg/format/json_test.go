@@ -133,7 +133,7 @@ func TestJSON_JQFilter_Field(t *testing.T) {
 	}
 
 	r.NoError(out.Display(d))
-	r.Equal("\"Hello\"\n", io.Output.String())
+	r.Equal("Hello\n", io.Output.String())
 }
 
 func TestJSON_JQFilter_Array(t *testing.T) {
@@ -153,7 +153,7 @@ func TestJSON_JQFilter_Array(t *testing.T) {
 	}
 
 	r.NoError(out.Display(d))
-	r.Equal("\"First\"\n\"Second\"\n", io.Output.String())
+	r.Equal("First\nSecond\n", io.Output.String())
 }
 
 func TestJSON_JQFilter_InvalidExpression(t *testing.T) {

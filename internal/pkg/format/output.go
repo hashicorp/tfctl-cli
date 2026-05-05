@@ -402,11 +402,16 @@ func (o *Outputter) outputJSONWithJQ(payload any) error {
 			return fmt.Errorf("jq filter error: %w", err)
 		}
 
-		data, err := json.MarshalIndent(v, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal jq result: %w", err)
+		switch val := v.(type) {
+		case string:
+			fmt.Fprintln(o.io.Out(), val)
+		default:
+			data, err := json.MarshalIndent(val, "", "  ")
+			if err != nil {
+				return fmt.Errorf("failed to marshal jq result: %w", err)
+			}
+			fmt.Fprintln(o.io.Out(), string(data))
 		}
-		fmt.Fprintln(o.io.Out(), string(data))
 	}
 
 	return nil
