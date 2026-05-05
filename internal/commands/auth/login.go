@@ -69,7 +69,7 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, _ []string) error {
 			opts.Ctx = ctx.ShutdownCtx
 			return loginRun(opts)
 		},
