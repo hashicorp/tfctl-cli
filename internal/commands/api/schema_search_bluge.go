@@ -6,9 +6,11 @@ import (
 	"strings"
 
 	"github.com/blugelabs/bluge"
+
+	"github.com/hashicorp/tfcloud/internal/pkg/openapi"
 )
 
-func blugeRetrieve(ctx context.Context, query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error) {
+func blugeRetrieve(ctx context.Context, query string, operations []*openapi.Operation, limit int) ([]schemaSearchResult, error) {
 	if limit <= 0 || limit > len(operations) {
 		limit = len(operations)
 	}
@@ -22,7 +24,7 @@ func blugeRetrieve(ctx context.Context, query string, operations []schemaOperati
 	}
 	defer writer.Close()
 
-	byID := make(map[string]schemaOperation, len(operations))
+	byID := make(map[string]*openapi.Operation, len(operations))
 	for i, operation := range operations {
 		id := strconv.Itoa(i)
 		byID[id] = operation
@@ -72,7 +74,7 @@ func blugeRetrieve(ctx context.Context, query string, operations []schemaOperati
 	return results, nil
 }
 
-func blugeDocumentForOperation(id string, operation schemaOperation) *bluge.Document {
+func blugeDocumentForOperation(id string, operation *openapi.Operation) *bluge.Document {
 	tokens := strings.Join(normalizeTokens(splitCamelCase(operation.OperationID)), " ")
 	pathTokens := strings.Join(normalizeTokens(tokenize(operation.Path)), " ")
 	tagTokens := strings.Join(normalizeTokens(tokenize(strings.Join(operation.Tags, " "))), " ")

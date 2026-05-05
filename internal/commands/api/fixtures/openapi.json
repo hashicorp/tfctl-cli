@@ -1,0 +1,136 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Test API",
+    "version": "0.0.1"
+  },
+  "paths": {
+    "/runs/{run_id}/actions/cancel": {
+      "post": {
+        "operationId": "cancelRun",
+        "tags": ["runs"],
+        "summary": "Cancel a Run",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/runs/{run_id}/actions/force-cancel": {
+      "post": {
+        "operationId": "forceCancelRun",
+        "tags": ["runs"],
+        "summary": "Force cancel a Run",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/runs/{run_id}": {
+      "get": {
+        "operationId": "getRun",
+        "tags": ["runs"],
+        "summary": "Get Run details",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}": {
+      "get": {
+        "operationId": "getWorkspace",
+        "tags": ["workspaces"],
+        "summary": "Get Workspace",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/organizations/{organization_name}/workspaces": {
+      "get": {
+        "operationId": "listWorkspaces",
+        "tags": ["workspaces"],
+        "summary": "List Workspaces",
+        "parameters": [
+          {
+            "name": "organization_name",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/vars": {
+      "post": {
+        "operationId": "createWorkspaceVar",
+        "tags": ["vars"],
+        "summary": "Create a Variable",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      },
+      "get": {
+        "operationId": "listWorkspaceVars",
+        "tags": ["vars"],
+        "summary": "List Variables",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {}
+  }
+}

@@ -2,33 +2,29 @@ package api
 
 import (
 	"context"
+	_ "embed"
 	"strings"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfcloud/internal/pkg/openapi"
 )
 
-var testSchemaOperations = []schemaOperation{
-	{OperationID: "cancelRun", Method: "POST", Path: "/runs/{run_id}/actions/cancel", Tags: []string{"runs"}, Summary: "Cancel a Run"},
-	{OperationID: "forceCancelRun", Method: "POST", Path: "/runs/{run_id}/actions/force-cancel", Tags: []string{"runs"}, Summary: "Force cancel a Run"},
-	{OperationID: "getRun", Method: "GET", Path: "/runs/{run_id}", Tags: []string{"runs"}, Summary: "Get Run details"},
-	{OperationID: "getWorkspace", Method: "GET", Path: "/workspaces/{workspace_id}", Tags: []string{"workspaces"}, Summary: "Get Workspace"},
-	{OperationID: "listWorkspaces", Method: "GET", Path: "/organizations/{organization_name}/workspaces", Tags: []string{"workspaces"}, Summary: "List Workspaces"},
-	{OperationID: "createWorkspaceVar", Method: "POST", Path: "/workspaces/{workspace_id}/vars", Tags: []string{"vars"}, Summary: "Create a Variable"},
-	{OperationID: "listWorkspaceVars", Method: "GET", Path: "/workspaces/{workspace_id}/vars", Tags: []string{"vars"}, Summary: "List Variables"},
-}
+//go:embed fixtures/openapi.json
+var embeddedOpenAPISpec []byte
 
 func TestSchemaSearchFiltersToSameResource(t *testing.T) {
 	t.Parallel()
 
 	results := filterSchemaResultsByResource(parseSchemaSearchIntent("workspace"), []schemaSearchResult{
-		{Operation: schemaOperation{OperationID: "getWorkspace", Method: "GET", Path: "/workspaces/{workspace_id}", Tags: []string{"workspaces"}, Summary: "Get Workspace"}, Confidence: 0.9},
-		{Operation: schemaOperation{OperationID: "cancelRun", Method: "POST", Path: "/runs/{run_id}/actions/cancel", Tags: []string{"runs"}, Summary: "Cancel Run"}, Confidence: 1.0},
-		{Operation: schemaOperation{OperationID: "listWorkspaces", Method: "GET", Path: "/organizations/{organization_name}/workspaces", Tags: []string{"workspaces"}, Summary: "List Workspaces"}, Confidence: 0.8},
+		{Operation: &openapi.Operation{Method: "GET", Path: "/workspaces/{workspace_id}", Operation: openapi3.Operation{OperationID: "getWorkspace", Tags: []string{"workspaces"}, Summary: "Get Workspace"}}, Confidence: 0.9},
+		{Operation: &openapi.Operation{Method: "POST", Path: "/runs/{run_id}/actions/cancel", Operation: openapi3.Operation{OperationID: "cancelRun", Tags: []string{"runs"}, Summary: "Cancel Run"}}, Confidence: 1.0},
+		{Operation: &openapi.Operation{Method: "GET", Path: "/organizations/{organization_name}/workspaces", Operation: openapi3.Operation{OperationID: "listWorkspaces", Tags: []string{"workspaces"}, Summary: "List Workspaces"}}, Confidence: 0.8},
 	}, 3)
 	got := resultIDs(results)
 	for _, operationID := range got {
@@ -46,15 +42,12 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 	r := require.New(t)
 
 	io := iostreams.Test()
-	originalLoader := loadSchemaOperationsForSearch
-	originalSearcher := schemaOperationSearcher
-	loadSchemaOperationsForSearch = func(*cmd.Context) ([]schemaOperation, error) {
-		return testSchemaOperations, nil
+	originalLoader := loadSchemaOperationsForSchemaCommand
+	loadSchemaOperationsForSchemaCommand = func(*cmd.Context) (openapi.Schema, error) {
+		return openapi.NewFromData(embeddedOpenAPISpec)
 	}
-	schemaOperationSearcher = hybridSchemaSearcher{}
 	t.Cleanup(func() {
-		loadSchemaOperationsForSearch = originalLoader
-		schemaOperationSearcher = originalSearcher
+		loadSchemaOperationsForSchemaCommand = originalLoader
 	})
 
 	command := newCmdAPISchemaSearch(testCommandContext(io))
@@ -67,105 +60,17 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 	r.Empty(io.Error.String())
 }
 
-func TestSchemaOperationDocumentDereferencesRefs(t *testing.T) {
-	t.Parallel()
-
-	spec := map[string]any{
-		"openapi": "3.0.0",
-		"paths": map[string]any{
-			"/workspaces/{workspace_id}/vars": map[string]any{
-				"post": map[string]any{
-					"operationId": "createWorkspaceVar",
-					"summary":     "Create a Variable",
-					"requestBody": map[string]any{
-						"$ref": "#/components/requestBodies/CreateWorkspaceVar",
-					},
-					"responses": map[string]any{
-						"200": map[string]any{
-							"content": map[string]any{
-								"application/vnd.api+json": map[string]any{
-									"schema": map[string]any{
-										"$ref": "#/components/schemas/WorkspaceVarCreate",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		"components": map[string]any{
-			"requestBodies": map[string]any{
-				"CreateWorkspaceVar": map[string]any{
-					"required": true,
-					"content": map[string]any{
-						"application/vnd.api+json": map[string]any{
-							"schema": map[string]any{
-								"$ref": "#/components/schemas/WorkspaceVarCreate",
-							},
-						},
-					},
-				},
-			},
-			"schemas": map[string]any{
-				"WorkspaceVarCreate": map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"data": map[string]any{
-							"type": "object",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	doc, err := schemaOperationDocument(spec, "createWorkspaceVar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	paths := doc["paths"].(map[string]any)
-	pathItem := paths["/workspaces/{workspace_id}/vars"].(map[string]any)
-	post := pathItem["post"].(map[string]any)
-	requestBody := post["requestBody"].(map[string]any)
-	if requestBody["required"] != true {
-		t.Fatalf("expected dereferenced requestBody, got %#v", requestBody)
-	}
-	content := requestBody["content"].(map[string]any)
-	schema := content["application/vnd.api+json"].(map[string]any)["schema"].(map[string]any)
-	if schema["type"] != "object" {
-		t.Fatalf("expected dereferenced schema, got %#v", schema)
-	}
-
-	responses := post["responses"].(map[string]any)
-	responseSchema := responses["200"].(map[string]any)["content"].(map[string]any)["application/vnd.api+json"].(map[string]any)["schema"].(map[string]any)
-	if responseSchema["$ref"] != "#/components/schemas/WorkspaceVarCreate" {
-		t.Fatalf("expected response schema ref to remain unresolved, got %#v", responseSchema)
-	}
-}
-
 func TestCmdAPISchemaGetRun(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
 	io := iostreams.Test()
-	originalLoader := loadSchemaDocumentForGet
-	loadSchemaDocumentForGet = func(*cmd.Context) (map[string]any, error) {
-		return map[string]any{
-			"openapi": "3.0.0",
-			"paths": map[string]any{
-				"/workspaces/{workspace_id}": map[string]any{
-					"get": map[string]any{
-						"operationId": "getWorkspace",
-						"summary":     "Get Workspace",
-					},
-				},
-			},
-		}, nil
+	originalLoader := loadSchemaOperationsForSchemaCommand
+	loadSchemaOperationsForSchemaCommand = func(*cmd.Context) (openapi.Schema, error) {
+		return openapi.NewFromData(embeddedOpenAPISpec)
 	}
 	t.Cleanup(func() {
-		loadSchemaDocumentForGet = originalLoader
+		loadSchemaOperationsForSchemaCommand = originalLoader
 	})
 
 	command := newCmdAPISchemaGet(testCommandContext(io))
@@ -173,7 +78,7 @@ func TestCmdAPISchemaGetRun(t *testing.T) {
 	r.Equal(0, command.Run([]string{"getWorkspace"}))
 
 	output := io.Output.String()
-	r.Contains(output, `"operationId": "getWorkspace"`)
+	r.Contains(output, `"operationId":"getWorkspace"`)
 	r.Contains(output, `"/workspaces/{workspace_id}"`)
 	r.Empty(io.Error.String())
 }
@@ -182,39 +87,21 @@ func TestCmdAPISchemaGetByPath(t *testing.T) {
 	r := require.New(t)
 
 	io := iostreams.Test()
-	originalLoader := loadSchemaDocumentForGet
-	loadSchemaDocumentForGet = func(*cmd.Context) (map[string]any, error) {
-		return map[string]any{
-			"openapi": "3.0.0",
-			"paths": map[string]any{
-				"/workspaces/{workspace_id}": map[string]any{
-					"parameters": []any{
-						map[string]any{"name": "workspace_id", "in": "path", "required": true},
-					},
-					"get": map[string]any{
-						"operationId": "getWorkspace",
-						"summary":     "Get Workspace",
-					},
-					"patch": map[string]any{
-						"operationId": "updateWorkspace",
-						"summary":     "Update a Workspace",
-					},
-				},
-			},
-		}, nil
+	originalLoader := loadSchemaOperationsForSchemaCommand
+	loadSchemaOperationsForSchemaCommand = func(ctx *cmd.Context) (openapi.Schema, error) {
+		return openapi.NewFromData(embeddedOpenAPISpec)
 	}
 	t.Cleanup(func() {
-		loadSchemaDocumentForGet = originalLoader
+		loadSchemaOperationsForSchemaCommand = originalLoader
 	})
 
 	command := newCmdAPISchemaGet(testCommandContext(io))
 	command.SetIO(io)
-	r.Equal(0, command.Run([]string{"/workspaces/{workspace_id}"}))
+	r.Equal(0, command.Run([]string{"/workspaces/{workspace_id}/vars"}))
 
 	output := io.Output.String()
-	r.Contains(output, `"getWorkspace"`)
-	r.Contains(output, `"updateWorkspace"`)
-	r.Contains(output, `"workspace_id"`)
+	r.Contains(output, `"listWorkspaceVars"`)
+	r.Contains(output, `"createWorkspaceVar"`)
 	r.Empty(io.Error.String())
 }
 
@@ -222,36 +109,17 @@ func TestCmdAPISchemaGetByPathNotFound(t *testing.T) {
 	r := require.New(t)
 
 	io := iostreams.Test()
-	originalLoader := loadSchemaDocumentForGet
-	loadSchemaDocumentForGet = func(*cmd.Context) (map[string]any, error) {
-		return map[string]any{
-			"openapi": "3.0.0",
-			"paths":   map[string]any{},
-		}, nil
+	originalLoader := loadSchemaOperationsForSchemaCommand
+	loadSchemaOperationsForSchemaCommand = func(*cmd.Context) (openapi.Schema, error) {
+		return openapi.NewFromData(embeddedOpenAPISpec)
 	}
 	t.Cleanup(func() {
-		loadSchemaDocumentForGet = originalLoader
+		loadSchemaOperationsForSchemaCommand = originalLoader
 	})
 
 	command := newCmdAPISchemaGet(testCommandContext(io))
 	command.SetIO(io)
 	r.Equal(1, command.Run([]string{"/nonexistent"}))
-}
-
-func TestLoadSchemaSpecBytesFallsBackToEmbedded(t *testing.T) {
-	t.Parallel()
-
-	ctx := testCommandContext(iostreams.Test())
-	data, source, err := loadSchemaSpecBytes(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(data) == 0 {
-		t.Fatal("expected embedded spec bytes")
-	}
-	if source != "from embedded fallback" {
-		t.Fatalf("expected embedded fallback source, got %q", source)
-	}
 }
 
 func testCommandContext(io *iostreams.Testing) *cmd.Context {

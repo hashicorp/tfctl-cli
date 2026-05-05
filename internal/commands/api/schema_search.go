@@ -4,19 +4,21 @@ import (
 	"context"
 	"sort"
 	"strings"
+
+	"github.com/hashicorp/tfcloud/internal/pkg/openapi"
 )
 
 const maxSchemaSearchResults = 10
 
 type schemaSearchResult struct {
-	Operation   schemaOperation
+	Operation   *openapi.Operation
 	Confidence  float64
 	ResourceKey string
 }
 
 type hybridSchemaSearcher struct{}
 
-func (s hybridSchemaSearcher) Search(ctx context.Context, query string, operations []schemaOperation, limit int) ([]schemaSearchResult, error) {
+func (s hybridSchemaSearcher) Search(ctx context.Context, query string, operations []*openapi.Operation, limit int) ([]schemaSearchResult, error) {
 	candidateLimit := limit * 3
 	if candidateLimit < 10 {
 		candidateLimit = 10
@@ -76,7 +78,7 @@ func filterSchemaResultsByResource(intent schemaSearchIntent, results []schemaSe
 	return filtered
 }
 
-func resourceKeyForOperation(resources []string, operation schemaOperation) string {
+func resourceKeyForOperation(resources []string, operation *openapi.Operation) string {
 	operationSet := tokenSet(normalizeTokens(splitCamelCase(operation.OperationID)))
 	pathSet := tokenSet(normalizeTokens(tokenize(operation.Path)))
 	tagSet := tokenSet(normalizeTokens(tokenize(strings.Join(operation.Tags, " "))))

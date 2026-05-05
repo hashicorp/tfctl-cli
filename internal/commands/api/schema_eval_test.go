@@ -6,14 +6,27 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
+
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfcloud/internal/pkg/openapi"
 )
 
 type schemaSearchFixture struct {
 	name       string
 	query      string
 	wantTop3   []string
-	operations []schemaOperation
+	operations []*openapi.Operation
+}
+
+var testSchemaOperations = []*openapi.Operation{
+	{Method: "POST", Path: "/runs/{run_id}/actions/cancel", Operation: openapi3.Operation{OperationID: "cancelRun", Tags: []string{"runs"}, Summary: "Cancel a Run"}},
+	{Method: "POST", Path: "/runs/{run_id}/actions/force-cancel", Operation: openapi3.Operation{OperationID: "forceCancelRun", Tags: []string{"runs"}, Summary: "Force cancel a Run"}},
+	{Method: "GET", Path: "/runs/{run_id}", Operation: openapi3.Operation{OperationID: "getRun", Tags: []string{"runs"}, Summary: "Get Run details"}},
+	{Method: "GET", Path: "/workspaces/{workspace_id}", Operation: openapi3.Operation{OperationID: "getWorkspace", Tags: []string{"workspaces"}, Summary: "Get Workspace"}},
+	{Method: "GET", Path: "/organizations/{organization_name}/workspaces", Operation: openapi3.Operation{OperationID: "listWorkspaces", Tags: []string{"workspaces"}, Summary: "List Workspaces"}},
+	{Method: "POST", Path: "/workspaces/{workspace_id}/vars", Operation: openapi3.Operation{OperationID: "createWorkspaceVar", Tags: []string{"vars"}, Summary: "Create a Variable"}},
+	{Method: "GET", Path: "/workspaces/{workspace_id}/vars", Operation: openapi3.Operation{OperationID: "listWorkspaceVars", Tags: []string{"vars"}, Summary: "List Variables"}},
 }
 
 func representativeSchemaSearchFixtures() []schemaSearchFixture {
@@ -68,14 +81,16 @@ func TestRepresentativeSchemaQueriesStayWithinResource(t *testing.T) {
 func TestHybridSchemaSearcherLimitsAndShapesResults(t *testing.T) {
 	t.Parallel()
 
-	operations := make([]schemaOperation, 0, 12)
+	operations := make([]*openapi.Operation, 0, 12)
 	for i := 0; i < 12; i++ {
-		operations = append(operations, schemaOperation{
-			OperationID: fmt.Sprintf("getWorkspace%c", 'A'+i),
-			Method:      "GET",
-			Path:        "/workspaces/{workspace_id}",
-			Tags:        []string{"workspaces"},
-			Summary:     "Get Workspace",
+		operations = append(operations, &openapi.Operation{
+			Method: "GET",
+			Path:   "/workspaces/{workspace_id}",
+			Operation: openapi3.Operation{
+				OperationID: fmt.Sprintf("getWorkspace%c", 'A'+i),
+				Tags:        []string{"workspaces"},
+				Summary:     "Get Workspace",
+			},
 		})
 	}
 
@@ -107,7 +122,7 @@ func TestSchemaSearchSummary(t *testing.T) {
 }
 
 func TestSpecBackedSchemaSearch(t *testing.T) {
-	operations, err := loadSchemaOperationsForSearch(testCommandContext(iostreams.Test()))
+	schema, err := loadSchemaOperationsForSchemaCommand(testCommandContext(iostreams.Test()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +141,7 @@ func TestSpecBackedSchemaSearch(t *testing.T) {
 	for _, fixture := range fixtures {
 		fixture := fixture
 		t.Run(fixture.name, func(t *testing.T) {
-			results, err := schemaOperationSearcher.Search(context.Background(), fixture.query, operations, maxSchemaSearchResults)
+			results, err := schemaOperationSearcher.Search(context.Background(), fixture.query, schema.Operations(), maxSchemaSearchResults)
 			if err != nil {
 				t.Fatal(err)
 			}

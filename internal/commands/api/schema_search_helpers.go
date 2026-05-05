@@ -3,6 +3,8 @@ package api
 import (
 	"strings"
 	"unicode"
+
+	"github.com/hashicorp/tfcloud/internal/pkg/openapi"
 )
 
 type schemaSearchIntent struct {
@@ -67,7 +69,7 @@ func parseSchemaSearchIntent(query string) schemaSearchIntent {
 	}
 }
 
-func isNestedSubresourceOperation(resource string, operation schemaOperation) bool {
+func isNestedSubresourceOperation(resource string, operation *openapi.Operation) bool {
 	if resource == "" {
 		return false
 	}
