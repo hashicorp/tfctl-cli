@@ -26,12 +26,13 @@ Full CLI coverage for the entire HCP Terraform API.
 | Goal                     | Flag            | Format                                                                                     |
 |--------------------------|-----------------|--------------------------------------------------------------------------------------------|
 | Filter/extract JSON data | `--jq '<expr>'` | Built-in jq filter (no external jq needed). Implies `--json`; filter runs on the envelope. |
-| Full JSON output         | `--json`        | JSON envelope: `{ok, data, summary, breadcrumbs, meta}`                                    |
+| Full JSON output         | `--json`        | JSON envelope: `{data, relationships, meta}`                                               |
 | Show results to a user   | `--markdown`    | GFM tables, structured Markdown                                                            |
+| Audit mutations          | `--dry-run`     | No changes, only a description of what would be modified rendered to stderr.               |
 
-Always pass `--json` or `--md` explicitly — auto-detection depends on config and may not produce the format you expect. Use `--md` when composing reports, summarizing data, or displaying results inline. `--agent` is for headless integration scripts.
+Always pass `--json` or `--markdown` explicitly — auto-detection depends on config and may not produce the format you expect. Use `--markdown` when composing reports, summarizing data, or displaying results inline. `--agent` is for headless integration scripts.
 
-**Other modes:** `--quiet` (no output), `--debug` (verbose/debug logging enabled), `--jq '<expr>'` (built-in jq filter — see below), `--dry-run` (no modifications, only a description of what is modified rendered to stderr)
+**Other modes:** `--quiet` (no output), `--debug` (verbose/debug logging enabled), `--jq '<expr>'` (built-in jq filter — see below),
 
 ### CLI Introspection
 
@@ -66,6 +67,13 @@ Most related resources, such as the current run of a workspace, can be followed 
 
 **URL patterns:**
 - All resource collections are typically nested one resource deep. For example, `/organizations/{name}/workspaces` and `/workspaces/{id}/vars`.
+
+**Pagination:**
+When fetching lists of resources using the `api` command, the API returns paginated results. By default, only the first page of results is returned. You can use the following flags to control pagination:
+
+- Use `--all` to fetch all pages of results (up to 1000 items). By default, only the first page is returned.
+- Use `--page-size` to limit the number of items returned (default varies by resource).
+- Use `--page-number` to specify the page number to fetch (default is 1).
 
 ## Decision Trees
 
