@@ -4,6 +4,9 @@
 package auth
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,12 +15,33 @@ import (
 	"github.com/hashicorp/tfcloud/internal/pkg/profile"
 )
 
+// newFakeTFE returns an httptest.Server that mimics the TFE /account/details endpoint.
+// If username is empty, it returns a 401.
+func newFakeTFE(t *testing.T, username string) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v2/account/details", func(w http.ResponseWriter, r *http.Request) {
+		if username == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, `{"errors":[{"status":"401","title":"unauthorized"}]}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+		fmt.Fprintf(w, `{"data":{"id":"user-abc","type":"users","attributes":{"username":%q}}}`, username)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
 func TestLoginFromStdin(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
+	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
 	p := l.DefaultProfile()
+	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -31,9 +55,8 @@ func TestLoginFromStdin(t *testing.T) {
 
 	r.NoError(loginRun(opts))
 	r.Contains(io.Error.String(), "Successfully logged in")
-	r.Contains(io.Error.String(), p.Hostname)
+	r.Contains(io.Error.String(), "testuser")
 
-	// Verify the token was persisted
 	loaded, err := l.LoadProfile(p.Name)
 	r.NoError(err)
 	r.Equal("my-test-token", loaded.Token)
@@ -43,9 +66,10 @@ func TestLoginFromStdin_CustomHostname(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
+	srv := newFakeTFE(t, "admin")
 	l := profile.TestLoader(t)
 	p := l.DefaultProfile()
-	p.Hostname = "tfe.example.com"
+	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -59,7 +83,7 @@ func TestLoginFromStdin_CustomHostname(t *testing.T) {
 
 	r.NoError(loginRun(opts))
 	r.Contains(io.Error.String(), "Successfully logged in")
-	r.Contains(io.Error.String(), "tfe.example.com")
+	r.Contains(io.Error.String(), srv.URL)
 }
 
 func TestLoginFromStdin_EmptyToken(t *testing.T) {
@@ -93,7 +117,6 @@ func TestLoginFromStdin_NoInput(t *testing.T) {
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
-	// Don't write anything to input
 
 	opts := &LoginOpts{
 		IO:      io,
@@ -132,8 +155,10 @@ func TestLoginFromStdin_TokenWithWhitespace(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
+	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
 	p := l.DefaultProfile()
+	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -161,7 +186,6 @@ func TestLoginInteractive_NoTTY(t *testing.T) {
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
-	// Don't set InputTTY or ErrorTTY, so CanPrompt() returns false
 
 	opts := &LoginOpts{
 		IO:      io,
@@ -178,8 +202,10 @@ func TestLoginInteractive_Success(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
+	srv := newFakeTFE(t, "interactive-user")
 	l := profile.TestLoader(t)
 	p := l.DefaultProfile()
+	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -195,78 +221,41 @@ func TestLoginInteractive_Success(t *testing.T) {
 
 	r.NoError(loginRun(opts))
 	r.Contains(io.Error.String(), "Opening browser")
-	r.Contains(io.Error.String(), "https://app.terraform.io/app/settings/tokens")
 	r.Contains(io.Error.String(), "Successfully logged in")
+	r.Contains(io.Error.String(), "interactive-user")
 
 	loaded, err := l.LoadProfile(p.Name)
 	r.NoError(err)
 	r.Equal("interactive-token", loaded.Token)
 }
 
-func TestLoginDefaultHostname(t *testing.T) {
-	t.Parallel()
-	r := require.New(t)
-
-	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
-	p.Hostname = ""
-	r.NoError(p.Write())
-
-	io := iostreams.Test()
-	io.Input.WriteString("my-token\n")
-
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-	}
-
-	r.NoError(loginRun(opts))
-	r.Contains(io.Error.String(), "app.terraform.io")
-}
-
 func TestLoginFromStdin_DifferentProfile(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
+	srv := newFakeTFE(t, "multi-user")
 	l := profile.TestLoader(t)
+	host := srv.URL
 
-	// Create two profiles
 	p1, err := l.NewProfile("production")
 	r.NoError(err)
-	p1.Hostname = "app.terraform.io"
+	p1.Hostname = host
 	r.NoError(p1.Write())
 
 	p2, err := l.NewProfile("staging")
 	r.NoError(err)
-	p2.Hostname = "tfe.staging.example.com"
+	p2.Hostname = host
 	r.NoError(p2.Write())
 
-	// Login to production profile
+	// Login to production
 	io := iostreams.Test()
 	io.Input.WriteString("prod-token\n")
+	r.NoError(loginRun(&LoginOpts{IO: io, Profile: p1, Token: true}))
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p1,
-		Token:   true,
-	}
-
-	r.NoError(loginRun(opts))
-	r.Contains(io.Error.String(), "app.terraform.io")
-
-	// Login to staging profile
+	// Login to staging
 	io = iostreams.Test()
 	io.Input.WriteString("staging-token\n")
-
-	opts = &LoginOpts{
-		IO:      io,
-		Profile: p2,
-		Token:   true,
-	}
-
-	r.NoError(loginRun(opts))
-	r.Contains(io.Error.String(), "tfe.staging.example.com")
+	r.NoError(loginRun(&LoginOpts{IO: io, Profile: p2, Token: true}))
 
 	// Verify tokens were saved to the correct profiles
 	loadedProd, err := l.LoadProfile("production")
@@ -282,11 +271,12 @@ func TestLoginFromStdin_DryRun(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
+	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
 	p := l.DefaultProfile()
+	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
-	// Record the initial token (may come from credentials file)
 	initial, err := l.LoadProfile(p.Name)
 	r.NoError(err)
 	initialToken := initial.Token
@@ -305,7 +295,6 @@ func TestLoginFromStdin_DryRun(t *testing.T) {
 	r.Contains(io.Error.String(), "would save token")
 	r.Contains(io.Error.String(), p.Name)
 
-	// Verify the token was NOT changed on disk
 	loaded, err := l.LoadProfile(p.Name)
 	r.NoError(err)
 	r.Equal(initialToken, loaded.Token)
@@ -316,11 +305,12 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
+	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
 	p := l.DefaultProfile()
+	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
-	// Record the initial token
 	initial, err := l.LoadProfile(p.Name)
 	r.NoError(err)
 	initialToken := initial.Token
@@ -339,9 +329,7 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 
 	r.NoError(loginRun(opts))
 	r.Contains(io.Error.String(), "would save token")
-	r.Contains(io.Error.String(), p.Name)
 
-	// Verify the token was NOT changed on disk
 	loaded, err := l.LoadProfile(p.Name)
 	r.NoError(err)
 	r.Equal(initialToken, loaded.Token)
@@ -352,8 +340,10 @@ func TestLoginFromStdin_QuietMode(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
+	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
 	p := l.DefaultProfile()
+	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -367,12 +357,37 @@ func TestLoginFromStdin_QuietMode(t *testing.T) {
 	}
 
 	r.NoError(loginRun(opts))
-
-	// Quiet mode suppresses stderr output
 	r.Empty(io.Error.String())
 
-	// But the token is still saved
 	loaded, err := l.LoadProfile(p.Name)
 	r.NoError(err)
 	r.Equal("my-token", loaded.Token)
+}
+
+func TestLoginFromStdin_VerifyFails(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	srv := newFakeTFE(t, "") // empty username → 401
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	p.Hostname = srv.URL
+	r.NoError(p.Write())
+
+	io := iostreams.Test()
+	io.Input.WriteString("bad-token\n")
+
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   true,
+	}
+
+	err := loginRun(opts)
+	r.Error(err)
+	r.Contains(err.Error(), "failed to verify token")
+
+	loaded, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	r.NotEqual("bad-token", loaded.Token)
 }

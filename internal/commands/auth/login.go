@@ -7,8 +7,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
+	tfe "github.com/hashicorp/go-tfe"
+
+	"github.com/hashicorp/tfcloud/internal/config"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfcloud/internal/pkg/format"
@@ -28,6 +32,7 @@ const (
 // NewCmdLogin returns the `tfcloud auth login` command for authenticating.
 func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 	opts := &LoginOpts{
+		Ctx:     ctx.ShutdownCtx,
 		IO:      ctx.IO,
 		Profile: ctx.Profile,
 		Output:  ctx.Output,
@@ -70,7 +75,6 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
-			opts.Ctx = ctx.ShutdownCtx
 			opts.DryRun = ctx.IsDryRun()
 			return loginRun(opts)
 		},
@@ -118,20 +122,7 @@ func loginFromStdin(opts *LoginOpts, hostname string) error {
 		return fmt.Errorf("token is empty")
 	}
 
-	cs := opts.IO.ColorScheme()
-	if opts.DryRun {
-		fmt.Fprintf(opts.IO.Err(), "%s would save token to profile %q for host %s\n",
-			cs.DryRunLabel(), opts.Profile.Name, hostname)
-		return nil
-	}
-
-	opts.Profile.Token = token
-	if err := opts.Profile.Write(); err != nil {
-		return fmt.Errorf("failed to save token to profile: %w", err)
-	}
-
-	fmt.Fprintf(opts.IO.Err(), "%s Successfully logged in to %s\n", cs.SuccessIcon(), hostname)
-	return nil
+	return saveToken(opts, hostname, token)
 }
 
 // loginInteractive opens the browser to the token page and prompts the user.
@@ -164,18 +155,68 @@ func loginInteractive(opts *LoginOpts, hostname string) error {
 		return fmt.Errorf("token is empty")
 	}
 
-	opts.Profile.Token = token
+	return saveToken(opts, hostname, token)
+}
+
+// saveToken validates the token by making an API request and then persists it
+// to the active profile.
+func saveToken(opts *LoginOpts, hostname, token string) error {
+	cs := opts.IO.ColorScheme()
+
+	// Validate the token by fetching the current user account details.
+	user, err := verifyToken(opts.Ctx, hostname, token)
+	if err != nil {
+		return fmt.Errorf("failed to verify token: %w", err)
+	}
 
 	if opts.DryRun {
-		fmt.Fprintf(opts.IO.Err(), "\n%s would save token to profile %q for host %s\n",
-			cs.DryRunLabel(), opts.Profile.Name, hostname)
+		fmt.Fprintf(opts.IO.Err(), "%s would save token to profile %q for host %s (user: %s)\n",
+			cs.DryRunLabel(), opts.Profile.Name, hostname, user)
 		return nil
 	}
 
+	opts.Profile.Token = token
 	if err := opts.Profile.Write(); err != nil {
 		return fmt.Errorf("failed to save token to profile: %w", err)
 	}
 
-	fmt.Fprintf(opts.IO.Err(), "\n%s Successfully logged in to %s\n", cs.SuccessIcon(), hostname)
+	fmt.Fprintf(opts.IO.Err(), "%s Successfully logged in to %s as %s\n",
+		cs.SuccessIcon(), hostname, cs.String(user).Bold().String())
 	return nil
+}
+
+// verifyToken makes an API call to validate the token and returns the username.
+func verifyToken(ctx context.Context, hostname, token string) (string, error) {
+	address := hostname
+	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
+		address = "https://" + address
+	}
+
+	client, err := tfe.NewClient(&tfe.Config{
+		Address: address,
+		Token:   token,
+		Headers: http.Header{
+			"User-Agent": []string{fmt.Sprintf("tfcloud-cli/%s", config.Version)},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	resp, err := client.API.Account().Details().Get(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("token validation failed: %w", err)
+	}
+
+	data := resp.GetData()
+	if data == nil {
+		return "", fmt.Errorf("token validation failed: empty response")
+	}
+
+	attrs := data.GetAttributes()
+	if attrs == nil || attrs.GetUsername() == nil {
+		return "", fmt.Errorf("token validation failed: no username in response")
+	}
+
+	return *attrs.GetUsername(), nil
 }
