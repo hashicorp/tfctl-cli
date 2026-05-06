@@ -40,9 +40,8 @@ tfcloud api /organizations/acme/projects -input my-project.json
 # ...or use stdin as the request body
 ./generate_hcptf_run.sh | tfcloud api /runs -input -
 
-# If using parameters in a GET request, set the method to GET.
-# This example fetches all pages of data (up to 1000 items) and sorts by created-at descending
-tfcloud api /organizations/acme/workspaces -paginate -method GET -f "sort=-created-at"
+# This example fetches all pages of data (up to 1000 items) and sorts by latest runs
+tfcloud api /organizations/acme/workspaces --all -f "sort=-current-run.created-at"
 ```
 
 #### Shell Completion
