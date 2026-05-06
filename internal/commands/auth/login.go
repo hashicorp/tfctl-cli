@@ -71,6 +71,7 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
 			opts.Ctx = ctx.ShutdownCtx
+			opts.DryRun = ctx.IsDryRun()
 			return loginRun(opts)
 		},
 	}
@@ -85,7 +86,8 @@ type LoginOpts struct {
 	Profile *profile.Profile
 	Output  *format.Outputter
 
-	Token bool
+	Token  bool
+	DryRun bool
 }
 
 func loginRun(opts *LoginOpts) error {
@@ -116,12 +118,18 @@ func loginFromStdin(opts *LoginOpts, hostname string) error {
 		return fmt.Errorf("token is empty")
 	}
 
+	cs := opts.IO.ColorScheme()
+	if opts.DryRun {
+		fmt.Fprintf(opts.IO.Err(), "%s would save token to profile %q for host %s\n",
+			cs.DryRunLabel(), opts.Profile.Name, hostname)
+		return nil
+	}
+
 	opts.Profile.Token = token
 	if err := opts.Profile.Write(); err != nil {
 		return fmt.Errorf("failed to save token to profile: %w", err)
 	}
 
-	cs := opts.IO.ColorScheme()
 	fmt.Fprintf(opts.IO.Err(), "%s Successfully logged in to %s\n", cs.SuccessIcon(), hostname)
 	return nil
 }
@@ -157,6 +165,13 @@ func loginInteractive(opts *LoginOpts, hostname string) error {
 	}
 
 	opts.Profile.Token = token
+
+	if opts.DryRun {
+		fmt.Fprintf(opts.IO.Err(), "\n%s would save token to profile %q for host %s\n",
+			cs.DryRunLabel(), opts.Profile.Name, hostname)
+		return nil
+	}
+
 	if err := opts.Profile.Write(); err != nil {
 		return fmt.Errorf("failed to save token to profile: %w", err)
 	}

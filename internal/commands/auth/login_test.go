@@ -224,3 +224,155 @@ func TestLoginDefaultHostname(t *testing.T) {
 	r.NoError(loginRun(opts))
 	r.Contains(io.Error.String(), "app.terraform.io")
 }
+
+func TestLoginFromStdin_DifferentProfile(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+
+	// Create two profiles
+	p1, err := l.NewProfile("production")
+	r.NoError(err)
+	p1.Hostname = "app.terraform.io"
+	r.NoError(p1.Write())
+
+	p2, err := l.NewProfile("staging")
+	r.NoError(err)
+	p2.Hostname = "tfe.staging.example.com"
+	r.NoError(p2.Write())
+
+	// Login to production profile
+	io := iostreams.Test()
+	io.Input.WriteString("prod-token\n")
+
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p1,
+		Token:   true,
+	}
+
+	r.NoError(loginRun(opts))
+	r.Contains(io.Error.String(), "app.terraform.io")
+
+	// Login to staging profile
+	io = iostreams.Test()
+	io.Input.WriteString("staging-token\n")
+
+	opts = &LoginOpts{
+		IO:      io,
+		Profile: p2,
+		Token:   true,
+	}
+
+	r.NoError(loginRun(opts))
+	r.Contains(io.Error.String(), "tfe.staging.example.com")
+
+	// Verify tokens were saved to the correct profiles
+	loadedProd, err := l.LoadProfile("production")
+	r.NoError(err)
+	r.Equal("prod-token", loadedProd.Token)
+
+	loadedStaging, err := l.LoadProfile("staging")
+	r.NoError(err)
+	r.Equal("staging-token", loadedStaging.Token)
+}
+
+func TestLoginFromStdin_DryRun(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	r.NoError(p.Write())
+
+	// Record the initial token (may come from credentials file)
+	initial, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	initialToken := initial.Token
+
+	io := iostreams.Test()
+	io.Input.WriteString("my-new-token\n")
+
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   true,
+		DryRun:  true,
+	}
+
+	r.NoError(loginRun(opts))
+	r.Contains(io.Error.String(), "would save token")
+	r.Contains(io.Error.String(), p.Name)
+
+	// Verify the token was NOT changed on disk
+	loaded, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	r.Equal(initialToken, loaded.Token)
+	r.NotEqual("my-new-token", loaded.Token)
+}
+
+func TestLoginInteractive_DryRun(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	r.NoError(p.Write())
+
+	// Record the initial token
+	initial, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	initialToken := initial.Token
+
+	io := iostreams.Test()
+	io.InputTTY = true
+	io.ErrorTTY = true
+	io.Input.WriteString("interactive-token\n")
+
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   false,
+		DryRun:  true,
+	}
+
+	r.NoError(loginRun(opts))
+	r.Contains(io.Error.String(), "would save token")
+	r.Contains(io.Error.String(), p.Name)
+
+	// Verify the token was NOT changed on disk
+	loaded, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	r.Equal(initialToken, loaded.Token)
+	r.NotEqual("interactive-token", loaded.Token)
+}
+
+func TestLoginFromStdin_QuietMode(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	r.NoError(p.Write())
+
+	io := iostreams.Test()
+	io.Input.WriteString("my-token\n")
+	io.SetQuiet(true)
+
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   true,
+	}
+
+	r.NoError(loginRun(opts))
+
+	// Quiet mode suppresses stderr output
+	r.Empty(io.Error.String())
+
+	// But the token is still saved
+	loaded, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	r.Equal("my-token", loaded.Token)
+}
