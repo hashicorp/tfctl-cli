@@ -15,6 +15,21 @@ import (
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 )
 
+func TestPretty_StringPayload(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	io := iostreams.Test()
+	out := format.New(io)
+
+	d := &StringPayloadDisplayer{
+		payload:    map[string]string{"key": "value"},
+		prettyText: "formatted pretty output",
+	}
+
+	r.NoError(out.Display(d))
+	r.Equal("formatted pretty output\n", io.Output.String())
+}
+
 func TestPretty_KV_Slice_Empty(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
