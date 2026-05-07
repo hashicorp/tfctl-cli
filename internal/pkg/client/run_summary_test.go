@@ -87,3 +87,41 @@ func TestParseDiagnostics_RealHCPTerraformLog(t *testing.T) {
 		t.Errorf("unexpected detail: %q", diags[0].Detail)
 	}
 }
+
+func TestParseDiagnostics_RealConsoleLog(t *testing.T) {
+	// Real console-mode plan log (pre-0.15.3 format) with \x02/\x03 framing.
+	log := "\x02Terraform v0.14.11\n" +
+		"on linux_amd64\n" +
+		"Configuring remote state backend...\n" +
+		"Initializing provider plugins...\n" +
+		"- Using previously-installed hashicorp/aws v3.74.3\n" +
+		"- Using previously-installed hashicorp/random v3.1.0\n" +
+		"\n" +
+		"Terraform has been successfully initialized!\n" +
+		"\n" +
+		"\n" +
+		"------------------------------------------------------------------------\n" +
+		"\n" +
+		"Error: Reference to undeclared resource\n" +
+		"\n" +
+		"  on main.tf line 73, in output \"random_string\":\n" +
+		"  73:   value = random_string.example.result\n" +
+		"\n" +
+		"A managed resource \"random_string\" \"example\" has not been declared in the\n" +
+		"root module.\n" +
+		"\n" +
+		"\n" +
+		"Error: Missing required argument\n" +
+		"\n" +
+		"  on main.tf line 15, in resource \"aws_instance\" \"web\":\n" +
+		"  15:   ami = \"\"\n" +
+		"\n" +
+		"The argument \"ami\" is required, but no definition was found.\n" +
+		"\n" +
+		"Operation failed: failed running terraform plan (exit 1)\x03"
+
+	diags := ParseDiagnostics(log)
+	if diags != nil {
+		t.Fatalf("expected nil diagnostics for console-mode log, got %d", len(diags))
+	}
+}
