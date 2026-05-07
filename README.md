@@ -101,4 +101,5 @@ Perform an API request. See `tfcloud api --help` for usage and examples.
 | 3    | Authentication Error             | `tfcloud auth login`        |
 | 4    | Network error                    | Check connectivity          |
 | 5    | API Server Error Persists        | Try again later             |
+| 6    | Underlying error detected        | Command succeeded but found a problem |
 | 130  | Canceled (ctrl-c).               | &mdash;                     |

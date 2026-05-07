@@ -138,6 +138,11 @@ tfcloud profile display                           # Check current hostname confi
 This could indicate a bug in the platform API or an inability to process the command in a timely
 manner. Try again or try a workaround.
 
+**Underlying error detected (exit 6):**
+The command ran successfully but the inspected resource is in an error state. For example,
+`tfcloud run status` returns exit 6 when the run has errored. The command will have already
+printed diagnostic output. Commands return `cmd.ErrUnderlyingError` to trigger this exit code.
+
 ## Built-in jq Filtering
 
 The CLI has a built-in `--jq` flag powered by gojq — no external `jq` binary required. **Always prefer `--jq` over piping to external `jq`.**
@@ -162,6 +167,7 @@ tfcloud api /organizations/{organization}/projects --jq '.meta.pagination.["tota
 | 3    | Authentication Error             | `tfcloud auth login`        |
 | 4    | Network error                    | Check connectivity          |
 | 5    | API Server Error Persists        | Try again later             |
+| 6    | Underlying error detected        | Command succeeded but found a problem |
 | 130  | Canceled (ctrl-c).               | &mdash;                     |
 
 ## Learn More
