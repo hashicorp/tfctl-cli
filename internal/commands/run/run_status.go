@@ -103,7 +103,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 
-			summary, err := client.GetRunSummary(ctx.ShutdownCtx, apiClient.TFE.API, runID)
+			summary, err := client.NewRunSummary(ctx.ShutdownCtx, apiClient.TFE.API, runID)
 			if err != nil {
 				return err
 			}

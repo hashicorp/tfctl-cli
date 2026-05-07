@@ -40,9 +40,9 @@ type jsonLog struct {
 	Diagnostic *Diagnostic `json:"diagnostic,omitempty"`
 }
 
-// GetRunSummary fetches a run and returns a summary of its status. If the run
+// NewRunSummary fetches a run and returns a summary of its status. If the run
 // has errored, it fetches the relevant log and extracts diagnostics.
-func GetRunSummary(ctx context.Context, tfeAPI *api.ApiClient, runID string) (*RunSummary, error) {
+func NewRunSummary(ctx context.Context, tfeAPI *api.ApiClient, runID string) (*RunSummary, error) {
 	run, err := tfeAPI.Runs().ById(runID).Get(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetching run %s: %w", runID, err)

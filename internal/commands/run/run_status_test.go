@@ -35,7 +35,7 @@ func route(r *http.Request) string {
 	return fmt.Sprintf("%s %s", r.Method, r.URL.Path)
 }
 
-func TestGetRunSummary_Statuses(t *testing.T) {
+func TestNewRunSummary_Statuses(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -65,7 +65,7 @@ func TestGetRunSummary_Statuses(t *testing.T) {
 				})
 			}))
 
-			summary, err := client.GetRunSummary(context.Background(), c.TFE.API, "run-1")
+			summary, err := client.NewRunSummary(context.Background(), c.TFE.API, "run-1")
 			require.NoError(t, err)
 			assert.Equal(t, tt.status, summary.Status)
 			assert.Equal(t, tt.message, summary.Message)
@@ -74,7 +74,7 @@ func TestGetRunSummary_Statuses(t *testing.T) {
 	}
 }
 
-func TestGetRunSummary_ErroredPlan(t *testing.T) {
+func TestNewRunSummary_ErroredPlan(t *testing.T) {
 	t.Parallel()
 
 	logServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -104,7 +104,7 @@ func TestGetRunSummary_ErroredPlan(t *testing.T) {
 		}
 	}))
 
-	summary, err := client.GetRunSummary(context.Background(), c.TFE.API, "run-1")
+	summary, err := client.NewRunSummary(context.Background(), c.TFE.API, "run-1")
 	require.NoError(t, err)
 
 	assert.Equal(t, "errored", summary.Status)
@@ -113,7 +113,7 @@ func TestGetRunSummary_ErroredPlan(t *testing.T) {
 	assert.Equal(t, "Bad resource", summary.Diagnostics[0].Summary)
 }
 
-func TestGetRunSummary_ErroredApply(t *testing.T) {
+func TestNewRunSummary_ErroredApply(t *testing.T) {
 	t.Parallel()
 
 	logServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -151,7 +151,7 @@ func TestGetRunSummary_ErroredApply(t *testing.T) {
 		}
 	}))
 
-	summary, err := client.GetRunSummary(context.Background(), c.TFE.API, "run-1")
+	summary, err := client.NewRunSummary(context.Background(), c.TFE.API, "run-1")
 	require.NoError(t, err)
 
 	assert.Equal(t, "apply", summary.Phase)
@@ -159,7 +159,7 @@ func TestGetRunSummary_ErroredApply(t *testing.T) {
 	assert.Equal(t, "Provider error", summary.Diagnostics[0].Summary)
 }
 
-func TestGetRunSummary_ErroredNoDiagnostics(t *testing.T) {
+func TestNewRunSummary_ErroredNoDiagnostics(t *testing.T) {
 	t.Parallel()
 
 	logServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -188,7 +188,7 @@ func TestGetRunSummary_ErroredNoDiagnostics(t *testing.T) {
 		}
 	}))
 
-	summary, err := client.GetRunSummary(context.Background(), c.TFE.API, "run-1")
+	summary, err := client.NewRunSummary(context.Background(), c.TFE.API, "run-1")
 	require.NoError(t, err)
 
 	assert.Empty(t, summary.Diagnostics)
