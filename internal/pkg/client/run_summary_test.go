@@ -1,7 +1,7 @@
 // Copyright IBM Corp. 2026
 // SPDX-License-Identifier: MPL-2.0
 
-package run
+package client
 
 import (
 	"testing"
@@ -15,7 +15,7 @@ Initializing plugins...
 {"@level":"info","@message":"some info","type":"info"}
 {"@level":"error","@message":"Error: Missing required argument","type":"diagnostic","diagnostic":{"severity":"error","summary":"Missing required argument","detail":"The argument \"name\" is required."}}`
 
-	diags := parseDiagnostics(log)
+	diags := ParseDiagnostics(log)
 	if len(diags) != 2 {
 		t.Fatalf("expected 2 diagnostics, got %d", len(diags))
 	}
@@ -35,7 +35,7 @@ Initializing plugins...
 Error: something went wrong
 This is plain text output, not JSON.`
 
-	diags := parseDiagnostics(log)
+	diags := ParseDiagnostics(log)
 	if diags != nil {
 		t.Fatalf("expected nil diagnostics for non-structured log, got %d", len(diags))
 	}
@@ -46,7 +46,7 @@ func TestParseDiagnostics_TooShort(t *testing.T) {
 line2
 line3`
 
-	diags := parseDiagnostics(log)
+	diags := ParseDiagnostics(log)
 	if diags != nil {
 		t.Fatalf("expected nil for short log, got %d", len(diags))
 	}
@@ -58,17 +58,13 @@ header2
 header3
 {"@level":"info","@message":"Apply complete","type":"apply_complete"}`
 
-	diags := parseDiagnostics(log)
+	diags := ParseDiagnostics(log)
 	if len(diags) != 0 {
 		t.Fatalf("expected 0 diagnostics, got %d", len(diags))
 	}
 }
 
 func TestParseDiagnostics_RealHCPTerraformLog(t *testing.T) {
-	// Real plan log fetched from HCP Terraform archivist. Contains:
-	// - \x02 (STX) at the start of the first line
-	// - \x03 (ETX) at the end of the last line
-	// - Full structured JSON with range/snippet fields from terraform.ui
 	log := "\x02Terraform v1.14.9\n" +
 		"on linux_amd64\n" +
 		"Initializing plugins and modules...\n" +
@@ -76,7 +72,7 @@ func TestParseDiagnostics_RealHCPTerraformLog(t *testing.T) {
 		`{"@level":"error","@message":"Error: Reference to undeclared resource","@module":"terraform.ui","@timestamp":"2026-04-29T21:25:37.016838Z","diagnostic":{"severity":"error","summary":"Reference to undeclared resource","detail":"A managed resource \"random_string\" \"example\" has not been declared in the root module.","range":{"filename":"main.tf","start":{"line":73,"column":11,"byte":1375},"end":{"line":73,"column":32,"byte":1396}},"snippet":{"context":"output \"random_string\"","code":"  value = random_string.example.result","start_line":73,"highlight_start_offset":10,"highlight_end_offset":31,"values":[]}},"type":"diagnostic"}` + "\n" +
 		"Operation failed: failed running terraform plan (exit 1)\x03"
 
-	diags := parseDiagnostics(log)
+	diags := ParseDiagnostics(log)
 	if len(diags) != 1 {
 		t.Fatalf("expected 1 diagnostic, got %d", len(diags))
 	}
