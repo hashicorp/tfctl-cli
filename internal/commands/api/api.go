@@ -52,7 +52,9 @@ type Opts struct {
 	InputRequest string
 	Method       string
 	ResourceType string
-	Paginate     bool
+	All          bool
+	PageSize     int
+	PageNumber   int
 }
 
 // NewCmdAPI creates the `tfcloud api` command.
@@ -116,11 +118,22 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 					Description:  "Resource type for --attribute JSON:API request bodies. This value is inferred from the path whenever possible.",
 					Value:        flagvalue.Simple("", &opts.ResourceType),
 				},
+
 				{
-					Name:          "paginate",
-					Description:   fmt.Sprintf("Automatically paginate through all pages and return them as a single response with up to %d records. Only applies to successful responses with JSON:API document bodies.", MaxPaginateRecords),
-					Value:         flagvalue.Simple(false, &opts.Paginate),
+					Name:          "all",
+					Description:   fmt.Sprintf("Fetch all records. May be slow for large amounts of data. Limited to %d records.", MaxPaginateRecords),
+					Value:         flagvalue.Simple(false, &opts.All),
 					IsBooleanFlag: true,
+				},
+				{
+					Name:        "page-size",
+					Description: "Limit the number of records to return. Default varies by resource. Ignored if --all is set.",
+					Value:       flagvalue.Simple(0, &opts.PageSize), // page size is determined by the server, so we don't set it by default
+				},
+				{
+					Name:        "page-number",
+					Description: "Page number to return. Ignored if --all is set. Default is 1.",
+					Value:       flagvalue.Simple(1, &opts.PageNumber),
 				},
 				{
 					Name:         "attribute",
@@ -226,6 +239,24 @@ func runAPI(opts *Opts) error {
 	for key, value := range opts.Query {
 		query.Set(key, value)
 	}
+
+	// Handle pagination parameters unless --all is set.
+	if opts.PageNumber > 1 {
+		if opts.All {
+			fmt.Fprintf(opts.IO.Err(), "%s ignoring --page-number because --all is set\n", opts.IO.ColorScheme().WarningLabel())
+		} else {
+			query.Set("page[number]", fmt.Sprintf("%d", opts.PageNumber))
+		}
+	}
+
+	if opts.PageSize > 0 {
+		if opts.All {
+			fmt.Fprintf(opts.IO.Err(), "%s ignoring --page-size because --all is set\n", opts.IO.ColorScheme().WarningLabel())
+		} else {
+			query.Set("page[size]", fmt.Sprintf("%d", opts.PageSize))
+		}
+	}
+
 	opts.URL.RawQuery = query.Encode()
 
 	// Construct a request
@@ -293,7 +324,7 @@ func runAPI(opts *Opts) error {
 		verbose = true
 	}
 
-	if opts.Paginate && response.StatusCode >= 200 && response.StatusCode < 300 {
+	if opts.All && response.StatusCode >= 200 && response.StatusCode < 300 {
 		response, err = paginateResponse(opts.ShutdownCtx, opts.Client, response, requestHeaders, verbose, opts.IO.Err())
 		if err != nil {
 			return err

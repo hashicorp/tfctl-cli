@@ -1,3 +1,6 @@
+// Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
+
 package api
 
 import (
@@ -209,7 +212,7 @@ func TestRunAPI_ExplicitMethodHeadersAndQuery(t *testing.T) {
 	t.Parallel()
 
 	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
-		"PATCH /api/v2/workspaces/ws-1": func(w http.ResponseWriter, r *http.Request) {
+		"PATCH /api/v2/workspaces/ws-1?include=organization": func(w http.ResponseWriter, r *http.Request) {
 			writeJSONAPIResponse(w, http.StatusOK, map[string]any{
 				"data": map[string]any{
 					"id":         "ws-1",
@@ -225,7 +228,7 @@ func TestRunAPI_ExplicitMethodHeadersAndQuery(t *testing.T) {
 	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
 		opts.Method = http.MethodPatch
-		opts.Query = map[string]string{"include": "organization", "page[number]": "2"}
+		opts.Query = map[string]string{"include": "organization"}
 		opts.Headers = []string{"X-Test: yes", "Accept: application/custom+json"}
 		opts.InputRequest = `{"data":{"type":"workspaces","attributes":{"name":"beta"}}}`
 	}))
@@ -236,7 +239,6 @@ func TestRunAPI_ExplicitMethodHeadersAndQuery(t *testing.T) {
 	require.Equal(t, "yes", req.Headers.Get("X-Test"))
 	require.Equal(t, "application/custom+json", req.Headers.Get("Accept"))
 	require.Equal(t, "organization", req.Query.Get("include"))
-	require.Equal(t, "2", req.Query.Get("page[number]"))
 }
 
 func TestRunAPI_Paginate(t *testing.T) {
@@ -267,13 +269,67 @@ func TestRunAPI_Paginate(t *testing.T) {
 	io := iostreams.Test()
 	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
-		opts.Paginate = true
+		opts.All = true
 	}))
 	require.NoError(t, err)
 
 	require.Len(t, recorder.All(), 2)
 	require.Contains(t, io.Output.String(), "alpha")
 	require.Contains(t, io.Output.String(), "beta")
+}
+
+func TestRunAPI_PageNumber(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"GET /api/v2/workspaces?page%5Bnumber%5D=2": func(w http.ResponseWriter, r *http.Request) {
+			writeJSONAPIResponse(w, http.StatusOK, map[string]any{
+				"data": []any{
+					map[string]any{"id": "ws-2", "type": "workspaces", "attributes": map[string]any{"name": "beta"}},
+				},
+				"links": map[string]any{"next": nil},
+				"meta":  map[string]any{"pagination": map[string]any{"total-count": 2}},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
+		opts.PageNumber = 2
+	}))
+	require.NoError(t, err)
+
+	require.Len(t, recorder.All(), 1)
+	require.Contains(t, io.Output.String(), "beta")
+}
+
+func TestRunAPI_PageSize(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"GET /api/v2/workspaces?page%5Bsize%5D=1": func(w http.ResponseWriter, r *http.Request) {
+			writeJSONAPIResponse(w, http.StatusOK, map[string]any{
+				"data": []any{
+					map[string]any{"id": "ws-1", "type": "workspaces", "attributes": map[string]any{"name": "alpha"}},
+				},
+				"links": map[string]any{"next": "/api/v2/workspaces?page[size]=1&page[number]=2"},
+				"meta":  map[string]any{"pagination": map[string]any{"total-count": 2}},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
+		opts.PageSize = 1
+	}))
+	require.NoError(t, err)
+
+	require.Len(t, recorder.All(), 1)
+	require.Contains(t, io.Output.String(), "alpha")
 }
 
 func TestMergePaginatedBody_UpdatesMeta(t *testing.T) {
@@ -516,7 +572,7 @@ func TestRunAPI_PaginateReturnsErrorResponseFromLaterPage(t *testing.T) {
 	io := iostreams.Test()
 	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
-		opts.Paginate = true
+		opts.All = true
 	}))
 	assert.ErrorIs(t, err, tfe.ErrTooManyRequests)
 	var apiErr *tfe.APIError
@@ -596,10 +652,6 @@ func newAPITestServer(routes map[string]http.HandlerFunc) (*httptest.Server, *re
 		})
 
 		if h, ok := routes[routeKey(r)]; ok {
-			h(w, r)
-			return
-		}
-		if h, ok := routes[fmt.Sprintf("%s %s", r.Method, r.URL.Path)]; ok {
 			h(w, r)
 			return
 		}
