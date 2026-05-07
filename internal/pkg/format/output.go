@@ -51,7 +51,7 @@ func NewDisplayer[T any](payload T, defaultFormat Format, fields []Field) Displa
 // the direct struct field name. If specifying a nested nested field, use a dot
 // to separate (SubStruct.FieldA).
 func DisplayFields[T any](payload T, format Format, fields ...string) Displayer {
-	return NewDisplayer[T](payload, format, inferFields(payload, fields))
+	return NewDisplayer(payload, format, inferFields(payload, fields))
 }
 
 func formatName(name string) string {
@@ -381,13 +381,13 @@ func (o *Outputter) outputJSONWithJQ(payload any) error {
 		return fmt.Errorf("failed to compile jq expression: %w", err)
 	}
 
-	// Convert payload to interface{} via JSON round-trip to ensure compatibility with gojq
+	// Convert payload to any via JSON round-trip to ensure compatibility with gojq
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	var input interface{}
+	var input any
 	if err := json.Unmarshal(raw, &input); err != nil {
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
