@@ -14,6 +14,22 @@ import (
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 )
 
+func TestMarkdown_StringPayload(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	io := iostreams.Test()
+	out := format.New(io)
+	out.SetFormat(format.Markdown)
+
+	d := &StringPayloadDisplayer{
+		payload:      map[string]string{"key": "value"},
+		markdownText: "**formatted** markdown output",
+	}
+
+	r.NoError(out.Display(d))
+	r.Equal("**formatted** markdown output\n", io.Output.String())
+}
+
 func TestMarkdown_Complex_Slice(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
