@@ -42,6 +42,8 @@ func (c *Command) errorToExitCode(args []string, err error) int {
 	} else if errors.Is(err, ErrDisplayUsage) {
 		fmt.Fprint(io.Err(), c.usageHelp())
 		return 1
+	} else if errors.Is(err, ErrUnderlyingError) {
+		return 6
 	} else if errors.Is(err, tfe.ErrNotFound) {
 		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), notFoundErrorHelp(io))
 		return 2

@@ -24,6 +24,11 @@ var (
 
 	// ErrDisplayUsage can be returned from a run command to print the usage text.
 	ErrDisplayUsage = errors.New("usage")
+
+	// ErrUnderlyingError can be returned when the command ran successfully but
+	// detected an underlying problem (e.g. inspecting a resource that is in an
+	// error state). Exits with code 6 and no additional output.
+	ErrUnderlyingError = errors.New("underlying error")
 )
 
 // Command is used to construct a command.
