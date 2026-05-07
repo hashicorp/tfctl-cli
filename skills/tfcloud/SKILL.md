@@ -141,7 +141,7 @@ manner. Try again or try a workaround.
 **Underlying error detected (exit 6):**
 The command ran successfully but the inspected resource is in an error state. For example,
 `tfcloud run status` returns exit 6 when the run has errored. The command will have already
-printed diagnostic output. Commands return `cmd.ErrUnderlyingError` to trigger this exit code.
+printed diagnostic output.
 
 ## Built-in jq Filtering
 
