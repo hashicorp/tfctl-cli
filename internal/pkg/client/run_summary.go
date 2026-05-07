@@ -13,8 +13,6 @@ import (
 
 	"github.com/hashicorp/go-tfe/api"
 	"github.com/hashicorp/go-tfe/api/models"
-	"github.com/hashicorp/go-tfe/api/workspaces"
-	abstractions "github.com/microsoft/kiota-abstractions-go"
 )
 
 // RunSummary is the result of inspecting a Terraform Cloud run.
@@ -40,57 +38,6 @@ type jsonLog struct {
 	Message    string      `json:"@message"`
 	Type       string      `json:"type"`
 	Diagnostic *Diagnostic `json:"diagnostic,omitempty"`
-}
-
-// ResolveRunID resolves an identifier to a run ID. The identifier can be a
-// run ID (run-*), workspace ID (ws-*), or workspace name (requires org).
-func ResolveRunID(ctx context.Context, tfeAPI *api.ApiClient, org, id string) (string, error) {
-	switch {
-	case strings.HasPrefix(id, "run-"):
-		return id, nil
-
-	case strings.HasPrefix(id, "ws-"):
-		return getLatestRunForWorkspace(ctx, tfeAPI, id)
-
-	default:
-		if org == "" {
-			return "", fmt.Errorf("--organization is required when specifying a workspace name")
-		}
-		ws, err := tfeAPI.Organizations().ByOrganization_name(org).Workspaces().ByWorkspace_name(id).Get(ctx, nil)
-		if err != nil {
-			return "", fmt.Errorf("resolving workspace %q: %w", id, err)
-		}
-		wsID := ws.GetData().GetId()
-		if wsID == nil {
-			return "", fmt.Errorf("workspace %q has no ID", id)
-		}
-		return getLatestRunForWorkspace(ctx, tfeAPI, *wsID)
-	}
-}
-
-func getLatestRunForWorkspace(ctx context.Context, tfeAPI *api.ApiClient, wsID string) (string, error) {
-	pageSize := int32(1)
-	config := &abstractions.RequestConfiguration[workspaces.ItemRunsRequestBuilderGetQueryParameters]{
-		QueryParameters: &workspaces.ItemRunsRequestBuilderGetQueryParameters{
-			Pagesize: &pageSize,
-		},
-	}
-
-	runs, err := tfeAPI.Workspaces().ByWorkspace_id(wsID).Runs().Get(ctx, config)
-	if err != nil {
-		return "", fmt.Errorf("fetching runs for workspace %s: %w", wsID, err)
-	}
-
-	data := runs.GetData()
-	if len(data) == 0 {
-		return "", fmt.Errorf("no runs found for workspace %s", wsID)
-	}
-
-	runID := data[0].GetId()
-	if runID == nil {
-		return "", fmt.Errorf("latest run has no ID")
-	}
-	return *runID, nil
 }
 
 // GetRunSummary fetches a run and returns a summary of its status. If the run

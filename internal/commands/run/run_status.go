@@ -83,14 +83,27 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
-			tfeAPI := apiClient.TFE.API
+			resolver := client.NewResolver(apiClient, false, false)
 
-			runID, err := client.ResolveRunID(ctx.ShutdownCtx, tfeAPI, org, args[0])
+			id := args[0]
+			resourceType := "workspaces"
+			switch {
+			case strings.HasPrefix(id, "run-"):
+				resourceType = "runs"
+			case strings.HasPrefix(id, "ws-"):
+				resourceType = "workspaces"
+			default:
+				if org == "" {
+					return fmt.Errorf("--organization is required when specifying a workspace name")
+				}
+			}
+
+			runID, err := resolver.RunOrCurrentRun(ctx.ShutdownCtx, org, resourceType, id)
 			if err != nil {
 				return err
 			}
 
-			summary, err := client.GetRunSummary(ctx.ShutdownCtx, tfeAPI, runID)
+			summary, err := client.GetRunSummary(ctx.ShutdownCtx, apiClient.TFE.API, runID)
 			if err != nil {
 				return err
 			}

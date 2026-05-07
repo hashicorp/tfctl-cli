@@ -195,17 +195,18 @@ func TestGetRunSummary_ErroredNoDiagnostics(t *testing.T) {
 	assert.Contains(t, summary.RawLog, "Plain text error output")
 }
 
-func TestResolveRunID(t *testing.T) {
+func TestRunOrCurrentRun(t *testing.T) {
 	t.Parallel()
 
-	t.Run("run prefix passthrough", func(t *testing.T) {
+	t.Run("runs type passthrough", func(t *testing.T) {
 		t.Parallel()
-		runID, err := client.ResolveRunID(context.Background(), nil, "", "run-abc123")
+		resolver := client.NewResolver(nil, false, false)
+		runID, err := resolver.RunOrCurrentRun(context.Background(), "", "runs", "run-abc123")
 		require.NoError(t, err)
 		assert.Equal(t, "run-abc123", runID)
 	})
 
-	t.Run("workspace ID", func(t *testing.T) {
+	t.Run("workspaces type by ID", func(t *testing.T) {
 		t.Parallel()
 		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			jsonapi(w, map[string]any{
@@ -215,12 +216,13 @@ func TestResolveRunID(t *testing.T) {
 			})
 		}))
 
-		runID, err := client.ResolveRunID(context.Background(), c.TFE.API, "", "ws-123")
+		resolver := client.NewResolver(c, false, false)
+		runID, err := resolver.RunOrCurrentRun(context.Background(), "", "workspaces", "ws-123")
 		require.NoError(t, err)
 		assert.Equal(t, "run-latest", runID)
 	})
 
-	t.Run("workspace name", func(t *testing.T) {
+	t.Run("workspaces type by name", func(t *testing.T) {
 		t.Parallel()
 		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch route(r) {
@@ -237,16 +239,10 @@ func TestResolveRunID(t *testing.T) {
 			}
 		}))
 
-		runID, err := client.ResolveRunID(context.Background(), c.TFE.API, "my-org", "my-ws")
+		resolver := client.NewResolver(c, false, false)
+		runID, err := resolver.RunOrCurrentRun(context.Background(), "my-org", "workspaces", "my-ws")
 		require.NoError(t, err)
 		assert.Equal(t, "run-from-name", runID)
-	})
-
-	t.Run("workspace name missing org", func(t *testing.T) {
-		t.Parallel()
-		_, err := client.ResolveRunID(context.Background(), nil, "", "my-ws")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "--organization is required")
 	})
 
 	t.Run("no runs in workspace", func(t *testing.T) {
@@ -255,8 +251,17 @@ func TestResolveRunID(t *testing.T) {
 			jsonapi(w, map[string]any{"data": []any{}})
 		}))
 
-		_, err := client.ResolveRunID(context.Background(), c.TFE.API, "", "ws-empty")
+		resolver := client.NewResolver(c, false, false)
+		_, err := resolver.RunOrCurrentRun(context.Background(), "", "workspaces", "ws-empty")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no runs found")
+	})
+
+	t.Run("unsupported type", func(t *testing.T) {
+		t.Parallel()
+		resolver := client.NewResolver(nil, false, false)
+		_, err := resolver.RunOrCurrentRun(context.Background(), "", "plans", "plan-123")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported resource type")
 	})
 }
