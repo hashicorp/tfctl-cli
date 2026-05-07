@@ -208,16 +208,18 @@ func (d *summaryDisplayer) formatDiagnosticsPretty() string {
 
 func (d *summaryDisplayer) formatDiagnosticsMarkdown() string {
 	var out strings.Builder
-	for _, diag := range d.summary.Diagnostics {
+	for i, diag := range d.summary.Diagnostics {
+		if i > 0 {
+			out.WriteString("\n\n---\n\n")
+		}
 		label := "Error"
 		if diag.Severity == "warning" {
 			label = "Warning"
 		}
-		fmt.Fprintf(&out, "**%s:** %s\n", label, diag.Summary)
+		fmt.Fprintf(&out, "**%s: %s**\n", label, diag.Summary)
 		if diag.Detail != "" {
 			fmt.Fprintf(&out, "\n%s\n", diag.Detail)
 		}
-		out.WriteString("\n")
 	}
-	return strings.TrimRight(out.String(), "\n")
+	return out.String()
 }
