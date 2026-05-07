@@ -34,6 +34,14 @@ func newFakeTFE(t *testing.T, username string) *httptest.Server {
 	return srv
 }
 
+// stubBrowser replaces openBrowserFn with a no-op for the duration of the test.
+func stubBrowser(t *testing.T) {
+	t.Helper()
+	orig := openBrowserFn
+	openBrowserFn = func(url string) error { return nil }
+	t.Cleanup(func() { openBrowserFn = orig })
+}
+
 func TestLoginFromStdin(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
@@ -199,7 +207,7 @@ func TestLoginInteractive_NoTTY(t *testing.T) {
 }
 
 func TestLoginInteractive_Success(t *testing.T) {
-	t.Parallel()
+	stubBrowser(t)
 	r := require.New(t)
 
 	srv := newFakeTFE(t, "interactive-user")
@@ -302,7 +310,7 @@ func TestLoginFromStdin_DryRun(t *testing.T) {
 }
 
 func TestLoginInteractive_DryRun(t *testing.T) {
-	t.Parallel()
+	stubBrowser(t)
 	r := require.New(t)
 
 	srv := newFakeTFE(t, "testuser")
