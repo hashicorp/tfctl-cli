@@ -210,8 +210,13 @@ func TestRunOrCurrentRun(t *testing.T) {
 		t.Parallel()
 		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			jsonapi(w, map[string]any{
-				"data": []any{
-					map[string]any{"id": "run-latest", "type": "runs", "attributes": map[string]any{"status": "applied"}},
+				"data": map[string]any{
+					"id": "ws-123", "type": "workspaces",
+					"relationships": map[string]any{
+						"current-run": map[string]any{
+							"data": map[string]any{"id": "run-current", "type": "runs"},
+						},
+					},
 				},
 			})
 		}))
@@ -219,24 +224,22 @@ func TestRunOrCurrentRun(t *testing.T) {
 		resolver := client.NewResolver(c, false, false)
 		runID, err := resolver.RunOrCurrentRun(context.Background(), "", "workspaces", "ws-123")
 		require.NoError(t, err)
-		assert.Equal(t, "run-latest", runID)
+		assert.Equal(t, "run-current", runID)
 	})
 
 	t.Run("workspaces type by name", func(t *testing.T) {
 		t.Parallel()
 		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch route(r) {
-			case "GET /api/v2/organizations/my-org/workspaces/my-ws":
-				jsonapi(w, map[string]any{"data": map[string]any{"id": "ws-resolved", "type": "workspaces"}})
-			case "GET /api/v2/workspaces/ws-resolved/runs":
-				jsonapi(w, map[string]any{
-					"data": []any{
-						map[string]any{"id": "run-from-name", "type": "runs", "attributes": map[string]any{"status": "applied"}},
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "ws-resolved", "type": "workspaces",
+					"relationships": map[string]any{
+						"current-run": map[string]any{
+							"data": map[string]any{"id": "run-from-name", "type": "runs"},
+						},
 					},
-				})
-			default:
-				http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
-			}
+				},
+			})
 		}))
 
 		resolver := client.NewResolver(c, false, false)
@@ -245,16 +248,25 @@ func TestRunOrCurrentRun(t *testing.T) {
 		assert.Equal(t, "run-from-name", runID)
 	})
 
-	t.Run("no runs in workspace", func(t *testing.T) {
+	t.Run("no current run", func(t *testing.T) {
 		t.Parallel()
 		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			jsonapi(w, map[string]any{"data": []any{}})
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "ws-empty", "type": "workspaces",
+					"relationships": map[string]any{
+						"current-run": map[string]any{
+							"data": nil,
+						},
+					},
+				},
+			})
 		}))
 
 		resolver := client.NewResolver(c, false, false)
 		_, err := resolver.RunOrCurrentRun(context.Background(), "", "workspaces", "ws-empty")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no runs found")
+		assert.Contains(t, err.Error(), "no current run")
 	})
 
 	t.Run("unsupported type", func(t *testing.T) {
