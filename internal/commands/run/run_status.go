@@ -6,23 +6,36 @@ package run
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	wordwrap "github.com/mitchellh/go-wordwrap"
 
 	"github.com/hashicorp/go-tfe/api/models"
 	"github.com/hashicorp/tfcloud/internal/pkg/client"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 	terraformcfg "github.com/hashicorp/tfcloud/internal/pkg/terraform"
 )
 
-// StatusOpts stores the options for the run status command.
 type StatusOpts struct {
 	IO           iostreams.IOStreams
 	ShutdownCtx  context.Context
 	Client       *client.Client
+	Output       *format.Outputter
 	Organization string
-	RunID        string // resolved run ID
+	RunID        string
+}
+
+type statusResult struct {
+	RunID       string       `json:"run_id"`
+	Status      string       `json:"status"`
+	Message     string       `json:"message"`
+	Phase       string       `json:"phase,omitempty"`
+	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
+	RawLog      string       `json:"raw_log,omitempty"`
 }
 
 // NewCmdRunStatus creates the `tfcloud run status` command.
@@ -95,6 +108,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 			opts.Client = apiClient
+			opts.Output = ctx.Output
 
 			runID, err := resolveRunID(opts, args[0])
 			if err != nil {
@@ -112,7 +126,6 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 func runStatus(opts *StatusOpts) error {
 	ctx := opts.ShutdownCtx
 
-	// Fetch the run.
 	run, err := opts.Client.TFE.API.Runs().ById(opts.RunID).Get(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("fetching run %s: %w", opts.RunID, err)
@@ -123,64 +136,69 @@ func runStatus(opts *StatusOpts) error {
 		return fmt.Errorf("run %s has no status", opts.RunID)
 	}
 
-	return handleRunStatus(opts, *status)
+	result, err := buildStatusResult(opts, *status)
+	if err != nil {
+		return err
+	}
+
+	if err := opts.Output.Display(&statusDisplayer{result: result, io: opts.IO}); err != nil {
+		return err
+	}
+
+	if result.Status == "errored" {
+		return cmd.ErrUnderlyingError
+	}
+	return nil
 }
 
-func handleRunStatus(opts *StatusOpts, status models.Runs_attributes_status) error {
+func buildStatusResult(opts *StatusOpts, status models.Runs_attributes_status) (*statusResult, error) {
+	result := &statusResult{
+		RunID:  opts.RunID,
+		Status: status.String(),
+	}
+
 	switch status {
-	// Plan in progress
 	case models.PENDING_RUNS_ATTRIBUTES_STATUS,
 		models.FETCHING_RUNS_ATTRIBUTES_STATUS,
 		models.QUEUING_RUNS_ATTRIBUTES_STATUS,
 		models.PLAN_QUEUED_RUNS_ATTRIBUTES_STATUS,
 		models.PLANNING_RUNS_ATTRIBUTES_STATUS,
 		models.PRE_PLAN_RUNNING_RUNS_ATTRIBUTES_STATUS:
-		fmt.Fprintln(opts.IO.Out(), "Plan in progress")
-		return nil
+		result.Message = "Plan in progress"
 
-	// Plan complete, no apply needed
 	case models.PLANNED_AND_FINISHED_RUNS_ATTRIBUTES_STATUS,
 		models.PLANNED_AND_SAVED_RUNS_ATTRIBUTES_STATUS:
-		fmt.Fprintln(opts.IO.Out(), "Plan complete, no apply needed")
-		return nil
+		result.Message = "Plan complete, no apply needed"
 
-	// Run succeeded
 	case models.APPLIED_RUNS_ATTRIBUTES_STATUS:
-		fmt.Fprintln(opts.IO.Out(), "Run succeeded")
-		return nil
+		result.Message = "Run succeeded"
 
-	// Run was canceled/discarded
 	case models.CANCELED_RUNS_ATTRIBUTES_STATUS:
-		fmt.Fprintln(opts.IO.Out(), "Run was canceled")
-		return nil
+		result.Message = "Run was canceled"
 	case models.DISCARDED_RUNS_ATTRIBUTES_STATUS:
-		fmt.Fprintln(opts.IO.Out(), "Run was discarded")
-		return nil
+		result.Message = "Run was discarded"
 
-	// Policy status
 	case models.POLICY_OVERRIDE_RUNS_ATTRIBUTES_STATUS:
-		fmt.Fprintln(opts.IO.Out(), "Run awaiting policy override")
-		return nil
+		result.Message = "Run awaiting policy override"
 	case models.POLICY_SOFT_FAILED_RUNS_ATTRIBUTES_STATUS:
-		fmt.Fprintln(opts.IO.Out(), "Run has soft-failed policies")
-		return nil
+		result.Message = "Run has soft-failed policies"
 
-	// Errored — fetch logs and extract diagnostics
 	case models.ERRORED_RUNS_ATTRIBUTES_STATUS:
-		return handleErroredRun(opts)
+		result.Message = "Run errored"
+		if err := populateErroredResult(opts, result); err != nil {
+			return nil, err
+		}
 
-	// All other in-progress states
 	default:
-		fmt.Fprintf(opts.IO.Out(), "Run status: %s\n", status.String())
-		return nil
+		result.Message = fmt.Sprintf("Run status: %s", status.String())
 	}
+
+	return result, nil
 }
 
-// handleErroredRun determines which phase failed and fetches diagnostics.
-func handleErroredRun(opts *StatusOpts) error {
+func populateErroredResult(opts *StatusOpts, result *statusResult) error {
 	ctx := opts.ShutdownCtx
 
-	// Fetch the plan to determine if it errored.
 	plan, err := opts.Client.TFE.API.Runs().ById(opts.RunID).Plan().Get(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("fetching plan for run %s: %w", opts.RunID, err)
@@ -188,15 +206,15 @@ func handleErroredRun(opts *StatusOpts) error {
 
 	planStatus := plan.GetData().GetAttributes().GetStatus()
 	if planStatus != nil && *planStatus == models.ERRORED_PLANS_ATTRIBUTES_STATUS {
-		// Plan failed — fetch plan log.
+		result.Phase = "plan"
 		logURL := plan.GetData().GetAttributes().GetLogReadUrl()
 		if logURL == nil {
 			return fmt.Errorf("plan for run %s has no log URL", opts.RunID)
 		}
-		return fetchAndPrintDiagnostics(opts, *logURL, "plan")
+		return populateLogDiagnostics(result, *logURL)
 	}
 
-	// Apply failed — get the apply and fetch its log.
+	result.Phase = "apply"
 	runData, err := opts.Client.TFE.API.Runs().ById(opts.RunID).Get(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("fetching run %s: %w", opts.RunID, err)
@@ -217,11 +235,10 @@ func handleErroredRun(opts *StatusOpts) error {
 	if logURL == nil {
 		return fmt.Errorf("apply %s has no log URL", applyID)
 	}
-	return fetchAndPrintDiagnostics(opts, *logURL, "apply")
+	return populateLogDiagnostics(result, *logURL)
 }
 
-// fetchAndPrintDiagnostics fetches a log from the given URL and prints diagnostics.
-func fetchAndPrintDiagnostics(opts *StatusOpts, logURL string, phase string) error {
+func populateLogDiagnostics(result *statusResult, logURL string) error {
 	logContent, err := fetchLog(logURL)
 	if err != nil {
 		return err
@@ -229,16 +246,115 @@ func fetchAndPrintDiagnostics(opts *StatusOpts, logURL string, phase string) err
 
 	diags := parseDiagnostics(logContent)
 	if len(diags) > 0 {
-		for _, d := range diags {
-			fmt.Fprintf(opts.IO.Out(), "%s: %s\n", d.Severity, d.Summary)
-			if d.Detail != "" {
-				fmt.Fprintf(opts.IO.Out(), "  %s\n", d.Detail)
+		result.Diagnostics = diags
+	} else {
+		result.RawLog = logContent
+	}
+	return nil
+}
+
+// statusDisplayer implements format.Displayer and format.StringPayload.
+type statusDisplayer struct {
+	result *statusResult
+	io     iostreams.IOStreams
+}
+
+var _ format.Displayer = (*statusDisplayer)(nil)
+var _ format.StringPayload = (*statusDisplayer)(nil)
+
+func (d *statusDisplayer) DefaultFormat() format.Format { return format.Pretty }
+func (d *statusDisplayer) Payload() any                 { return d.result }
+func (d *statusDisplayer) FieldTemplates() []format.Field {
+	return nil
+}
+
+// StringPayload returns pre-formatted output tailored to the given format.
+func (d *statusDisplayer) StringPayload(f format.Format) string {
+	if len(d.result.Diagnostics) > 0 {
+		return d.formatDiagnostics(f)
+	}
+	if d.result.RawLog != "" {
+		return d.result.RawLog
+	}
+	return d.result.Message
+}
+
+func (d *statusDisplayer) formatDiagnostics(f format.Format) string {
+	switch f {
+	case format.Markdown:
+		return d.formatDiagnosticsMarkdown()
+	default:
+		return d.formatDiagnosticsPretty()
+	}
+}
+
+// formatDiagnosticsPretty renders diagnostics in terraform-style box-drawing
+// format with ANSI colors. Uses the same two-pass approach as Terraform:
+// build the body first, then prepend the colored left-rule to each line.
+func (d *statusDisplayer) formatDiagnosticsPretty() string {
+	cs := d.io.ColorScheme()
+	const leftRuleWidth = 2
+	wrapWidth := d.io.TerminalWidth() - leftRuleWidth
+
+	var out strings.Builder
+	for i, diag := range d.result.Diagnostics {
+		if i > 0 {
+			out.WriteString("\n")
+		}
+
+		color := cs.Red()
+		label := "Error"
+		if diag.Severity == "warning" {
+			color = cs.Orange()
+			label = "Warning"
+		}
+
+		// Pass 1: build body without left rule.
+		var body strings.Builder
+		body.WriteString(cs.String(fmt.Sprintf("%s: ", label)).Color(color).Bold().String())
+		body.WriteString(cs.String(diag.Summary).Bold().String())
+		body.WriteString("\n")
+		if diag.Detail != "" {
+			body.WriteString("\n")
+			for _, line := range strings.Split(diag.Detail, "\n") {
+				if wrapWidth > 0 && line != "" && line[0] != ' ' {
+					line = wordwrap.WrapString(line, uint(wrapWidth))
+				}
+				body.WriteString(line)
+				body.WriteString("\n")
 			}
 		}
-	} else {
-		// Not structured or no diagnostics found — print raw log.
-		fmt.Fprintln(opts.IO.Out(), logContent)
-	}
 
-	return cmd.NewExitError(1, fmt.Errorf("run %s errored during %s", opts.RunID, phase))
+		// Pass 2: prepend colored left rule to each line.
+		rule := cs.String("│").Color(color).String()
+		out.WriteString(cs.String("╷").Color(color).String())
+		out.WriteString("\n")
+		for _, line := range strings.Split(strings.TrimRight(body.String(), "\n"), "\n") {
+			out.WriteString(rule)
+			if line != "" {
+				out.WriteString(" ")
+				out.WriteString(line)
+			}
+			out.WriteString("\n")
+		}
+		out.WriteString(cs.String("╵").Color(color).String())
+	}
+	return out.String()
+}
+
+// formatDiagnosticsMarkdown renders diagnostics as markdown.
+func (d *statusDisplayer) formatDiagnosticsMarkdown() string {
+	var out strings.Builder
+	for _, diag := range d.result.Diagnostics {
+		label := "Error"
+		if diag.Severity == "warning" {
+			label = "Warning"
+		}
+		fmt.Fprintf(&out, "**%s:** %s\n", label, diag.Summary)
+		if diag.Detail != "" {
+			fmt.Fprintf(&out, "\n%s\n", diag.Detail)
+		}
+		out.WriteString("\n")
+	}
+	return strings.TrimRight(out.String(), "\n")
 }
