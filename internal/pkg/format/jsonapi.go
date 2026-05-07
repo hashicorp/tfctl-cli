@@ -111,10 +111,13 @@ func (d JSONAPIDisplayer) FieldTemplates() []Field {
 }
 
 func kebabToCapital(input string) string {
-	spaced := strings.ReplaceAll(input, "-", " ")
-
 	caser := cases.Title(language.English)
-	return caser.String(spaced)
+	parts := strings.Split(input, ".")
+	for i, part := range parts {
+		spaced := strings.ReplaceAll(part, "-", " ")
+		parts[i] = caser.String(spaced)
+	}
+	return strings.Join(parts, ".")
 }
 
 // NewJSONAPIDisplayer creates a new displayer based on the contents of a JSON:API response body.
@@ -208,7 +211,39 @@ func resourceAsMap(item any) (map[string]any, bool) {
 	for key, value := range attrMap {
 		row[key] = value
 	}
+	flattenRow(row)
 	return row, true
+}
+
+// flattenRow expands map[string]any and []any values in the row into dot-separated keys,
+// recursively flattening nested collections.
+func flattenRow(row map[string]any) {
+	for key, value := range row {
+		switch v := value.(type) {
+		case map[string]any:
+			delete(row, key)
+			keys := make([]string, 0, len(v))
+			for k := range v {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				row[key+"."+k] = v[k]
+			}
+		case []any:
+			delete(row, key)
+			for i, item := range v {
+				row[fmt.Sprintf("%s.%d", key, i)] = item
+			}
+		}
+	}
+	// Check if any new values still need flattening
+	for _, value := range row {
+		if isNestedValue(value) {
+			flattenRow(row)
+			return
+		}
+	}
 }
 
 func orderedFields(row map[string]any, preferred []string) []string {
@@ -236,7 +271,7 @@ func orderedFields(row map[string]any, preferred []string) []string {
 			typeTrailer = true
 			continue
 		}
-		if isNestedValue(row[key]) {
+		if isNestedValue(row[key]) || isNestedKey(key) {
 			nested = append(nested, key)
 			continue
 		}
@@ -259,6 +294,10 @@ func isNestedValue(value any) bool {
 	default:
 		return false
 	}
+}
+
+func isNestedKey(key string) bool {
+	return strings.Contains(key, ".")
 }
 
 func collectColumns(rows []map[string]any, preferred []string, exclude []string) []string {

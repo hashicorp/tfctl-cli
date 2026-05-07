@@ -10,8 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	models "github.com/hashicorp/go-tfe/api/models"
-
 	"github.com/hashicorp/tfcloud/internal/pkg/format"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 )
@@ -121,8 +119,7 @@ func TestNonNilInnerStruct(t *testing.T) {
 	r.Equal("Name:             OuterStruct\nInner Name:       InnerL1Struct\nInner Inner Name: InnerStruct\n", io.Output.String())
 }
 
-func TestWithSlice(t *testing.T) {
-	t.Skip("Do we even want this type of formatting?")
+func TestWithJSONAPIResource(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 	j := `{
@@ -143,7 +140,26 @@ func TestWithSlice(t *testing.T) {
         "can-create-organizations": true,
         "can-change-email": true,
         "can-change-username": true
-      }
+      },
+			"double-nested": [
+				{
+					"key": "foo",
+					"value": "bar"
+				},
+				{
+					"key": "fizz",
+					"value": "buzz"
+				}
+			],
+			"triple-nested": {
+				"level1": {
+					"level2": {
+						"key": "hello",
+						"value": "world"
+					}
+				}
+			},
+      "tags": ["networking", "production", "us-east"]
     },
     "relationships": {
       "authentication-tokens": {
@@ -166,78 +182,41 @@ func TestWithSlice(t *testing.T) {
     }
   }
 }`
-	thing := models.UsersEnvelope{}
-	err := json.Unmarshal([]byte(j), &thing)
+
+	disp, err := format.NewJSONAPIDisplayer([]byte(j))
 	r.NoError(err)
+
 	io := iostreams.Test()
 	out := format.New(io)
-	err = out.Show(thing.GetData().GetAttributes(), format.Pretty)
+	out.SetFormat(format.Pretty)
+	err = out.Display(disp)
 
 	r.NoError(err)
 	fmt.Println(io.Output.String())
 
-	expected := `Action UR L:                              
-Created At:                               2024-08-16T18:11:19.777Z
-Description:                              test description
-ID:                                       00000000-0000-0000-0000-000000000000
-Name:                                     Agent Smith
-Request Agent Op Action Run ID:           
-Request Agent Op Body:                    
-Request Agent Op Group:                   Enforcements
-Request Agent Op ID:                      Agent Smith
-Request Custom Body:                      
-Request Custom Headers:                   
-Request Custom Method:                    
-Request Custom UR L:                      
-Request Github Enable Debug Log:          
-Request Github Gh Enabled Workflow Param: 
-Request Github Git Ref:                   
-Request Github Inputs:                    
-Request Github Install Name:              
-Request Github Repository:                
-Request Github Workflow ID:               
----
-Action UR L:                              
-Created At:                               2024-06-13T17:31:17.436Z
-Description:                              Runs an action against https://hashicorp.com
-ID:                                       11111111-1111-1111-1111-111111111111
-Name:                                     Example
-Request Agent Op Action Run ID:           
-Request Agent Op Body:                    
-Request Agent Op Group:                   
-Request Agent Op ID:                      
-Request Custom Body:                      
-Request Custom Headers:                   []
-Request Custom Method:                    GET
-Request Custom UR L:                      https://hashicorp.com
-Request Github Enable Debug Log:          
-Request Github Gh Enabled Workflow Param: 
-Request Github Git Ref:                   
-Request Github Inputs:                    
-Request Github Install Name:              
-Request Github Repository:                
-Request Github Workflow ID:               
----
-Action UR L:                              
-Created At:                               2024-08-07T21:56:00.043Z
-Description:                              An action to test the variables feature.
-ID:                                       22222222-2222-2222-2222-222222222222
-Name:                                     Variables
-Request Agent Op Action Run ID:           
-Request Agent Op Body:                    
-Request Agent Op Group:                   
-Request Agent Op ID:                      
-Request Custom Body:                      
-Request Custom Headers:                   []
-Request Custom Method:                    GET
-Request Custom UR L:                      https://${var.company}.com
-Request Github Enable Debug Log:          
-Request Github Gh Enabled Workflow Param: 
-Request Github Git Ref:                   
-Request Github Inputs:                    
-Request Github Install Name:              
-Request Github Repository:                
-Request Github Workflow ID:               
+	expected := `Id:                                   user-V3R563qtJNcExAkN
+Auth Method:                          tfc
+Avatar Url:                           https://www.gravatar.com/avatar/9babb00091b97b9ce9538c45807fd35f?s=100&d=mm
+Email:                                admin@hashicorp.com
+Is Service Account:                   false
+Is Site Admin:                        true
+Is Sso Login:                         false
+Unconfirmed Email:                    <no value>
+Username:                             admin
+V2 Only:                              false
+Double Nested.0.Key:                  foo
+Double Nested.0.Value:                bar
+Double Nested.1.Key:                  fizz
+Double Nested.1.Value:                buzz
+Permissions.Can Change Email:         true
+Permissions.Can Change Username:      true
+Permissions.Can Create Organizations: true
+Tags.0:                               networking
+Tags.1:                               production
+Tags.2:                               us-east
+Triple Nested.Level1.Level2.Key:      hello
+Triple Nested.Level1.Level2.Value:    world
+Type:                                 users
 `
 	r.Equal(expected, io.Output.String())
 }
