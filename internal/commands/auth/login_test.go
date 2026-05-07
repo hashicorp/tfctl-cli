@@ -44,6 +44,7 @@ func stubBrowser(t *testing.T) {
 }
 
 func TestLoginFromStdin(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -73,6 +74,7 @@ func TestLoginFromStdin(t *testing.T) {
 }
 
 func TestLoginFromStdin_CustomHostname(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -97,6 +99,7 @@ func TestLoginFromStdin_CustomHostname(t *testing.T) {
 }
 
 func TestLoginFromStdin_EmptyToken(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -119,6 +122,7 @@ func TestLoginFromStdin_EmptyToken(t *testing.T) {
 }
 
 func TestLoginFromStdin_NoInput(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -140,6 +144,7 @@ func TestLoginFromStdin_NoInput(t *testing.T) {
 }
 
 func TestLoginFromStdin_WhitespaceToken(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -162,6 +167,7 @@ func TestLoginFromStdin_WhitespaceToken(t *testing.T) {
 }
 
 func TestLoginFromStdin_TokenWithWhitespace(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -188,6 +194,7 @@ func TestLoginFromStdin_TokenWithWhitespace(t *testing.T) {
 }
 
 func TestLoginInteractive_NoTTY(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -210,6 +217,7 @@ func TestLoginInteractive_NoTTY(t *testing.T) {
 
 func TestLoginInteractive_Success(t *testing.T) {
 	stubBrowser(t)
+	t.Parallel()
 	r := require.New(t)
 
 	srv := newFakeTFE(t, "interactive-user")
@@ -240,6 +248,7 @@ func TestLoginInteractive_Success(t *testing.T) {
 }
 
 func TestLoginFromStdin_DifferentProfile(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -278,6 +287,7 @@ func TestLoginFromStdin_DifferentProfile(t *testing.T) {
 }
 
 func TestLoginFromStdin_DryRun(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -313,6 +323,7 @@ func TestLoginFromStdin_DryRun(t *testing.T) {
 
 func TestLoginInteractive_DryRun(t *testing.T) {
 	stubBrowser(t)
+	t.Parallel()
 	r := require.New(t)
 
 	srv := newFakeTFE(t, "testuser")
@@ -347,6 +358,7 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 }
 
 func TestLoginFromStdin_QuietMode(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -375,6 +387,7 @@ func TestLoginFromStdin_QuietMode(t *testing.T) {
 }
 
 func TestLoginFromStdin_VerifyFails(t *testing.T) {
+	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
