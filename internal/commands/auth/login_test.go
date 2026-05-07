@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -56,6 +57,7 @@ func TestLoginFromStdin(t *testing.T) {
 	io.Input.WriteString("my-test-token\n")
 
 	opts := &LoginOpts{
+		Ctx:     context.Background(),
 		IO:      io,
 		Profile: p,
 		Token:   true,
