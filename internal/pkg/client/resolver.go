@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/go-tfe/api/models"
 	"github.com/hashicorp/go-tfe/api/organizations"
 	abstractions "github.com/microsoft/kiota-abstractions-go"
 )
@@ -76,31 +77,24 @@ func (r Resolver) RunOrCurrentRun(ctx context.Context, organization, resourceTyp
 }
 
 func (r Resolver) currentRunForWorkspace(ctx context.Context, organization, id string) (string, error) {
-	wsID := id
 	if organization != "" {
 		ws, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Workspaces().ByWorkspace_name(id).Get(ctx, nil)
 		if err != nil {
 			return "", fmt.Errorf("resolving workspace %q: %w", id, err)
 		}
-		currentRun := ws.GetData().GetRelationships().GetCurrentRun()
-		if currentRun != nil && currentRun.GetData() != nil && currentRun.GetData().GetId() != nil {
-			return *currentRun.GetData().GetId(), nil
-		}
-		resolved := ws.GetData().GetId()
-		if resolved == nil {
-			return "", fmt.Errorf("workspace %q has no ID", id)
-		}
-		wsID = *resolved
+		return extractCurrentRunID(ws.GetData().GetRelationships().GetCurrentRun(), id)
 	}
 
-	ws, err := r.client.TFE.API.Workspaces().ByWorkspace_id(wsID).Get(ctx, nil)
+	ws, err := r.client.TFE.API.Workspaces().ByWorkspace_id(id).Get(ctx, nil)
 	if err != nil {
-		return "", fmt.Errorf("fetching workspace %s: %w", wsID, err)
+		return "", fmt.Errorf("fetching workspace %s: %w", id, err)
 	}
+	return extractCurrentRunID(ws.GetData().GetRelationships().GetCurrentRun(), id)
+}
 
-	currentRun := ws.GetData().GetRelationships().GetCurrentRun()
-	if currentRun == nil || currentRun.GetData() == nil || currentRun.GetData().GetId() == nil {
-		return "", fmt.Errorf("no current run for workspace %s", wsID)
+func extractCurrentRunID(rel models.RunsIdable, wsRef string) (string, error) {
+	if rel != nil && rel.GetData() != nil && rel.GetData().GetId() != nil {
+		return *rel.GetData().GetId(), nil
 	}
-	return *currentRun.GetData().GetId(), nil
+	return "", fmt.Errorf("no current run for workspace %s", wsRef)
 }
