@@ -14,6 +14,11 @@ import (
 
 // outputMarkdown outputs the payload as a markdown table.
 func (o *Outputter) outputMarkdown(d Displayer) error {
+	if sp, ok := d.(StringPayload); ok {
+		fmt.Fprintln(o.io.Out(), sp.StringPayload(Markdown))
+		return nil
+	}
+
 	// Gather the headers and the row template
 	fields := d.FieldTemplates()
 	headers := make([]interface{}, len(fields))
