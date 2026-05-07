@@ -16,6 +16,7 @@ type JSONLog struct {
 	Diagnostic *Diagnostic `json:"diagnostic,omitempty"`
 }
 
+// Diagnostic represents a Terraform diagnostic message.
 type Diagnostic struct {
 	Severity string `json:"severity"`
 	Summary  string `json:"summary"`

@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	wordwrap "github.com/mitchellh/go-wordwrap"
-
 	"github.com/hashicorp/go-tfe/api/models"
+	"github.com/mitchellh/go-wordwrap"
+
 	"github.com/hashicorp/tfcloud/internal/pkg/client"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
@@ -20,6 +20,7 @@ import (
 	terraformcfg "github.com/hashicorp/tfcloud/internal/pkg/terraform"
 )
 
+// StatusOpts stores the options for the run status command.
 type StatusOpts struct {
 	IO           iostreams.IOStreams
 	ShutdownCtx  context.Context
