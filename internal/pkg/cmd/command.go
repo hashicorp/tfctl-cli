@@ -287,11 +287,12 @@ func (c *Command) Logger() hclog.Logger {
 	// Create the logger
 	io := c.getIO()
 	logOpt := &hclog.LoggerOptions{
-		Name:   config.Name,
-		Level:  hclog.Warn,
-		Output: io.Err(),
-		TimeFn: time.Now,
-		Color:  hclog.ColorOff,
+		Name:       config.Name,
+		Level:      hclog.Warn,
+		Output:     io.Err(),
+		TimeFn:     time.Now,
+		TimeFormat: "15:04:05.000",
+		Color:      hclog.ColorOff,
 	}
 	if io.ColorEnabled() {
 		logOpt.Color = hclog.ForceColor
