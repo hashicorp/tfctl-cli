@@ -40,6 +40,9 @@ type Context struct {
 	// from the arguments.
 	flags GlobalFlags
 
+	// apiLogger is the logger used for API client HTTP tracing.
+	apiLogger hclog.Logger
+
 	Profile *profile.Profile
 }
 
@@ -90,16 +93,14 @@ func (ctx *Context) IsDebug() bool {
 // EffectiveVerbosity returns the resolved verbosity level, with the --debug
 // flag taking precedence over the profile setting.
 func (ctx *Context) EffectiveVerbosity() string {
-	switch ctx.GetGlobalFlags().debug {
-	case 1:
+	switch {
+	case ctx.GetGlobalFlags().debug >= 2:
+		return profile.VerbosityTrace
+	case ctx.GetGlobalFlags().debug == 1:
 		return profile.VerbosityDebug
-	case 2:
-		return profile.VerbosityTrace
+	default:
+		return ctx.Profile.GetVerbosity()
 	}
-	if ctx.GetGlobalFlags().debug > 2 {
-		return profile.VerbosityTrace
-	}
-	return ctx.Profile.GetVerbosity()
 }
 
 // ConfigureRootCommand should be only called on the root command. It configures
@@ -186,14 +187,14 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 
 	// Setup the pre-run command
 	cmd.PersistentPreRun = func(c *Command, args []string) error {
-		// Setup the HTTP logger. We retrieve the commands logger so the API
-		// logger is named with the subcommand.
-		// ctx.HCP.SetLogger(newAPILogger(c.Logger()))
-		// ctx.HCP.Debug = true
-
 		if err := ctx.applyGlobalFlags(c); err != nil {
 			return err
 		}
+
+		// Setup the API logger from the command's logger so HTTP calls
+		// are namespaced under the subcommand. Must be after applyGlobalFlags
+		// so the logger level is set.
+		ctx.apiLogger = c.Logger()
 
 		c.io = ctx.IO
 
@@ -301,6 +302,9 @@ func (ctx *Context) NewAPIClient() (*client.Client, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	if ctx.apiLogger != nil && ctx.IsDebug() {
+		apiClient.SetLogger(ctx.apiLogger)
 	}
 	return apiClient, nil
 }

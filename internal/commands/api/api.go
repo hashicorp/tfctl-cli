@@ -259,7 +259,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			opts.URL = resolvedURL
 			opts.Client = apiClient
 
-			opts.Debug = debug
+			opts.Debug = ctx.IsDebug()
 			opts.Quiet = ctx.Profile.IsQuiet()
 			opts.DryRun = ctx.IsDryRun()
 
@@ -750,22 +750,4 @@ func formatDryRunBody(body []byte) []byte {
 		return formatted.Bytes()
 	}
 	return body
-}
-
-// debugTransport wraps an http.RoundTripper to log every request and response
-// made by the API client, including resolver calls during path parameter resolution.
-type debugTransport struct {
-	inner http.RoundTripper
-	w     io.Writer
-}
-
-func (t *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	fmt.Fprintf(t.w, "> %s %s\n", req.Method, req.URL)
-	resp, err := t.inner.RoundTrip(req)
-	if resp != nil {
-		fmt.Fprintf(t.w, "< %s\n", resp.Status)
-	} else if err != nil {
-		fmt.Fprintf(t.w, "< %s\n", err)
-	}
-	return resp, err
 }
