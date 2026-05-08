@@ -6,6 +6,8 @@ before:
     - go mod tidy
 builds:
   - id: default
+    main: ./cmd/tfctl
+    binary: tfctl
     env:
       - CGO_ENABLED=0
     mod_timestamp: "{{ .CommitTimestamp }}"
@@ -13,13 +15,28 @@ builds:
       - -trimpath
       - -buildvcs=false
     ldflags:
-      - "-s -w -X github.com/hashicorp/tfctl-cli/internal/config.version={{.Version}} -X github.com/hashicorp/tfctl-cli/internal/config.Commit={{.Commit}} -X github.com/hashicorp/tfctl-cli/internal/config.committedTime={{.CommitDate}}"
+      - -s -w
+      - -X github.com/hashicorp/tfctl-cli/internal/config.Version={{.Version}}
+      - -X github.com/hashicorp/tfctl-cli/internal/config.Commit={{.Commit}}
+      - -X github.com/hashicorp/tfctl-cli/internal/config.committedTime={{.CommitDate}}
     goos:
       - linux
       - darwin
+      - freebsd
+      - openbsd
+      - windows
     goarch:
       - amd64
       - arm64
 archives:
-  - formats: tar.gz
+  - id: default
+    formats: 
+      - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - LICENSE
+      - README.md
