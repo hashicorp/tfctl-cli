@@ -5,6 +5,7 @@ go 1.25.5
 require (
 	github.com/MakeNowJust/heredoc/v2 v2.0.1
 	github.com/blugelabs/bluge v0.2.2
+	github.com/cli/browser v1.3.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/getkin/kin-openapi v0.137.0
 	github.com/hashicorp/cli v1.1.7

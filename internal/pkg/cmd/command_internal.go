@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/cli"
@@ -29,7 +28,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/ld"
 )
 
-func (c *Command) errorToExitCode(args []string, err error) int {
+func (c *Command) errorToExitCode(_ []string, err error) int {
 	io := c.io
 	cs := io.ColorScheme()
 
@@ -49,7 +48,7 @@ func (c *Command) errorToExitCode(args []string, err error) int {
 		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), notFoundErrorHelp(io))
 		return 2
 	} else if errors.Is(err, tfe.ErrUnauthorized) {
-		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), authErrorHelp(io, c.commandPath(), args))
+		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), authErrorHelp(io))
 		return 3
 	} else if errors.As(err, &netErr) {
 		fmt.Fprintf(io.Err(), "%s Network error: %s\n", cs.ErrorLabel(), netErr)
@@ -168,30 +167,13 @@ func notFoundErrorHelp(io iostreams.IOStreams) string {
 }
 
 // authErrorHelp returns a help message for recovering from authentication errors.
-func authErrorHelp(io iostreams.IOStreams, commandPath string, args []string) string {
-	// Build the original command
-	command := "$ " + commandPath
-	for _, a := range args {
-		// If there are spaces in the argument, quote it.
-		if strings.Contains(a, " ") {
-			command += fmt.Sprintf(" %s", strconv.Quote(a))
-		} else {
-			command += fmt.Sprintf(" %s", a)
-		}
-	}
-
-	// Quote the entire command so we can inject it into the template as a
-	// variable.
-	command = strconv.Quote(command)
-
+func authErrorHelp(io iostreams.IOStreams) string {
 	// Render the help message to logout, login, and re-run the command.
 	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
-		Unauthorized request. Re-attempt by first logging out and back in, and then re-run the command.
+		Unauthorized request. The token in your active profile may not be valid. To update the token in your profile, please run:
 
-		  {{ Bold "$ %s auth logout" }}
 		  {{ Bold "$ %s auth login" }}
-		  {{ with $cmd := %s }}{{ Bold $cmd }}{{ end }}
-	`, config.Name, config.Name, command)
+	`, config.Name)
 }
 
 // helpEntry is used to structure help output with titles.
@@ -593,7 +575,6 @@ func (c *Command) useLine() string {
 			required.VisitAll(func(f *pflag.Flag) {
 				useline += fmt.Sprintf(" %s", flagString(f))
 			})
-
 		}
 		useline += " [Optional Flags]"
 	}

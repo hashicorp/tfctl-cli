@@ -60,7 +60,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 			},
 			{
 				Preamble: "Check the latest run in a workspace by name",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud run status my-workspace --organization my-org`),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status my-workspace --organization my-org`, config.Name),
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
@@ -129,8 +129,10 @@ type summaryDisplayer struct {
 	io      iostreams.IOStreams
 }
 
-var _ format.Displayer = (*summaryDisplayer)(nil)
-var _ format.StringPayload = (*summaryDisplayer)(nil)
+var (
+	_ format.Displayer     = (*summaryDisplayer)(nil)
+	_ format.StringPayload = (*summaryDisplayer)(nil)
+)
 
 func (d *summaryDisplayer) DefaultFormat() format.Format { return format.Pretty }
 func (d *summaryDisplayer) Payload() any                 { return d.summary }
