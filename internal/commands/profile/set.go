@@ -108,6 +108,8 @@ func setRun(opts *SetOpts) error {
 		return err
 	}
 
+	opts.Logger.Debug("setting property", "property", opts.Property, "profile", opts.Profile.Name)
+
 	p := opts.Profile
 	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		WeaklyTypedInput:     true,

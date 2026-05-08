@@ -71,6 +71,8 @@ type ActivateOpts struct {
 }
 
 func activateRun(opts *ActivateOpts) error {
+	opts.Logger.Debug("activating profile", "name", opts.Name)
+
 	// Get the active profile
 	active, err := opts.Profiles.GetActiveProfile()
 	if err != nil {

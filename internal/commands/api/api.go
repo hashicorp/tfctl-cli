@@ -404,6 +404,8 @@ func runAPI(opts *Opts) error {
 	}
 
 	method := inferMethod(opts.Method, len(opts.Attributes) > 0, opts.InputRequest != "")
+	opts.Logger.Debug("resolved request", "method", method, "url", opts.URL.String())
+
 	requestHeaders, err := parseHeaders(opts.Headers)
 	if err != nil {
 		return err
@@ -463,6 +465,7 @@ func runAPI(opts *Opts) error {
 	}
 
 	if opts.All && response.StatusCode >= 200 && response.StatusCode < 300 {
+		opts.Logger.Debug("paginating response", "url", opts.URL.String())
 		response, err = paginateResponse(opts.ShutdownCtx, opts.Client, response, requestHeaders, verbose, opts.IO.Err())
 		if err != nil {
 			return err
