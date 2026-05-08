@@ -24,6 +24,13 @@ const (
 	// ActiveProfileFileName is the file name of the active profile stored in
 	// the ConfigDir.
 	ActiveProfileFileName = "active_profile.hcl"
+
+	// Verbosity level constants.
+	VerbosityTrace = "trace"
+	VerbosityDebug = "debug"
+	VerbosityInfo  = "info"
+	VerbosityWarn  = "warn"
+	VerbosityError = "error"
 )
 
 var (
@@ -85,7 +92,7 @@ type Profile struct {
 func (p *Profile) Predict(args complete.Args) []string {
 	properties := map[string][]string{
 		"no_color":  {"true", "false"},
-		"verbosity": {"trace", "debug", "info", "warn", "error"},
+		"verbosity": {VerbosityTrace, VerbosityDebug, VerbosityInfo, VerbosityWarn, VerbosityError},
 		"quiet":     {"true", "false"},
 	}
 
@@ -115,7 +122,7 @@ func (p *Profile) Validate() error {
 		err = multierror.Append(err, ErrInvalidProfileName)
 	}
 
-	allowedVerbosities := []string{"trace", "debug", "info", "warn", "error"}
+	allowedVerbosities := []string{VerbosityTrace, VerbosityDebug, VerbosityInfo, VerbosityWarn, VerbosityError}
 	if f := p.GetVerbosity(); f != "" && !slices.Contains(allowedVerbosities, f) {
 		err = multierror.Append(err, fmt.Errorf("invalid verbosity %q. Must be one of: %q", f, allowedVerbosities))
 	}
