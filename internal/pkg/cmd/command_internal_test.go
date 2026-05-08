@@ -16,10 +16,7 @@ func TestAuthErrorHelp(t *testing.T) {
 	r := require.New(t)
 	io := iostreams.Test()
 
-	commandPath := "tfctl example"
-	args := []string{"simple", "'single-quote'", `escaped \"inner\"`}
-
-	// Get the help text
-	helpText := authErrorHelp(io, commandPath, args)
-	r.Contains(helpText, `$ tfctl example simple 'single-quote' "escaped \\\"inner\\\""`)
+	helpText := authErrorHelp(io)
+	r.Contains(helpText, "Unauthorized request")
+	r.Contains(helpText, "auth login")
 }
