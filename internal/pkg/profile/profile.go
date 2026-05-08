@@ -25,11 +25,19 @@ const (
 	// the ConfigDir.
 	ActiveProfileFileName = "active_profile.hcl"
 
-	// Verbosity level constants.
+	// VerbosityTrace is the trace verbosity level, which logs all messages including very detailed tracing messages.
 	VerbosityTrace = "trace"
+
+	// VerbosityDebug is the debug verbosity level, which logs debugging messages and above.
 	VerbosityDebug = "debug"
-	VerbosityInfo  = "info"
-	VerbosityWarn  = "warn"
+
+	// VerbosityInfo is the info verbosity level, which logs informational messages and above.
+	VerbosityInfo = "info"
+
+	// VerbosityWarn is the warning verbosity level, which logs warning messages and above.
+	VerbosityWarn = "warn"
+
+	// VerbosityError is the error verbosity level, which only logs error messages.
 	VerbosityError = "error"
 )
 
