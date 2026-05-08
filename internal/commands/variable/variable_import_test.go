@@ -16,6 +16,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
@@ -142,7 +143,7 @@ func TestRunVariable_ImportReturnsUsageWhenNothingToImport(t *testing.T) {
 	t.Parallel()
 
 	io := iostreams.Test()
-	err := runVariableImport(&ImportOpts{IO: io})
+	err := runVariableImport(&ImportOpts{IO: io, Logger: hclog.NewNullLogger()})
 	require.ErrorIs(t, err, cmd.ErrDisplayUsage)
 	require.Empty(t, io.Error.String())
 }
@@ -152,8 +153,9 @@ func TestRunVariable_ImportErrorsWhenEnvVarMissing(t *testing.T) {
 
 	io := iostreams.Test()
 	err := runVariableImport(&ImportOpts{
-		IO:  io,
-		Env: []string{"MISSING_ENV"},
+		IO:     io,
+		Logger: hclog.NewNullLogger(),
+		Env:    []string{"MISSING_ENV"},
 	})
 	require.EqualError(t, err, "environment variable \"MISSING_ENV\" is not set")
 	require.Empty(t, io.Error.String())
@@ -330,6 +332,7 @@ func newImportTestOpts(t *testing.T, address string, io *iostreams.Testing, muta
 
 	opts := &ImportOpts{
 		IO:          io,
+		Logger:      hclog.NewNullLogger(),
 		ShutdownCtx: context.Background(),
 		Client:      apiClient,
 	}
