@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -35,12 +37,13 @@ func NewCmdList(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(_ *cmd.Command, _ []string) error {
+		RunF: func(c *cmd.Command, _ []string) error {
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
 			}
 			opts.Profiles = l
+			opts.Logger = c.Logger()
 			return listRun(opts)
 		},
 	}
@@ -52,6 +55,7 @@ func NewCmdList(ctx *cmd.Context) *cmd.Command {
 type ListOpts struct {
 	IO       iostreams.IOStreams
 	Output   *format.Outputter
+	Logger   hclog.Logger
 	Profiles *profile.Loader
 }
 

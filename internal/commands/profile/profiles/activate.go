@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -43,8 +45,9 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			opts.Name = args[0]
+			opts.Logger = c.Logger()
 			opts.DryRun = ctx.IsDryRun()
 			l, err := profile.NewLoader()
 			if err != nil {
@@ -61,6 +64,7 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 // ActivateOpts defines the options for the `profile profiles activate` command.
 type ActivateOpts struct {
 	IO       iostreams.IOStreams
+	Logger   hclog.Logger
 	Profiles *profile.Loader
 	Name     string
 	DryRun   bool

@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -22,6 +24,7 @@ import (
 // ImportOpts stores the options parsed from flags for the variable import command.
 type ImportOpts struct {
 	IO                 iostreams.IOStreams
+	Logger             hclog.Logger
 	ShutdownCtx        context.Context
 	TFVarsFileToImport string
 	Client             *client.Client
@@ -110,7 +113,7 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s variable import -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --variable-set-name my-variable-set`, config.Name),
 			},
 		},
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			if len(args) > 1 {
 				return cmd.ErrDisplayUsage
 			}
@@ -142,12 +145,13 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				return errors.New("could not resolve target workspace; set --organization and --workspace or run inside a repository with terraform cloud configuration") // this should be impossible to hit due to the previous block, but we'll check again before API calls just in case
 			}
 
-			apiClient, err := ctx.NewAPIClient()
+			apiClient, err := ctx.NewAPIClient(c.Logger())
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
 			opts.Client = apiClient
+			opts.Logger = c.Logger()
 			opts.DryRun = ctx.IsDryRun()
 
 			return runVariableImport(opts)

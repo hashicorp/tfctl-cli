@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hashicorp/tfctl-cli/internal/config"
@@ -62,12 +63,13 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 			availablePropertiesDoc(ctx.IO),
 		},
 		NoAuthRequired: true,
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			opts := &SetOpts{
 				Ctx:     ctx.ShutdownCtx,
 				IO:      ctx.IO,
 				Profile: ctx.Profile,
 				Output:  ctx.Output,
+				Logger:  c.Logger(),
 			}
 
 			opts.Property = args[0]
@@ -86,6 +88,7 @@ type SetOpts struct {
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
 	Output  *format.Outputter
+	Logger  hclog.Logger
 
 	// Arguments
 	Property string
