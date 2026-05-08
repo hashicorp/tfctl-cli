@@ -60,7 +60,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 			},
 			{
 				Preamble: "Check the latest run in a workspace by name",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ %s run status my-workspace --organization my-org`, config.Name),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status my-workspace --organization my-org`, config.Name),
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {

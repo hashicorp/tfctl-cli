@@ -43,8 +43,8 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 		Name:      "login",
 		ShortHelp: "Authenticate with HCP Terraform or Terraform Enterprise.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "%s auth login" }} command authenticates
-		the %s CLI with HCP Terraform or Terraform Enterprise.
+		The {{ template "mdCodeOrBold" "%[1]s auth login" }} command authenticates
+		the %[1]s CLI with HCP Terraform or Terraform Enterprise.
 
 		When {{ template "mdCodeOrBold" "--token" }} is specified, the token is read
 		from standard input. This is useful for non-interactive environments such as
@@ -53,7 +53,7 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 		When {{ template "mdCodeOrBold" "--token" }} is not specified, the browser is
 		opened to the token creation page for the configured hostname and the user is
 		prompted to paste the generated token.
-		`, config.Name, config.Name),
+		`, config.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Login interactively:",
