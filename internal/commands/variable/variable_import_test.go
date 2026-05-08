@@ -18,9 +18,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/client"
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func TestRunVariable_ImportWorkspaceFromTFVarsFile(t *testing.T) {
@@ -324,7 +324,7 @@ func variableImportRouteKey(r *http.Request) string {
 func newImportTestOpts(t *testing.T, address string, io *iostreams.Testing, mutate func(*ImportOpts)) *ImportOpts {
 	t.Helper()
 	apiClient, err := client.New(address, "test-token", http.Header{
-		"User-Agent": []string{"tfcloud-cli/test"},
+		"User-Agent": []string{"tfctl-cli/test"},
 	})
 	require.NoError(t, err)
 

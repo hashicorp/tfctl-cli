@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func Example() {
@@ -29,7 +29,7 @@ func Example() {
 
 	You can also colorize and stylize text. This is useful if you want to highlight a command.
 
-	Such as, run {{ Bold "tfcloud your command" }} to do awesome things.
+	Such as, run {{ Bold "tfctl your command" }} to do awesome things.
 
 	The available style functions are: Bold, Faint, Italic, Underline, Blink, CrossOut.
 
@@ -65,7 +65,7 @@ func Example() {
 	// You can also colorize and stylize text. This is useful if you want to highlight
 	// a command.
 	//
-	// Such as, run tfcloud your command to do awesome things.
+	// Such as, run tfctl your command to do awesome things.
 	//
 	// The available style functions are: Bold, Faint, Italic, Underline, Blink,
 	// CrossOut.
@@ -141,7 +141,7 @@ func Example_third() {
 	To display text as bold for non-markdown output and as a code block for
 	markdown output, use the mdCodeOrBold template.
 
-	The {{ template "mdCodeOrBold" "tfcloud api" }} command
+	The {{ template "mdCodeOrBold" "tfctl api" }} command
 	is used to perform any api operation.
 	`)
 
@@ -150,5 +150,5 @@ func Example_third() {
 	// To display text as bold for non-markdown output and as a code block for
 	// markdown output, use the mdCodeOrBold template.
 	//
-	// The tfcloud api command is used to perform any api operation.
+	// The tfctl api command is used to perform any api operation.
 }

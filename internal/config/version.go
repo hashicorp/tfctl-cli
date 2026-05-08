@@ -12,7 +12,7 @@ import (
 )
 
 // Name is the application name used throughout the CLI.
-const Name = "tfcloud"
+const Name = "tfctl"
 
 var (
 	// Version defines what version this application is currently running as.

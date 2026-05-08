@@ -1,4 +1,4 @@
-module github.com/hashicorp/tfcloud
+module github.com/hashicorp/tfctl-cli
 
 go 1.25.5
 

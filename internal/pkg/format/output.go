@@ -16,7 +16,7 @@ import (
 
 	"github.com/itchyny/gojq"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 // Displayer is the interface for displaying a given payload. By implementing
@@ -445,7 +445,7 @@ func (o *Outputter) outputPretty(d Displayer) error {
 		p = d.Payload()
 	}
 
-	tmpl, err := template.New("tfcloud").Parse(prettyPrintTemplate(d))
+	tmpl, err := template.New("cli").Parse(prettyPrintTemplate(d))
 	if err != nil {
 		return err
 	}

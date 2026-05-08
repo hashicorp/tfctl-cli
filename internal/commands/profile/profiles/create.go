@@ -8,23 +8,23 @@ import (
 
 	"github.com/posener/complete"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-// NewCmdCreate returns the `tfcloud profile profiles create` command for creating a new tfcloud CLI profile.
+// NewCmdCreate returns the `profile profiles create` command for creating a new configuration profile.
 func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 	opts := &CreateOpts{
 		IO: ctx.IO,
 	}
 	cmd := &cmd.Command{
 		Name:      "create",
-		ShortHelp: "Create a new tfcloud profile.",
+		ShortHelp: "Create a new configuration profile.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "tfcloud profile profiles create" }} command creates a new named profile.
+		The {{ template "mdCodeOrBold" "tfctl profile profiles create" }} command creates a new named profile.
 
 		Profile names start with a letter and may contain lower case letters a-z,
 		upper case letters A-Z, digits 0-9, and underscores '_'. The maximum length for
@@ -33,7 +33,7 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "To create a new profile, run:",
-				Command:  "$ tfcloud profile profiles create my_profile",
+				Command:  "$ tfctl profile profiles create my_profile",
 			},
 		},
 		Args: cmd.PositionalArguments{
@@ -77,7 +77,7 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// CreateOpts defines the options for the `tfcloud profile profiles create` command.
+// CreateOpts defines the options for the `profile profiles create` command.
 type CreateOpts struct {
 	IO iostreams.IOStreams
 
@@ -149,7 +149,7 @@ func createRun(opts *CreateOpts) error {
 	fmt.Fprintln(opts.IO.Err(), heredoc.New(opts.IO).Must(`
 		To initialize the newly created profile, run:
 
-		  {{ Bold "$ tfcloud profile init" }}
+		  {{ Bold "$ tfctl profile init" }}
 		`))
 	fmt.Fprintln(opts.IO.Err())
 

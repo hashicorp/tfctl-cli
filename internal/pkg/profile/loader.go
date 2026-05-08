@@ -14,15 +14,16 @@ import (
 	"unicode"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/net/idna"
 )
 
 const (
-	// ConfigDir is the directory that contains TFCloud CLI configuration.
-	ConfigDir = "~/.config/tfcloud/"
+	// ConfigDir is the directory that contains CLI configuration.
+	ConfigDir = "~/.config/tfctl/"
 
-	// ProfileDir is the directory that contains TFCloud CLI profiles.
+	// ProfileDir is the directory that contains CLI configuration profiles.
 	ProfileDir = "profiles/"
 
 	// ProfileNameDefault is the default profile name.
@@ -62,7 +63,7 @@ func NewLoader() (*Loader, error) {
 func newLoader(dir string) (*Loader, error) {
 	path, err := homedir.Expand(dir)
 	if err != nil {
-		return nil, fmt.Errorf("error expanding TFCloud config directory path %q: %w", dir, err)
+		return nil, fmt.Errorf("error expanding %s config directory path %q: %w", config.Name, dir, err)
 	}
 
 	// Ensure the config directory exists.
@@ -71,10 +72,10 @@ func newLoader(dir string) (*Loader, error) {
 		// If the directory doesn't exist, create it.
 		if errors.Is(err, fs.ErrNotExist) {
 			if err := os.MkdirAll(path, 0766); err != nil {
-				return nil, fmt.Errorf("failed to created TFCloud config directory %q: %w", path, err)
+				return nil, fmt.Errorf("failed to created %s config directory %q: %w", config.Name, path, err)
 			}
 		} else {
-			return nil, fmt.Errorf("failed to check if TFCloud config directory exists: %w", err)
+			return nil, fmt.Errorf("failed to check if %s config directory exists: %w", config.Name, err)
 		}
 	}
 
@@ -85,10 +86,10 @@ func newLoader(dir string) (*Loader, error) {
 		// If the directory doesn't exist, create it.
 		if errors.Is(err, fs.ErrNotExist) {
 			if err := os.MkdirAll(profilesDir, 0766); err != nil {
-				return nil, fmt.Errorf("failed to created TFCloud profiles directory %q: %w", profilesDir, err)
+				return nil, fmt.Errorf("failed to created %s profiles directory %q: %w", config.Name, profilesDir, err)
 			}
 		} else {
-			return nil, fmt.Errorf("failed to check if TFCloud profiles directory exists: %w", err)
+			return nil, fmt.Errorf("failed to check if %s profiles directory exists: %w", config.Name, err)
 		}
 	}
 
@@ -190,7 +191,7 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 
 	// If there's no default organization set, use the environment variable if it's set.
 	if c.Organization == "" {
-		if orgID, ok := os.LookupEnv(envVarTFCloudOrganization); ok && orgID != "" {
+		if orgID, ok := os.LookupEnv(envVarOrganization); ok && orgID != "" {
 			c.Organization = orgID
 		}
 	}
@@ -257,10 +258,10 @@ func (l *Loader) DeleteProfile(name string) error {
 }
 
 const (
-	envVarTFCloudHostname           = "TFCLOUD_HOSTNAME"
-	envVarTFCloudOrganization       = "TFCLOUD_ORGANIZATION"
-	envVarTFCloudToken              = "TFCLOUD_TOKEN"
-	envVarTFCloudTokenProfileFormat = "TFCLOUD_TOKEN_%s"
+	envVarHostname           = "TFCTL_HOSTNAME"
+	envVarOrganization       = "TFCTL_ORGANIZATION"
+	envVarToken              = "TFCTL_TOKEN"
+	envVarTokenProfileFormat = "TFCTL_TOKEN_%s"
 )
 
 // DefaultProfile returns the minimal default profile. If environment
@@ -271,13 +272,13 @@ func (l *Loader) DefaultProfile() *Profile {
 		panic("The default profile should always be valid. This is always a developer error: " + err.Error())
 	}
 
-	org, orgOK := os.LookupEnv(envVarTFCloudOrganization)
+	org, orgOK := os.LookupEnv(envVarOrganization)
 	if orgOK {
 		profile.Organization = org
 	}
 
 	hostname := "app.terraform.io"
-	if envHostname, ok := os.LookupEnv(envVarTFCloudHostname); ok && envHostname != "" {
+	if envHostname, ok := os.LookupEnv(envVarHostname); ok && envHostname != "" {
 		hostname = envHostname
 	}
 
@@ -309,9 +310,9 @@ func normalizeHostname(hostname string) string {
 
 func profileTokenEnvVar(profileName string) string {
 	if profileName == "" || profileName == "default" {
-		return envVarTFCloudToken
+		return envVarToken
 	}
-	return fmt.Sprintf(envVarTFCloudTokenProfileFormat, profileName)
+	return fmt.Sprintf(envVarTokenProfileFormat, profileName)
 }
 
 func legacyTokenEnvVar(hostname string) string {
@@ -338,7 +339,7 @@ type credentialsFile struct {
 func tokenFromCredentials(hostname string) (string, error) {
 	path, err := homedir.Expand(TerraformCredentialsPath)
 	if err != nil {
-		return "", fmt.Errorf("error expanding TFCloud config directory path %q: %w", TerraformCredentialsPath, err)
+		return "", fmt.Errorf("error expanding %s config directory path %q: %w", config.Name, TerraformCredentialsPath, err)
 	}
 
 	data, err := os.ReadFile(path)

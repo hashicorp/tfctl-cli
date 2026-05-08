@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func TestAuthErrorHelp(t *testing.T) {
@@ -16,10 +16,10 @@ func TestAuthErrorHelp(t *testing.T) {
 	r := require.New(t)
 	io := iostreams.Test()
 
-	commandPath := "tfcloud example"
+	commandPath := "tfctl example"
 	args := []string{"simple", "'single-quote'", `escaped \"inner\"`}
 
 	// Get the help text
 	helpText := authErrorHelp(io, commandPath, args)
-	r.Contains(helpText, `$ tfcloud example simple 'single-quote' "escaped \\\"inner\\\""`)
+	r.Contains(helpText, `$ tfctl example simple 'single-quote' "escaped \\\"inner\\\""`)
 }

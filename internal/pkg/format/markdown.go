@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"text/template"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/table"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/table"
 )
 
 // outputMarkdown outputs the payload as a markdown table.
@@ -90,7 +90,7 @@ func renderNameValue(p any, name string, fields []Field) ([]interface{}, error) 
 		if f.Name != name {
 			continue
 		}
-		tmpl, err := template.New("tfcloud").Parse(f.ValueFormat)
+		tmpl, err := template.New("cli").Parse(f.ValueFormat)
 		if err != nil {
 			return nil, err
 		}

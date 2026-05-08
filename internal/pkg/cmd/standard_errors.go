@@ -22,8 +22,8 @@ func RequireOrganization(ctx *Context) error {
 
 	%v`,
 		cs.String("Organization must be configured before running the command.").Color(cs.Orange()),
-		cs.String("tfcloud config init").Bold(),
-		cs.String("$ tfcloud config set organization <organization>").Bold(),
+		cs.String("tfctl config init").Bold(),
+		cs.String("$ tfctl config set organization <organization>").Bold(),
 	)
 
 	return errors.New(help)
@@ -42,8 +42,8 @@ func RequireOrg(ctx *Context) error {
 
 	%v`,
 		cs.String("Organization must be configured before running the command.").Color(cs.Orange()),
-		cs.String("tfcloud config init").Bold(),
-		cs.String("$ tfcloud config set organization <organization>").Bold(),
+		cs.String("tfctl config init").Bold(),
+		cs.String("$ tfctl config set organization <organization>").Bold(),
 	)
 
 	return errors.New(help)

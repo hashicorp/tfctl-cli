@@ -10,7 +10,7 @@ import (
 	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func TestTemplate_NoWrap(t *testing.T) {

@@ -14,7 +14,7 @@ import (
 	"github.com/lithammer/dedent"
 	"github.com/muesli/reflow/wordwrap"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 // Config stores configuration for the formatter. The values can be set by
@@ -139,7 +139,7 @@ func (f *Formatter) Docf(tmpl string, args ...any) (string, error) {
 //   - mdCodeOrBold: If the output is markdown, it will return the string in a
 //     code stanza. Otherwise, it will return the string in bold.
 //     An example usage is:
-//     {{ template "mdCodeOrBold" "tfcloud projects iam read-policy --format=json" }}
+//     {{ template "mdCodeOrBold" "tfctl projects iam read-policy --format=json" }}
 //
 // After rendering the template following manipulations are made:
 // - The text is dedented. This allows you to use a Go string literal and not

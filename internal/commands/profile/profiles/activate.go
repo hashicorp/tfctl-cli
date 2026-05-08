@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-// NewCmdActivate returns the `tfcloud profile profiles activate` command for activating a tfcloud CLI profile.
+// NewCmdActivate returns the `profile profiles activate` command for activating a configuration profile.
 func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 	opts := &ActivateOpts{
 		IO: ctx.IO,
@@ -22,14 +22,14 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 		Name:      "activate",
 		ShortHelp: "Activates an existing profile.",
 		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfcloud profile profiles activate" }} command activates an existing profile.
+		The {{ template "mdCodeOrBold" "tfctl profile profiles activate" }} command activates an existing profile.
 		`),
 		Examples: []cmd.Example{
 			{
 				Preamble: heredoc.New(ctx.IO).Must(`
 				To active profile {{ template "mdCodeOrBold" "my-profile" }}, run:
 				`),
-				Command: "$ tfcloud profile profiles activate my-profile",
+				Command: "$ tfctl profile profiles activate my-profile",
 			},
 		},
 		Args: cmd.PositionalArguments{
@@ -57,7 +57,7 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// ActivateOpts defines the options for the `tfcloud profile profiles activate` command.
+// ActivateOpts defines the options for the `profile profiles activate` command.
 type ActivateOpts struct {
 	IO       iostreams.IOStreams
 	Profiles *profile.Loader

@@ -11,32 +11,32 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/format"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-// NewCmdSet returns the `tfcloud profile set` command for setting a tfcloud CLI property.
+// NewCmdSet returns the `profile set` command for setting a profile configuration property.
 func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "set",
-		ShortHelp: "Set a tfcloud CLI Property.",
+		ShortHelp: "Set a profile configuration property.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "tfcloud profile set" }} command sets the specified property in your
-		active profile. A property governs the behavior of a specific aspect of the tfcloud CLI.
+		The {{ template "mdCodeOrBold" "tfctl profile set" }} command sets the specified property in your
+		active profile. A property governs the behavior of a specific aspect of the tfctl CLI.
 		This could be setting the hostname and organization to target, or configuring the default
 		level of logging across commands.
 
-		To view all currently set properties, run {{ template "mdCodeOrBold" "tfcloud profile display" }}
-		or run {{ template "mdCodeOrBold" "tfcloud profile get" }} to get the value of an individual property.
+		To view all currently set properties, run {{ template "mdCodeOrBold" "tfctl profile display" }}
+		or run {{ template "mdCodeOrBold" "tfctl profile get" }} to get the value of an individual property.
 
-		To unset properties, use {{ template "mdCodeOrBold" "tfcloud profile unset" }}.
+		To unset properties, use {{ template "mdCodeOrBold" "tfctl profile unset" }}.
 
-		tfcloud CLI comes with a default profile but supports multiple. To create multiple
-		configurations, use {{ template "mdCodeOrBold" "tfcloud profile profiles create" }},
-		and {{ template "mdCodeOrBold" "tfcloud profile profiles activate" }} to switch between them.
+		tfctl CLI comes with a default profile but supports multiple. To create multiple
+		configurations, use {{ template "mdCodeOrBold" "tfctl profile profiles create" }},
+		and {{ template "mdCodeOrBold" "tfctl profile profiles activate" }} to switch between them.
 		`),
 		Args: cmd.PositionalArguments{
 			Autocomplete: ctx.Profile,
@@ -79,7 +79,7 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// SetOpts defines the options for the `tfcloud profile set` command.
+// SetOpts defines the options for the `profile set` command.
 type SetOpts struct {
 	Ctx     context.Context
 	IO      iostreams.IOStreams
@@ -96,7 +96,7 @@ func setRun(opts *SetOpts) error {
 	// Validate we are not changing the name
 	if opts.Property == "name" {
 		return fmt.Errorf("to update a profile name use %s",
-			opts.IO.ColorScheme().String("tfcloud profile profiles rename").Bold())
+			opts.IO.ColorScheme().String("tfctl profile profiles rename").Bold())
 	}
 
 	// Validate we are setting a valid property
@@ -187,7 +187,7 @@ func setRun(opts *SetOpts) error {
 		fmt.Fprintf(opts.IO.Err(), "\n%s Hostname changed to %q. Organization and token settings have been cleared.\n",
 			opts.IO.ColorScheme().WarningLabel(), opts.Value)
 		fmt.Fprintf(opts.IO.Err(), "Please run %s to reconfigure your organization and token for this hostname.\n\n",
-			opts.IO.ColorScheme().String("tfcloud profile init").Bold())
+			opts.IO.ColorScheme().String("tfctl profile init").Bold())
 	}
 
 	return nil

@@ -45,7 +45,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/hashicorp/tfcloud
+        - github.com/hashicorp/tfctl-cli
   exclusions:
     generated: lax
     paths:

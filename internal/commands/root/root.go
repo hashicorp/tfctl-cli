@@ -1,16 +1,16 @@
 // Copyright IBM Corp. 2026
 // SPDX-License-Identifier: MPL-2.0
 
-// Package tfcloud implements the root command for the tfcloud CLI.
-package tfcloud
+// Package root implements the root command for the CLI.
+package root
 
 import (
-	"github.com/hashicorp/tfcloud/internal/commands/api"
-	"github.com/hashicorp/tfcloud/internal/commands/profile"
-	"github.com/hashicorp/tfcloud/internal/commands/run"
-	"github.com/hashicorp/tfcloud/internal/commands/variable"
-	"github.com/hashicorp/tfcloud/internal/config"
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/commands/api"
+	"github.com/hashicorp/tfctl-cli/internal/commands/profile"
+	"github.com/hashicorp/tfctl-cli/internal/commands/run"
+	"github.com/hashicorp/tfctl-cli/internal/commands/variable"
+	"github.com/hashicorp/tfctl-cli/internal/config"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 )
 
 // NewCmdRoot creates the root command.
@@ -18,7 +18,7 @@ func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
 	c := &cmd.Command{
 		Name:      config.Name,
 		ShortHelp: "Interact with HCP Terraform and Terraform Enterprise.",
-		LongHelp:  "The tfcloud command-line interface (CLI) is a unified tool for managing HCP Terraform and Terraform Enterprise from the command line.",
+		LongHelp:  "The tfctl command-line interface (CLI) is a unified tool for managing HCP Terraform and Terraform Enterprise from the command line.",
 	}
 
 	//  _   _  ___ _____ _____

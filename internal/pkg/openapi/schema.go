@@ -12,7 +12,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 )
 
 var schemaRefRe = regexp.MustCompile(`"\$ref"\s*:\s*"#/components/schemas/([^"]+)"`)

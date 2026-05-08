@@ -11,7 +11,7 @@ ARG TARGETOS TARGETARCH
 ARG BUILD_DIRECTORY=dist/$TARGETOS/$TARGETARCH
 ENV BIN_DIR=$BUILD_DIRECTORY
 
-LABEL maintainer="HCP Terraform Support <tf-cloud@hashicorp.support>"
+LABEL maintainer="HCP Terraform Support <tfctl@hashicorp.support>"
 LABEL "com.hashicorp.${PRODUCT_NAME}.version"="${PRODUCT_VERSION}"
 LABEL name=$PRODUCT_NAME
 LABEL vendor="HashiCorp"
@@ -22,18 +22,18 @@ RUN apt-get -y update && apt-get -y dist-upgrade
 
 RUN apt-get -y install ca-certificates jq unzip curl
 
-RUN groupadd --system tfcloud && useradd --system --create-home --gid tfcloud tfcloud
+RUN groupadd --system tfctl && useradd --system --create-home --gid tfctl tfctl
 
-USER tfcloud
-RUN mkdir /home/tfcloud/bin
-COPY --chown=tfcloud $BIN_DIR/tfcloud /home/tfcloud/bin/
+USER tfctl
+RUN mkdir /home/tfctl/bin
+COPY --chown=tfctl $BIN_DIR/tfctl /home/tfctl/bin/
 
-RUN mkdir -p /home/tfcloud/.config/tfcloud
+RUN mkdir -p /home/tfctl/.config/tfctl
 
-ENV PATH=$PATH:/home/tfcloud/bin
+ENV PATH=$PATH:/home/tfctl/bin
 
-WORKDIR /home/tfcloud
+WORKDIR /home/tfctl
 
-RUN tfcloud --autocomplete-install
+RUN tfctl --autocomplete-install
 
-ENTRYPOINT ["/home/tfcloud/bin/tfcloud"]
+ENTRYPOINT ["/home/tfctl/bin/tfctl"]

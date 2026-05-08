@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 )
 
 func ExampleDuration() {

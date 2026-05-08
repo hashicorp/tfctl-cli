@@ -10,13 +10,13 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-// NewCmdUnset returns the `tfcloud profile unset` command for unsetting a tfcloud CLI property.
+// NewCmdUnset returns the `profile unset` command for unsetting a profile configuration property.
 func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 	opts := &UnsetOpts{
 		Ctx:     ctx.ShutdownCtx,
@@ -26,11 +26,11 @@ func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 
 	cmd := &cmd.Command{
 		Name:      "unset",
-		ShortHelp: "Unset a tfcloud CLI Property.",
+		ShortHelp: "Unset a profile configuration property.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "tfcloud profile unset" }} command unsets the specified property in your active profile.
+		The {{ template "mdCodeOrBold" "tfctl profile unset" }} command unsets the specified property in your active profile.
 
-		To view all currently set properties, run {{ template "mdCodeOrBold" "tfcloud profile display" }}.
+		To view all currently set properties, run {{ template "mdCodeOrBold" "tfctl profile display" }}.
 		`),
 		Args: cmd.PositionalArguments{
 			Autocomplete: opts.Profile,
@@ -67,7 +67,7 @@ func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// UnsetOpts defines the options for the `tfcloud profile unset` command.
+// UnsetOpts defines the options for the `profile unset` command.
 type UnsetOpts struct {
 	Ctx     context.Context
 	IO      iostreams.IOStreams
@@ -82,7 +82,7 @@ func unsetRun(opts *UnsetOpts) error {
 	// Validate we are not changing the name
 	if opts.Property == "name" {
 		return fmt.Errorf("to update a profile name use %s",
-			opts.IO.ColorScheme().String("tfcloud profile profiles rename").Bold())
+			opts.IO.ColorScheme().String("tfctl profile profiles rename").Bold())
 	}
 
 	if err := IsValidProperty(opts.Property); err != nil {

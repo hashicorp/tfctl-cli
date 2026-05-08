@@ -6,42 +6,42 @@ package profiles
 import (
 	"fmt"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-// NewCmdDelete returns the `tfcloud profile profiles delete` command for deleting tfcloud CLI profiles.
+// NewCmdDelete returns the `profile profiles delete` command for deleting configuration profiles.
 func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 	opts := &DeleteOpts{
 		IO: ctx.IO,
 	}
 	cmd := &cmd.Command{
 		Name:      "delete",
-		ShortHelp: "Delete an existing tfcloud profile.",
+		ShortHelp: "Delete an existing configuration profile.",
 		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfcloud profile profiles delete" }} command
-		deletes an existing tfcloud profiles. If the profile is the active profile,
+		The {{ template "mdCodeOrBold" "tfctl profile profiles delete" }} command
+		deletes an existing configuration profile. If the profile is the active profile,
 		it may not be deleted.
 
-		To delete the current active profile, first run {{ template "mdCodeOrBold" "tfcloud profile profiles activate" }}
+		To delete the current active profile, first run {{ template "mdCodeOrBold" "tfctl profile profiles activate" }}
 		to active a different profile.
 		`),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Delete a profile:",
-				Command:  "$ tfcloud profile profiles delete my-profile",
+				Command:  "$ tfctl profile profiles delete my-profile",
 			},
 			{
 				Preamble: "Delete multiple profiles:",
-				Command:  "$ tfcloud profile profiles delete my-profile-1 my-profile-2 my-profile-3",
+				Command:  "$ tfctl profile profiles delete my-profile-1 my-profile-2 my-profile-3",
 			},
 			{
 				Preamble: "Delete the active profile:",
 				Command: heredoc.New(ctx.IO).Must(`
-				$ tfcloud profile profiles active my-other-profile
-				$ tfcloud profile profiles delete my-profile
+				$ tfctl profile profiles active my-other-profile
+				$ tfctl profile profiles delete my-profile
 				`),
 			},
 		},
@@ -71,7 +71,7 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// DeleteOpts defines the options for the `tfcloud profile profiles delete` command.
+// DeleteOpts defines the options for the `profile profiles delete` command.
 type DeleteOpts struct {
 	IO       iostreams.IOStreams
 	Profiles *profile.Loader
@@ -103,7 +103,7 @@ func deleteRun(opts *DeleteOpts) error {
 	for _, toDelete := range opts.Names {
 		if toDelete == active.Name {
 			return fmt.Errorf("profile %q is the active profile and may not be deleted. Use %s to change the active configuration",
-				toDelete, cs.String("tfcloud profile profiles activate").Bold())
+				toDelete, cs.String("tfctl profile profiles activate").Bold())
 		}
 		if _, ok := existing[toDelete]; !ok {
 			return fmt.Errorf("profile %q does not exist", toDelete)

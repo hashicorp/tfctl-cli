@@ -17,7 +17,7 @@ func TestToCommandMap(t *testing.T) {
 
 	// Create a command tree
 	root := &Command{
-		Name: "tfcloud",
+		Name: "tfctl",
 	}
 	c1 := &Command{
 		Name:    "child1",

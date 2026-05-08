@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 func TestUnset(t *testing.T) {
@@ -29,7 +29,7 @@ func TestUnset(t *testing.T) {
 		{
 			Name:     "can't set name",
 			Property: "name",
-			Error:    "to update a profile name use tfcloud profile profiles rename",
+			Error:    "to update a profile name use tfctl profile profiles rename",
 		},
 		{
 			Name:     "unset invalid top-level property",

@@ -1,12 +1,12 @@
 ---
-name: tfcloud
+name: tfctl
 description: |
-  Interact with HCP Terraform using the tfcloud CLI. Full API coverage. Use for ANY HCP Terraform
+  Interact with HCP Terraform using the tfctl CLI. Full API coverage. Use for ANY HCP Terraform
   or Terraform Cloud question or action.
 license: MPL-2.0
 ---
 
-# tfcloud - HCP Terraform (Terraform Cloud) Workflow CLI
+# tfctl - HCP Terraform (Terraform Cloud) Workflow CLI
 
 Full CLI coverage for the entire HCP Terraform API.
 
@@ -15,9 +15,9 @@ Full CLI coverage for the entire HCP Terraform API.
 **MUST follow these rules:**
 
 1. **Choose the right output mode** — `--jq` when you need to filter/extract data; `--json` for full JSON; `--markdown` when presenting results to a human (see Output Modes below). **Never pipe to external `jq` — use `--jq` instead.**
-2. **Check context** using `tfcloud profile display` before assuming configuration
-3. **API Discovery** The API is too large to document every resource. You can perform a search using `tfcloud api schema search <keyword>` to find relevant operations. When you are ready to make an API request, get the full request schema in OpenAPI format using `tfcloud api schema get <operationId>`
-4. **No Delete Operations** using the `tfcloud api` command. All delete methods must be confimed interactively. Always prompt a human to perform delete operations themselves.
+2. **Check context** using `tfctl profile display` before assuming configuration
+3. **API Discovery** The API is too large to document every resource. You can perform a search using `tfctl api schema search <keyword>` to find relevant operations. When you are ready to make an API request, get the full request schema in OpenAPI format using `tfctl api schema get <operationId>`
+4. **No Delete Operations** using the `tfctl api` command. All delete methods must be confimed interactively. Always prompt a human to perform delete operations themselves.
 
 ### Output Modes
 
@@ -39,10 +39,10 @@ Always pass `--json` or `--markdown` explicitly — auto-detection depends on co
 Navigate unfamiliar commands with `--help`
 
 ```bash
-tfcloud api --help
+tfctl api --help
 ```
 
-Walk the tree: start at `tfcloud --help` for top-level commands, then drill into any subcommand. Commands include `EXAMPLES` with real invocation examples.
+Walk the tree: start at `tfctl --help` for top-level commands, then drill into any subcommand. Commands include `EXAMPLES` with real invocation examples.
 
 ### Smart Defaults
 
@@ -53,10 +53,10 @@ Walk the tree: start at `tfcloud --help` for top-level commands, then drill into
 
 | Task                  | Command                                                                   |
 |-----------------------|---------------------------------------------------------------------------|
-| Find an API operation | `tfcloud api schema search <keyword> --json`                              |
-| Get API schema        | `tfcloud api schema get <operation>`                                      |
-| List projects         | `tfcloud api /organizations/{organization}/projects --json`               |
-| Get Workspace state   | `tfcloud api /organizations/{organization}/workspaces/{workspace} --json` |
+| Find an API operation | `tfctl api schema search <keyword> --json`                              |
+| Get API schema        | `tfctl api schema get <operation>`                                      |
+| List projects         | `tfctl api /organizations/{organization}/projects --json`               |
+| Get Workspace state   | `tfctl api /organizations/{organization}/workspaces/{workspace} --json` |
 
 
 ## API Conventions
@@ -82,16 +82,16 @@ When fetching lists of resources using the `api` command, the API returns pagina
 ```
 Need to find something?
 ├── Don't know the resource ID? → find by name using a list operation with a filter parameter
-├── Workspace run logs? → Get the current-run ID from the workspace and `tfcloud api /runs/{id} --jq '.data.attributes.["log-read-url"]'`
-└── All else fail? → tfcloud api schema search "query" --json
+├── Workspace run logs? → Get the current-run ID from the workspace and `tfctl api /runs/{id} --jq '.data.attributes.["log-read-url"]'`
+└── All else fail? → tfctl api schema search "query" --json
 ```
 
 ### Modifying Content
 
 ```
 Want to change something?
-├── Need PATCH schema? → `tfcloud api schema get <operation>`
-└── Have ID? → `tfcloud /path/to/{id} -X PATCH -i'{ ...request body... }'`
+├── Need PATCH schema? → `tfctl api schema get <operation>`
+└── Have ID? → `tfctl /path/to/{id} -X PATCH -i'{ ...request body... }'`
 ```
 
 ## Common Workflows
@@ -107,7 +107,7 @@ When a required positional argument is missing, the CLI returns a structured err
 the specific argument. Use this for elicitation:
 
 ```bash
-$ tfcloud <command> --help
+$ tfctl <command> --help
 ```
 
 **Not found/Authorization errors (exit 2):**
@@ -115,23 +115,23 @@ For security reasons, unauthorized access errors look identical to resource not 
 Verify you are signed in as the expected account.
 
 ```bash
-tfcloud api /account/details                      # Verify auth working
-tfcloud profile display                           # Check current configuration
+tfctl api /account/details                      # Verify auth working
+tfctl profile display                           # Check current configuration
 ```
 
 **Authentication errors (exit 3):**
 This could indicate a token misconfiguration.
 
 ```bash
-tfcloud api /account/details                      # Verify auth working
-tfcloud profile display                           # Check current configuration
+tfctl api /account/details                      # Verify auth working
+tfctl profile display                           # Check current configuration
 ```
 
 **Network errors (exit 4):**
 This could indicate a temporary network condition or a hostname misconfiguration.
 
 ```bash
-tfcloud profile display                           # Check current hostname configuration
+tfctl profile display                           # Check current hostname configuration
 ```
 
 **API errors (exit 5):**
@@ -140,7 +140,7 @@ manner. Try again or try a workaround.
 
 **Underlying error detected (exit 6):**
 The command ran successfully but the inspected resource is in an error state. For example,
-`tfcloud run status` returns exit 6 when the run has errored. The command will have already
+`tfctl run status` returns exit 6 when the run has errored. The command will have already
 printed diagnostic output.
 
 ## Built-in jq Filtering
@@ -149,10 +149,10 @@ The CLI has a built-in `--jq` flag powered by gojq — no external `jq` binary r
 
 ```bash
 # Extract fields from data array and filter by attribute
-tfcloud api /organizations/{organization}/workspaces --jq '.data[] | select(.attributes.["terraform-version"] != "1.15.1") | .relationships.["current-run"].data.id'
+tfctl api /organizations/{organization}/workspaces --jq '.data[] | select(.attributes.["terraform-version"] != "1.15.1") | .relationships.["current-run"].data.id'
 
 # Access envelope metadata
-tfcloud api /organizations/{organization}/projects --jq '.meta.pagination.["total-count"]'
+tfctl api /organizations/{organization}/projects --jq '.meta.pagination.["total-count"]'
 ```
 
 `--jq` implies `--json` — no need to pass both. String results print as plain text; objects and arrays print as formatted JSON.
@@ -162,9 +162,9 @@ tfcloud api /organizations/{organization}/projects --jq '.meta.pagination.["tota
 | Exit | Meaning                          | Solution                    |
 |------|----------------------------------|-----------------------------|
 | 0    | OK                               | &mdash;                     |
-| 1    | Usage error                      | Read `tfcloud <cmd> --help` |
+| 1    | Usage error                      | Read `tfctl <cmd> --help` |
 | 2    | Not Found or Authorization Error | Verify URL/ID               |
-| 3    | Authentication Error             | `tfcloud auth login`        |
+| 3    | Authentication Error             | `tfctl auth login`        |
 | 4    | Network error                    | Check connectivity          |
 | 5    | API Server Error Persists        | Try again later             |
 | 6    | Underlying error detected        | Command succeeded but found a problem |

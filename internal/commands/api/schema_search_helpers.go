@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/openapi"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
 )
 
 type schemaSearchIntent struct {

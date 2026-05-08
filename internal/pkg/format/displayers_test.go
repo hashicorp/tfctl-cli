@@ -8,7 +8,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 )
 
 type Complex struct {

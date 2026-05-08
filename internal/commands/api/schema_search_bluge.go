@@ -10,7 +10,7 @@ import (
 
 	"github.com/blugelabs/bluge"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/openapi"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
 )
 
 func blugeRetrieve(ctx context.Context, query string, operations []*openapi.Operation, limit int) ([]schemaSearchResult, error) {

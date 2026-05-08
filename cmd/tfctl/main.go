@@ -1,7 +1,7 @@
 // Copyright IBM Corp. 2026
 // SPDX-License-Identifier: MPL-2.0
 
-// Package main provides the tfcloud CLI entrypoint.
+// Package main provides the tfctl CLI entrypoint.
 package main
 
 import (
@@ -15,13 +15,13 @@ import (
 	"github.com/hashicorp/cli"
 	"github.com/posener/complete"
 
-	"github.com/hashicorp/tfcloud/internal/commands/profile/profiles"
-	"github.com/hashicorp/tfcloud/internal/commands/tfcloud"
-	"github.com/hashicorp/tfcloud/internal/config"
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/format"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/commands/profile/profiles"
+	"github.com/hashicorp/tfctl-cli/internal/commands/root"
+	"github.com/hashicorp/tfctl-cli/internal/config"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 func main() {
@@ -75,15 +75,15 @@ func realMain() int {
 	}
 
 	// Get the HCP Root command
-	tfcloudCmd := tfcloud.NewCmdRoot(cCtx)
-	cmdMap := cmd.ToCommandMap(tfcloudCmd)
+	tfctlCmd := root.NewCmdRoot(cCtx)
+	cmdMap := cmd.ToCommandMap(tfctlCmd)
 
 	c := cli.CLI{
 		Version:                    config.Version,
 		Name:                       config.Name,
 		Args:                       args,
 		Commands:                   cmdMap,
-		HelpFunc:                   cmd.RootHelpFunc(tfcloudCmd),
+		HelpFunc:                   cmd.RootHelpFunc(tfctlCmd),
 		Autocomplete:               true,
 		AutocompleteNoDefaultFlags: true,
 		AutocompleteGlobalFlags: map[string]complete.Predictor{
@@ -102,7 +102,7 @@ func realMain() int {
 
 	status, err := c.Run()
 	if err != nil {
-		fmt.Fprintf(io.Err(), "Error executing tfcloud: %s\n", err.Error())
+		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", config.Name, err.Error())
 	}
 
 	return status

@@ -13,12 +13,12 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
-	"github.com/hashicorp/tfcloud/internal/config"
-	"github.com/hashicorp/tfcloud/internal/pkg/client"
-	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
-	"github.com/hashicorp/tfcloud/internal/pkg/format"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/config"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 // Context passes global objects for constructing and invoking a command.
@@ -156,7 +156,7 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		global:        true,
 	}, &Flag{
 		Name:          "version",
-		Description:   "Print the version of tfcloud CLI.",
+		Description:   "Print the version of tfctl CLI.",
 		Value:         flagvalue.Simple(false, &ctx.flags.Version),
 		IsBooleanFlag: true,
 		global:        true,
@@ -271,7 +271,7 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 // NewAPIClient returns a new API Client configured using the context Profile.
 func (ctx *Context) NewAPIClient() (*client.Client, error) {
 	apiClient, err := client.New(fmt.Sprintf("https://%s", ctx.Profile.Hostname), ctx.Profile.Token, http.Header{
-		"User-Agent": []string{fmt.Sprintf("tfcloud-cli/%s", config.Version)},
+		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", config.Name, config.Version)},
 	})
 	if err != nil {
 		return nil, err
@@ -309,13 +309,13 @@ func isAuthenticated(ctx *Context, c *Command, args []string) error {
 func authHelp(io iostreams.IOStreams) error {
 	cs := io.ColorScheme()
 	help := heredoc.Docf(`
-No authentication detected. To get started with tfcloud CLI, please run:  %s`,
-		cs.String("tfcloud auth login").Bold().String())
+No authentication detected. To get started with tfctl CLI, please run:  %s`,
+		cs.String("tfctl auth login").Bold().String())
 
 	return errors.New(help)
 }
 
-// Used to parse commands and skip loading tfcloud profile.
+// Used to parse commands and skip loading profile.
 func isTopLevelCmd(args []string) bool {
 	if len(args) != 1 {
 		return false

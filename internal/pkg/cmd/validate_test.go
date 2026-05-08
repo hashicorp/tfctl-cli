@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func getGoodCommand() *Command {
@@ -70,7 +70,7 @@ func getGoodCommand() *Command {
 		Examples: []Example{
 			{
 				Preamble: "This is an example invocation:",
-				Command:  "$ tfcloud parent child --count 5",
+				Command:  "$ tfctl parent child --count 5",
 			},
 		},
 		AdditionalDocs: []DocSection{
@@ -127,11 +127,11 @@ func TestCommand_Validate(t *testing.T) {
 				// Force a parent since LongHelp verification is disabled for
 				// the root command.
 				c.parent = &Command{
-					Name: "tfcloud",
+					Name: "tfctl",
 				}
 				c.LongHelp = "Bad prefix"
 			},
-			error: "invalid command long help prefix.\n\nWANT: \"The tfcloud parent-cmd command group\"\nGOT:",
+			error: "invalid command long help prefix.\n\nWANT: \"The tfctl parent-cmd command group\"\nGOT:",
 		},
 		{
 			name: "command has bad long help",
@@ -281,7 +281,7 @@ func TestCommand_Validate(t *testing.T) {
 		{
 			name: "examples start with a $",
 			command: func(c *Command) {
-				c.children[0].Examples[0].Command = "tfcloud parent child --count 5"
+				c.children[0].Examples[0].Command = "tfctl parent child --count 5"
 			},
 			error: "error validating example 0: example command must start with $ or #",
 		},

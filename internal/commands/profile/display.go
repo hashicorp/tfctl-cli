@@ -6,20 +6,20 @@ package profile
 import (
 	"fmt"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/format"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-// NewCmdDisplay returns the `tfcloud profile display` command for displaying the active profile.
+// NewCmdDisplay returns the `profile display` command for displaying the active profile.
 func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "display",
 		ShortHelp: "Display the active profile.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "tfcloud profile display" }} command displays the active profile.
+		The {{ template "mdCodeOrBold" "tfctl profile display" }} command displays the active profile.
 		`),
 		RunF: func(_ *cmd.Command, _ []string) error {
 			profileNoToken := ctx.Profile
@@ -37,7 +37,7 @@ func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// DisplayOpts defines the options for the `tfcloud profile display` command.
+// DisplayOpts defines the options for the `profile display` command.
 type DisplayOpts struct {
 	IO      iostreams.IOStreams
 	Profile *profile.Profile

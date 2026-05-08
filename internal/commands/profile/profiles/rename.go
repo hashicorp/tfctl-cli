@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-// NewCmdRename returns the `tfcloud profile profiles rename` command for renaming a tfcloud CLI profile.
+// NewCmdRename returns the `profile profiles rename` command for renaming a configuration profile.
 func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 	opts := &RenameOpts{
 		IO: ctx.IO,
@@ -24,7 +24,7 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 		Name:      "rename",
 		ShortHelp: "Rename an existing profile.",
 		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfcloud profile profiles rename" }} command renames an existing profile.
+		The {{ template "mdCodeOrBold" "tfctl profile profiles rename" }} command renames an existing profile.
 		`),
 		Examples: []cmd.Example{
 			{
@@ -32,7 +32,7 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 				To rename profile {{ template "mdCodeOrBold" "my-profile" }} to
 				{{ template "mdCodeOrBold" "new-profile" }}, run:
 				`),
-				Command: "$ tfcloud profile profiles rename my-profile --new-name=new_profile",
+				Command: "$ tfctl profile profiles rename my-profile --new-name=new_profile",
 			},
 		},
 		Args: cmd.PositionalArguments{
@@ -71,7 +71,7 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 	return renameCmd
 }
 
-// RenameOpts defines the options for the `tfcloud profile profiles rename` command.
+// RenameOpts defines the options for the `profile profiles rename` command.
 type RenameOpts struct {
 	IO           iostreams.IOStreams
 	Profiles     *profile.Loader

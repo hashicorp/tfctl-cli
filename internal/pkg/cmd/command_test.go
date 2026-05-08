@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/cli"
 	"github.com/hashicorp/go-tfe"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func TestCommand_PersistentPrerun(t *testing.T) {
@@ -115,7 +115,7 @@ func TestCommand_Logger(t *testing.T) {
 	}
 	root.AddChild(child)
 	r.Zero(child.Run([]string{}))
-	r.Contains(io.Error.String(), "tfcloud.child: hello, world!")
+	r.Contains(io.Error.String(), "tfctl.child: hello, world!")
 }
 
 func TestCommand_ExitCode(t *testing.T) {
@@ -150,7 +150,7 @@ func TestCommand_GlobalExitCode(t *testing.T) {
 		{err: ErrDisplayHelp, expected: cli.RunResultHelp},
 		{err: ErrDisplayUsage, expected: 1},
 		{err: tfe.ErrNotFound, expected: 2, errContains: "Resource not found or you are unauthorized to this action"},
-		{err: tfe.ErrUnauthorized, expected: 3, errContains: "tfcloud auth login"},
+		{err: tfe.ErrUnauthorized, expected: 3, errContains: "tfctl auth login"},
 		{err: opErr, expected: 4, errContains: "network error"},
 		{err: tfe.ErrInternalServer, expected: 5, errContains: "Internal Server Error"},
 		{err: fmt.Errorf("some other error"), expected: 1, errContains: "ERROR: some other error"},

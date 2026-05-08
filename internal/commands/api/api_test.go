@@ -20,9 +20,9 @@ import (
 
 	"github.com/hashicorp/go-tfe"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/client"
-	"github.com/hashicorp/tfcloud/internal/pkg/format"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func TestRunAPI_DefaultGet(t *testing.T) {
@@ -671,7 +671,7 @@ func routeKey(r *http.Request) string {
 func newTestOpts(t *testing.T, address string, io *iostreams.Testing, mutate func(*Opts)) *Opts {
 	t.Helper()
 	apiClient, err := client.New(address, "test-token", http.Header{
-		"User-Agent": []string{"tfcloud-cli/test"},
+		"User-Agent": []string{"tfctl-cli/test"},
 	})
 	require.NoError(t, err)
 

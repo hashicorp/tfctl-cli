@@ -9,24 +9,25 @@ import (
 
 	"github.com/mitchellh/go-wordwrap"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/client"
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
-	"github.com/hashicorp/tfcloud/internal/pkg/format"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	terraformcfg "github.com/hashicorp/tfcloud/internal/pkg/terraform"
+	"github.com/hashicorp/tfctl-cli/internal/config"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
 )
 
-// NewCmdRunStatus creates the `tfcloud run status` command.
+// NewCmdRunStatus creates the `run status` command.
 func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 	var organization string
 
 	cmd := &cmd.Command{
 		Name:      "status",
 		ShortHelp: "Show the status of a run, printing diagnostics if it failed.",
-		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfcloud run status" }} command inspects a Terraform Cloud run
+		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		The {{ template "mdCodeOrBold" "%s run status" }} command inspects a Terraform Cloud run
 		and prints its current status. If the run has errored, it fetches the plan or apply log and
 		extracts diagnostic messages.
 
@@ -34,7 +35,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 		- A run ID ({{ template "mdCodeOrBold" "run-..." }})
 		- A workspace ID ({{ template "mdCodeOrBold" "ws-..." }}) to get the latest run
 		- A workspace name to get the latest run (requires {{ template "mdCodeOrBold" "--organization" }})
-		`),
+		`, config.Name),
 		Args: cmd.PositionalArguments{
 			Args: []cmd.PositionalArgument{
 				{
@@ -55,7 +56,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "Check status of a run by ID",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud run status run-abc123`),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status run-abc123`, config.Name),
 			},
 			{
 				Preamble: "Check the latest run in a workspace by name",

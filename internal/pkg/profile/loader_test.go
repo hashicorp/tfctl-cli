@@ -18,7 +18,7 @@ func TestLoader_New(t *testing.T) {
 	r := require.New(t)
 
 	// Test that we create the directory if it doesn't yet exist.
-	dir := filepath.Join(t.TempDir(), "tfcloud")
+	dir := filepath.Join(t.TempDir(), "tfctl")
 	l, err := newLoader(dir)
 	r.NoError(err)
 	r.NotNil(l)
@@ -217,9 +217,9 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 
 	//nolint:paralleltest
 	t.Run("default profile, env set", func(t *testing.T) {
-		defer os.Unsetenv(envVarTFCloudOrganization)
+		defer os.Unsetenv(envVarOrganization)
 
-		os.Setenv(envVarTFCloudOrganization, "xyz")
+		os.Setenv(envVarOrganization, "xyz")
 
 		r := require.New(t)
 		l, err := newLoader(t.TempDir())
@@ -234,13 +234,13 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 		r := require.New(t)
 		l := TestLoader(t)
 
-		defer os.Unsetenv(envVarTFCloudOrganization)
+		defer os.Unsetenv(envVarOrganization)
 
 		p, err := l.NewProfile("test")
 		r.NoError(err)
 		r.NoError(p.Write())
 
-		os.Setenv(envVarTFCloudOrganization, "xyz")
+		os.Setenv(envVarOrganization, "xyz")
 
 		out, err := l.LoadProfile(p.Name)
 		r.NoError(err)

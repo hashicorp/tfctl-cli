@@ -1,28 +1,28 @@
 // Copyright IBM Corp. 2026
 // SPDX-License-Identifier: MPL-2.0
 
-// Package profiles implements the `tfcloud profile profiles` command group for managing tfcloud CLI profiles.
+// Package profiles implements the `profile profiles` command group for managing configuration profiles.
 package profiles
 
 import (
 	"github.com/posener/complete"
 	"golang.org/x/exp/maps"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-// NewCmdProfiles returns the `tfcloud profile profiles` command for managing tfcloud CLI profiles.
+// NewCmdProfiles returns the `profile profiles` command for managing configuration profiles.
 func NewCmdProfiles(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "profiles",
-		ShortHelp: "Manage tfcloud profiles.",
+		ShortHelp: "Manage configuration profiles.",
 		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfcloud profile profiles" }} command group manages 
-		the set of named tfcloud profiles. You can create new profiles using
-		{{ template "mdCodeOrBold" "tfcloud profile profiles create" }} and activate existing
-		profiles using {{ template "mdCodeOrBold" "tfcloud profile profiles activate" }}.
+		The {{ template "mdCodeOrBold" "tfctl profile profiles" }} command group manages 
+		the set of named tfctl profiles. You can create new profiles using
+		{{ template "mdCodeOrBold" "tfctl profile profiles create" }} and activate existing
+		profiles using {{ template "mdCodeOrBold" "tfctl profile profiles activate" }}.
 		To run a single command against a profile other than the active profile,
 		run the command with the flag {{ template "mdCodeOrBold" "--profile" }}.
 		`),

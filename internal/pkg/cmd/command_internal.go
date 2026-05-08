@@ -23,9 +23,10 @@ import (
 	"github.com/posener/complete"
 	"github.com/spf13/pflag"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/ld"
+	"github.com/hashicorp/tfctl-cli/internal/config"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/ld"
 )
 
 func (c *Command) errorToExitCode(args []string, err error) int {
@@ -162,7 +163,7 @@ func notFoundErrorHelp(io iostreams.IOStreams) string {
 	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Must(`
 		Resource not found or you are unauthorized to this action. Check your account permissions.
 
-		  {{ Bold "$ tfcloud auth info" }}
+		  {{ Bold "$ tfctl auth info" }}
 	`)
 }
 
@@ -187,8 +188,8 @@ func authErrorHelp(io iostreams.IOStreams, commandPath string, args []string) st
 	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
 		Unauthorized request. Re-attempt by first logging out and back in, and then re-run the command.
 
-		  {{ Bold "$ tfcloud auth logout" }}
-		  {{ Bold "$ tfcloud auth login" }}
+		  {{ Bold "$ tfctl auth logout" }}
+		  {{ Bold "$ tfctl auth login" }}
 		  {{ with $cmd := %s }}{{ Bold $cmd }}{{ end }}
 	`, command)
 }
@@ -209,7 +210,7 @@ func (c *Command) help() string {
 		invalid := ""
 		commands := strings.Split(c.commandPath(), " ")
 		for i, arg := range os.Args {
-			// Have to check the raw argument as well to handle `tfcloud -h` since
+			// Have to check the raw argument as well to handle `-h` since
 			// the flags will not have been parsed.
 			if arg == "-h" || arg == "--help" {
 				break
@@ -389,7 +390,7 @@ func (c *Command) flagsHelpEntry() []helpEntry {
 		}
 	}
 
-	globalFlagUsages := flagsetUsageShort(c.globalFlags(), "For more global flag details, run $ tfcloud --help")
+	globalFlagUsages := flagsetUsageShort(c.globalFlags(), "For more global flag details, run $ tfctl --help")
 	if globalFlagUsages != "" {
 		helpEntries = append(helpEntries, helpEntry{"GLOBAL FLAGS", globalFlagUsages})
 	}
@@ -514,7 +515,7 @@ func (c *Command) usageHelp() string {
 	global := c.globalFlags()
 	if global.HasFlags() {
 		fmt.Fprintln(&buf, "Global Flags:")
-		fmt.Fprint(&buf, indent.String(flagsetUsageShort(global, "For more global flag details, run $ tfcloud --help"), 2))
+		fmt.Fprint(&buf, indent.String(flagsetUsageShort(global, "For more global flag details, run $ tfctl --help"), 2))
 	}
 
 	return buf.String()
@@ -784,8 +785,8 @@ func (c *Command) hasAvailableFlags() bool {
 // splitRequiredFlags returns two flagset, one that contains the required flags
 // and the other that contains optional flags.
 func splitRequiredFlags(flagset *pflag.FlagSet) (required, optional *pflag.FlagSet) {
-	required = pflag.NewFlagSet("tfcloud", pflag.ContinueOnError)
-	optional = pflag.NewFlagSet("tfcloud", pflag.ContinueOnError)
+	required = pflag.NewFlagSet(config.Name, pflag.ContinueOnError)
+	optional = pflag.NewFlagSet(config.Name, pflag.ContinueOnError)
 	flagset.VisitAll(func(f *pflag.Flag) {
 		if _, ok := f.Annotations[flagAnnotationRequired]; ok {
 			required.AddFlag(f)

@@ -13,7 +13,7 @@ builds:
       - -trimpath
       - -buildvcs=false
     ldflags:
-      - "-s -w -X github.com/hashicorp/tfcloud/internal/config.version={{.Version}} -X github.com/hashicorp/tfcloud/internal/config.Commit={{.Commit}} -X github.com/hashicorp/tfcloud/internal/config.committedTime={{.CommitDate}}"
+      - "-s -w -X github.com/hashicorp/tfctl-cli/internal/config.version={{.Version}} -X github.com/hashicorp/tfctl-cli/internal/config.Commit={{.Commit}} -X github.com/hashicorp/tfctl-cli/internal/config.committedTime={{.CommitDate}}"
     goos:
       - linux
       - darwin

@@ -12,22 +12,22 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/format"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-// NewCmdGet returns the `tfcloud profile get` command for getting a tfcloud CLI property.
+// NewCmdGet returns the `profile get` command for getting a CLI configuration property.
 func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "get",
-		ShortHelp: "Get a tfcloud CLI Property.",
+		ShortHelp: "Get a tfctl CLI configuration property.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "tfcloud profile get" }} command gets the specified property in your active profile.
+		The {{ template "mdCodeOrBold" "tfctl profile get" }} command gets the specified property in your active profile.
 
-		To view all currently set properties, run {{ template "mdCodeOrBold" "tfcloud profile display" }}.
+		To view all currently set properties, run {{ template "mdCodeOrBold" "tfctl profile display" }}.
 		`),
 		Args: cmd.PositionalArguments{
 			Autocomplete: ctx.Profile,
@@ -65,7 +65,7 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// GetOpts defines the options for the `tfcloud profile get` command.
+// GetOpts defines the options for the `profile get` command.
 type GetOpts struct {
 	Ctx     context.Context
 	IO      iostreams.IOStreams

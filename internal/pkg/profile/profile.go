@@ -52,7 +52,7 @@ func (c *ActiveProfile) Write() error {
 	return os.WriteFile(path, f.Bytes(), 0o666)
 }
 
-// Profile is a named set of configuration for the tfcloud CLI. It captures common
+// Profile is a named set of configuration for the CLI. It captures common
 // configuration values such as the organization and project being interacted
 // with, but also allows storing service specific configuration.
 type Profile struct {

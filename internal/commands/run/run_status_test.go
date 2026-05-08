@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/client"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 )
 
 func testAPI(t *testing.T, handler http.Handler) *client.Client {

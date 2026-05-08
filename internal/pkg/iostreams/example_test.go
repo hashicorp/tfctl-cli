@@ -6,7 +6,7 @@ package iostreams_test
 import (
 	"fmt"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 // Example_output shows how text can be outputted with color and style.

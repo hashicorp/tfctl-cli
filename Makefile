@@ -1,5 +1,5 @@
 SHELL=/usr/bin/env bash
-NAME=tfcloud
+NAME=tfctl
 BIN_PATH ?= bin/$(NAME)
 
 ifeq ($(GOARCH), arm64)
@@ -25,22 +25,22 @@ bin: $(BIN_PATH)
 
 .PHONY: $(BIN_PATH)
 $(BIN_PATH):
-	CGO_ENABLED=0 go build -o $(BIN_PATH) -trimpath -buildvcs=false ./
+	CGO_ENABLED=0 go build -o $(BIN_PATH) -trimpath -buildvcs=false ./cmd/$(NAME)
 
 .PHONY: clean
 clean:
 	rm -rf $(CURDIR)/$(dir $(BIN_PATH))
 
 .PHONY: gen/screenshot
-gen/screenshot: go/install ## Create a screenshot of the tfcloud CLI
-	@go run github.com/homeport/termshot/cmd/termshot@v0.6.1 -c -f assets/tfcloud.png -- tfcloud
+gen/screenshot: go/install ## Create a screenshot of the tfctl CLI
+	@go run github.com/homeport/termshot/cmd/termshot@v0.6.1 -c -f assets/tfctl.png -- tfctl
 
 .PHONY: go/build
 go/build: bin
 
 .PHONY: go/install
 go/install:
-	@go install
+	@go install ./cmd/tfctl
 
 .PHONY: go/lint
 go/lint:

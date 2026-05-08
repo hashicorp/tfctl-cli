@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/table"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/table"
 )
 
 // TableFormatter is an optional interface to implement to customize how a table
@@ -110,7 +110,7 @@ func (o *Outputter) defaultFirstColumnFormatter(input string) string {
 func renderRow(p any, fields []Field) ([]interface{}, error) {
 	renderedFields := make([]interface{}, len(fields))
 	for i, f := range fields {
-		tmpl, err := template.New("tfcloud").Parse(f.ValueFormat)
+		tmpl, err := template.New("cli").Parse(f.ValueFormat)
 		if err != nil {
 			return nil, err
 		}
