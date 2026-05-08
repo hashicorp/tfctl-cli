@@ -1,0 +1,225 @@
+// Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package run
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/mitchellh/go-wordwrap"
+
+	"github.com/hashicorp/tfcloud/internal/pkg/client"
+	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
+	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfcloud/internal/pkg/format"
+	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
+	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
+	terraformcfg "github.com/hashicorp/tfcloud/internal/pkg/terraform"
+)
+
+// NewCmdRunStatus creates the `tfcloud run status` command.
+func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
+	var organization string
+
+	cmd := &cmd.Command{
+		Name:      "status",
+		ShortHelp: "Show the status of a run, printing diagnostics if it failed.",
+		LongHelp: heredoc.New(ctx.IO).Must(`
+		The {{ template "mdCodeOrBold" "tfcloud run status" }} command inspects a Terraform Cloud run
+		and prints its current status. If the run has errored, it fetches the plan or apply log and
+		extracts diagnostic messages.
+
+		The ID argument can be:
+		- A run ID ({{ template "mdCodeOrBold" "run-..." }})
+		- A workspace ID ({{ template "mdCodeOrBold" "ws-..." }}) to get the latest run
+		- A workspace name to get the latest run (requires {{ template "mdCodeOrBold" "--organization" }})
+		`),
+		Args: cmd.PositionalArguments{
+			Args: []cmd.PositionalArgument{
+				{
+					Name:          "ID",
+					Documentation: "Run ID, workspace ID, or workspace name",
+				},
+			},
+		},
+		Flags: cmd.Flags{
+			Local: []*cmd.Flag{
+				{
+					Name:        "organization",
+					Description: "Organization name (defaults to profile or terraform cloud config context)",
+					Value:       flagvalue.Simple("", &organization),
+				},
+			},
+		},
+		Examples: []cmd.Example{
+			{
+				Preamble: "Check status of a run by ID",
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud run status run-abc123`),
+			},
+			{
+				Preamble: "Check the latest run in a workspace by name",
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud run status my-workspace --organization my-org`),
+			},
+		},
+		RunF: func(_ *cmd.Command, args []string) error {
+			if len(args) != 1 {
+				return cmd.ErrDisplayUsage
+			}
+
+			org := organization
+			if org == "" {
+				org = ctx.Profile.Organization
+			}
+			if org == "" {
+				cfg, err := terraformcfg.FindCloudConfig(".")
+				if err == nil && cfg.Organization != "" {
+					org = cfg.Organization
+				}
+			}
+
+			apiClient, err := ctx.NewAPIClient()
+			if err != nil {
+				return fmt.Errorf("unable to create API client: %w", err)
+			}
+
+			resolver := client.NewResolver(apiClient, false, false)
+
+			id := args[0]
+			resourceType := "workspaces"
+			switch {
+			case strings.HasPrefix(id, "run-"):
+				resourceType = "runs"
+			case strings.HasPrefix(id, "ws-"):
+				resourceType = "workspaces"
+			default:
+				if org == "" {
+					return fmt.Errorf("--organization is required when specifying a workspace name")
+				}
+			}
+
+			runID, err := resolver.RunOrCurrentRun(ctx.ShutdownCtx, org, resourceType, id)
+			if err != nil {
+				return err
+			}
+
+			summary, err := client.NewRunSummary(ctx.ShutdownCtx, apiClient.TFE.API, runID)
+			if err != nil {
+				return err
+			}
+
+			if err := ctx.Output.Display(&summaryDisplayer{summary: summary, io: ctx.IO}); err != nil {
+				return err
+			}
+
+			if summary.Status == "errored" {
+				return cmd.ErrUnderlyingError
+			}
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+// summaryDisplayer implements format.Displayer and format.StringPayload.
+type summaryDisplayer struct {
+	summary *client.RunSummary
+	io      iostreams.IOStreams
+}
+
+var _ format.Displayer = (*summaryDisplayer)(nil)
+var _ format.StringPayload = (*summaryDisplayer)(nil)
+
+func (d *summaryDisplayer) DefaultFormat() format.Format { return format.Pretty }
+func (d *summaryDisplayer) Payload() any                 { return d.summary }
+func (d *summaryDisplayer) FieldTemplates() []format.Field {
+	return nil
+}
+
+// StringPayload returns pre-formatted output tailored to the given format.
+func (d *summaryDisplayer) StringPayload(f format.Format) string {
+	if len(d.summary.Diagnostics) > 0 {
+		return d.formatDiagnostics(f)
+	}
+	if d.summary.RawLog != "" {
+		return d.summary.RawLog
+	}
+	return d.summary.Message
+}
+
+func (d *summaryDisplayer) formatDiagnostics(f format.Format) string {
+	switch f {
+	case format.Markdown:
+		return d.formatDiagnosticsMarkdown()
+	default:
+		return d.formatDiagnosticsPretty()
+	}
+}
+
+func (d *summaryDisplayer) formatDiagnosticsPretty() string {
+	cs := d.io.ColorScheme()
+	const leftRuleWidth = 2
+	wrapWidth := d.io.TerminalWidth() - leftRuleWidth
+
+	var out strings.Builder
+	for i, diag := range d.summary.Diagnostics {
+		if i > 0 {
+			out.WriteString("\n")
+		}
+
+		color := cs.Red()
+		label := "Error"
+		if diag.Severity == "warning" {
+			color = cs.Orange()
+			label = "Warning"
+		}
+
+		var body strings.Builder
+		body.WriteString(cs.String(fmt.Sprintf("%s: ", label)).Color(color).Bold().String())
+		body.WriteString(cs.String(diag.Summary).Bold().String())
+		body.WriteString("\n")
+		if diag.Detail != "" {
+			body.WriteString("\n")
+			for _, line := range strings.Split(diag.Detail, "\n") {
+				if wrapWidth > 0 && line != "" && line[0] != ' ' {
+					line = wordwrap.WrapString(line, uint(wrapWidth))
+				}
+				body.WriteString(line)
+				body.WriteString("\n")
+			}
+		}
+
+		rule := cs.String("│").Color(color).String()
+		out.WriteString(cs.String("╷").Color(color).String())
+		out.WriteString("\n")
+		for _, line := range strings.Split(strings.TrimRight(body.String(), "\n"), "\n") {
+			out.WriteString(rule)
+			if line != "" {
+				out.WriteString(" ")
+				out.WriteString(line)
+			}
+			out.WriteString("\n")
+		}
+		out.WriteString(cs.String("╵").Color(color).String())
+	}
+	return out.String()
+}
+
+func (d *summaryDisplayer) formatDiagnosticsMarkdown() string {
+	var out strings.Builder
+	for i, diag := range d.summary.Diagnostics {
+		if i > 0 {
+			out.WriteString("\n\n---\n\n")
+		}
+		label := "Error"
+		if diag.Severity == "warning" {
+			label = "Warning"
+		}
+		fmt.Fprintf(&out, "**%s: %s**\n", label, diag.Summary)
+		if diag.Detail != "" {
+			fmt.Fprintf(&out, "\n%s\n", diag.Detail)
+		}
+	}
+	return out.String()
+}

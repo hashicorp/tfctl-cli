@@ -97,3 +97,19 @@ func (d *KVDisplayer) FieldTemplates() []format.Field {
 		},
 	}
 }
+
+type StringPayloadDisplayer struct {
+	payload      any
+	prettyText   string
+	markdownText string
+}
+
+func (d *StringPayloadDisplayer) DefaultFormat() format.Format   { return format.Pretty }
+func (d *StringPayloadDisplayer) Payload() any                   { return d.payload }
+func (d *StringPayloadDisplayer) FieldTemplates() []format.Field { return nil }
+func (d *StringPayloadDisplayer) StringPayload(f format.Format) string {
+	if f == format.Markdown {
+		return d.markdownText
+	}
+	return d.prettyText
+}

@@ -226,6 +226,15 @@ type TemplatedPayload interface {
 	TemplatedPayload() any
 }
 
+// StringPayload allows a Displayer to provide pre-formatted string output for
+// pretty and markdown formats instead of using field templates. The displayer
+// receives the active Format so it can tailor the output (e.g. ANSI codes for
+// pretty, markdown syntax for markdown). JSON output is unaffected and still
+// marshals Payload() as usual.
+type StringPayload interface {
+	StringPayload(f Format) string
+}
+
 // Field represents a field to output.
 type Field struct {
 	// Name is the displayed name of the field to the user.
@@ -424,6 +433,11 @@ func (o *Outputter) outputAgent(d Displayer) error {
 // outputPretty outputs the payload using a key/value format where each field
 // occupies a single row.
 func (o *Outputter) outputPretty(d Displayer) error {
+	if sp, ok := d.(StringPayload); ok {
+		fmt.Fprintln(o.io.Out(), sp.StringPayload(Pretty))
+		return nil
+	}
+
 	var p any
 	if tp, ok := d.(TemplatedPayload); ok {
 		p = tp.TemplatedPayload()
