@@ -6,13 +6,14 @@ package auth
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
 	tfe "github.com/hashicorp/go-tfe"
 
 	"github.com/hashicorp/tfcloud/internal/config"
+	"github.com/hashicorp/tfcloud/internal/pkg/client"
 	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfcloud/internal/pkg/format"
@@ -26,7 +27,7 @@ const (
 	defaultHostname = "app.terraform.io"
 
 	// tokenPagePath is the path to the token creation page.
-	tokenPagePath = "/app/settings/tokens"
+	tokenPagePath = "/app/settings/tokens?source=" + config.Name + "-login"
 )
 
 // NewCmdLogin returns the `tfcloud auth login` command for authenticating.
@@ -76,7 +77,7 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
 			opts.DryRun = ctx.IsDryRun()
-			return loginRun(opts)
+			return loginRun(ctx, opts)
 		},
 	}
 
@@ -90,45 +91,61 @@ type LoginOpts struct {
 	Profile *profile.Profile
 	Output  *format.Outputter
 
+	Name   string
 	Token  bool
 	DryRun bool
 }
 
-func loginRun(opts *LoginOpts) error {
+func loginRun(cmdCtx *cmd.Context, opts *LoginOpts) error {
 	hostname := opts.Profile.Hostname
 	if hostname == "" {
 		hostname = defaultHostname
 	}
 
+	// Read the token.
+	var token string
+	var err error
 	if opts.Token {
-		return loginFromStdin(opts, hostname)
+		token, err = readTokenFromStdin(opts)
+	} else {
+		token, err = readTokenInteractive(opts, hostname)
+	}
+	if err != nil {
+		return err
 	}
 
-	return loginInteractive(opts, hostname)
+	// Set the token on the profile and create a client to verify it.
+	opts.Profile.Token = token
+	apiClient, err := cmdCtx.NewAPIClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	return saveToken(opts, apiClient, hostname, token)
 }
 
-// loginFromStdin reads a token from stdin and stores it in the profile.
-func loginFromStdin(opts *LoginOpts, hostname string) error {
+// readTokenFromStdin reads a token from stdin.
+func readTokenFromStdin(opts *LoginOpts) (string, error) {
 	scanner := bufio.NewScanner(opts.IO.In())
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("failed to read token from stdin: %w", err)
+			return "", fmt.Errorf("failed to read token from stdin: %w", err)
 		}
-		return fmt.Errorf("no token provided on stdin")
+		return "", fmt.Errorf("no token provided on stdin")
 	}
 
 	token := strings.TrimSpace(scanner.Text())
 	if token == "" {
-		return fmt.Errorf("token is empty")
+		return "", fmt.Errorf("token is empty")
 	}
 
-	return saveToken(opts, hostname, token)
+	return token, nil
 }
 
-// loginInteractive opens the browser to the token page and prompts the user.
-func loginInteractive(opts *LoginOpts, hostname string) error {
+// readTokenInteractive opens the browser to the token page and prompts the user.
+func readTokenInteractive(opts *LoginOpts, hostname string) (string, error) {
 	if !opts.IO.CanPrompt() {
-		return fmt.Errorf("interactive login requires a terminal; use --token to read from stdin")
+		return "", fmt.Errorf("interactive login requires a terminal; use --token to read from stdin")
 	}
 
 	tokenURL := fmt.Sprintf("https://%s%s", hostname, tokenPagePath)
@@ -137,7 +154,6 @@ func loginInteractive(opts *LoginOpts, hostname string) error {
 	fmt.Fprintf(opts.IO.Err(), "Opening browser to create a token at:\n  %s\n\n",
 		cs.String(tokenURL).Bold().String())
 
-	// Attempt to open the browser
 	if err := openBrowser(tokenURL); err != nil {
 		fmt.Fprintf(opts.IO.Err(), "%s Could not open browser. Please open the URL above manually.\n\n",
 			cs.WarningLabel())
@@ -146,25 +162,23 @@ func loginInteractive(opts *LoginOpts, hostname string) error {
 	fmt.Fprint(opts.IO.Err(), "Paste your token: ")
 	secret, err := opts.IO.ReadSecret()
 	if err != nil {
-		return fmt.Errorf("failed to read token: %w", err)
+		return "", fmt.Errorf("failed to read token: %w", err)
 	}
 	fmt.Fprintln(opts.IO.Err())
 
 	token := strings.TrimSpace(string(secret))
 	if token == "" {
-		return fmt.Errorf("token is empty")
+		return "", fmt.Errorf("token is empty")
 	}
 
-	return saveToken(opts, hostname, token)
+	return token, nil
 }
 
-// saveToken validates the token by making an API request and then persists it
-// to the active profile.
-func saveToken(opts *LoginOpts, hostname, token string) error {
+// saveToken verifies the token via the API and persists it to the profile.
+func saveToken(opts *LoginOpts, apiClient *client.Client, hostname, token string) error {
 	cs := opts.IO.ColorScheme()
 
-	// Validate the token by fetching the current user account details.
-	user, err := verifyToken(opts.Ctx, hostname, token)
+	user, err := verifyToken(opts.Ctx, apiClient)
 	if err != nil {
 		return fmt.Errorf("failed to verify token: %w", err)
 	}
@@ -186,25 +200,13 @@ func saveToken(opts *LoginOpts, hostname, token string) error {
 }
 
 // verifyToken makes an API call to validate the token and returns the username.
-func verifyToken(ctx context.Context, hostname, token string) (string, error) {
-	address := hostname
-	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
-		address = "https://" + address
-	}
-
-	client, err := tfe.NewClient(&tfe.Config{
-		Address: address,
-		Token:   token,
-		Headers: http.Header{
-			"User-Agent": []string{fmt.Sprintf("tfcloud-cli/%s", config.Version)},
-		},
-	})
+func verifyToken(ctx context.Context, apiClient *client.Client) (string, error) {
+	resp, err := apiClient.TFE.API.Account().Details().Get(ctx, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	resp, err := client.API.Account().Details().Get(ctx, nil)
-	if err != nil {
+		var apiErr *tfe.APIError
+		if errors.As(err, &apiErr) {
+			return "", fmt.Errorf("token validation failed: %s", apiErr.Error())
+		}
 		return "", fmt.Errorf("token validation failed: %w", err)
 	}
 

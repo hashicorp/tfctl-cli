@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/hashicorp/go-hclog"
@@ -270,7 +271,11 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 
 // NewAPIClient returns a new API Client configured using the context Profile.
 func (ctx *Context) NewAPIClient() (*client.Client, error) {
-	apiClient, err := client.New(fmt.Sprintf("https://%s", ctx.Profile.Hostname), ctx.Profile.Token, http.Header{
+	address := ctx.Profile.Hostname
+	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
+		address = "https://" + address
+	}
+	apiClient, err := client.New(address, ctx.Profile.Token, http.Header{
 		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", config.Name, config.Version)},
 	})
 	if err != nil {

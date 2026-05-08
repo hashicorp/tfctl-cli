@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
 	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
 	"github.com/hashicorp/tfcloud/internal/pkg/profile"
 )
@@ -43,6 +44,16 @@ func stubBrowser(t *testing.T) {
 	t.Cleanup(func() { openBrowserFn = orig })
 }
 
+// runLogin mimics the RunF flow by creating a cmd.Context and calling loginRun.
+func runLogin(t *testing.T, opts *LoginOpts) error {
+	t.Helper()
+	cmdCtx := &cmd.Context{
+		IO:      opts.IO,
+		Profile: opts.Profile,
+	}
+	return loginRun(cmdCtx, opts)
+}
+
 func TestLoginFromStdin(t *testing.T) {
 	stubBrowser(t)
 	t.Parallel()
@@ -64,7 +75,7 @@ func TestLoginFromStdin(t *testing.T) {
 		Token:   true,
 	}
 
-	r.NoError(loginRun(opts))
+	r.NoError(runLogin(t, opts))
 	r.Contains(io.Error.String(), "Successfully logged in")
 	r.Contains(io.Error.String(), "testuser")
 
@@ -93,7 +104,7 @@ func TestLoginFromStdin_CustomHostname(t *testing.T) {
 		Token:   true,
 	}
 
-	r.NoError(loginRun(opts))
+	r.NoError(runLogin(t, opts))
 	r.Contains(io.Error.String(), "Successfully logged in")
 	r.Contains(io.Error.String(), srv.URL)
 }
@@ -116,7 +127,7 @@ func TestLoginFromStdin_EmptyToken(t *testing.T) {
 		Token:   true,
 	}
 
-	err := loginRun(opts)
+	err := runLogin(t, opts)
 	r.Error(err)
 	r.Contains(err.Error(), "token is empty")
 }
@@ -138,7 +149,7 @@ func TestLoginFromStdin_NoInput(t *testing.T) {
 		Token:   true,
 	}
 
-	err := loginRun(opts)
+	err := runLogin(t, opts)
 	r.Error(err)
 	r.Contains(err.Error(), "no token provided on stdin")
 }
@@ -161,7 +172,7 @@ func TestLoginFromStdin_WhitespaceToken(t *testing.T) {
 		Token:   true,
 	}
 
-	err := loginRun(opts)
+	err := runLogin(t, opts)
 	r.Error(err)
 	r.Contains(err.Error(), "token is empty")
 }
@@ -186,7 +197,7 @@ func TestLoginFromStdin_TokenWithWhitespace(t *testing.T) {
 		Token:   true,
 	}
 
-	r.NoError(loginRun(opts))
+	r.NoError(runLogin(t, opts))
 
 	loaded, err := l.LoadProfile(p.Name)
 	r.NoError(err)
@@ -210,7 +221,7 @@ func TestLoginInteractive_NoTTY(t *testing.T) {
 		Token:   false,
 	}
 
-	err := loginRun(opts)
+	err := runLogin(t, opts)
 	r.Error(err)
 	r.Contains(err.Error(), "interactive login requires a terminal")
 }
@@ -237,7 +248,7 @@ func TestLoginInteractive_Success(t *testing.T) {
 		Token:   false,
 	}
 
-	r.NoError(loginRun(opts))
+	r.NoError(runLogin(t, opts))
 	r.Contains(io.Error.String(), "Opening browser")
 	r.Contains(io.Error.String(), "Successfully logged in")
 	r.Contains(io.Error.String(), "interactive-user")
@@ -269,12 +280,12 @@ func TestLoginFromStdin_DifferentProfile(t *testing.T) {
 	// Login to production
 	io := iostreams.Test()
 	io.Input.WriteString("prod-token\n")
-	r.NoError(loginRun(&LoginOpts{IO: io, Profile: p1, Token: true}))
+	r.NoError(runLogin(t, &LoginOpts{IO: io, Profile: p1, Token: true}))
 
 	// Login to staging
 	io = iostreams.Test()
 	io.Input.WriteString("staging-token\n")
-	r.NoError(loginRun(&LoginOpts{IO: io, Profile: p2, Token: true}))
+	r.NoError(runLogin(t, &LoginOpts{IO: io, Profile: p2, Token: true}))
 
 	// Verify tokens were saved to the correct profiles
 	loadedProd, err := l.LoadProfile("production")
@@ -311,7 +322,7 @@ func TestLoginFromStdin_DryRun(t *testing.T) {
 		DryRun:  true,
 	}
 
-	r.NoError(loginRun(opts))
+	r.NoError(runLogin(t, opts))
 	r.Contains(io.Error.String(), "would save token")
 	r.Contains(io.Error.String(), p.Name)
 
@@ -348,7 +359,7 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 		DryRun:  true,
 	}
 
-	r.NoError(loginRun(opts))
+	r.NoError(runLogin(t, opts))
 	r.Contains(io.Error.String(), "would save token")
 
 	loaded, err := l.LoadProfile(p.Name)
@@ -378,7 +389,7 @@ func TestLoginFromStdin_QuietMode(t *testing.T) {
 		Token:   true,
 	}
 
-	r.NoError(loginRun(opts))
+	r.NoError(runLogin(t, opts))
 	r.Empty(io.Error.String())
 
 	loaded, err := l.LoadProfile(p.Name)
@@ -406,7 +417,7 @@ func TestLoginFromStdin_VerifyFails(t *testing.T) {
 		Token:   true,
 	}
 
-	err := loginRun(opts)
+	err := runLogin(t, opts)
 	r.Error(err)
 	r.Contains(err.Error(), "failed to verify token")
 
