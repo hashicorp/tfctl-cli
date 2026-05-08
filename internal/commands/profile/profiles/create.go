@@ -93,6 +93,8 @@ type CreateOpts struct {
 }
 
 func createRun(opts *CreateOpts) error {
+	opts.Logger.Debug("creating profile", "name", opts.Name, "hostname", opts.Hostname)
+
 	// Get the existing profiles
 	profiles, err := opts.Profiles.ListProfiles()
 	if err != nil {

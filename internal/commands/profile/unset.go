@@ -93,6 +93,8 @@ func unsetRun(opts *UnsetOpts) error {
 		return err
 	}
 
+	opts.Logger.Debug("unsetting property", "property", opts.Property, "profile", opts.Profile.Name)
+
 	// Decode the existing profile into a map
 	var data map[string]any
 	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{

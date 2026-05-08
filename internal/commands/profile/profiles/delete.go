@@ -86,6 +86,8 @@ type DeleteOpts struct {
 }
 
 func deleteRun(opts *DeleteOpts) error {
+	opts.Logger.Debug("deleting profiles", "names", opts.Names)
+
 	// Get the active profile
 	active, err := opts.Profiles.GetActiveProfile()
 	if err != nil {

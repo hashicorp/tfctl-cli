@@ -164,6 +164,7 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 func runVariableImport(opts *ImportOpts) error {
 	var imported []terraformcfg.ImportedVariable
 	if opts.TFVarsFileToImport != "" {
+		opts.Logger.Debug("parsing tfvars file", "path", opts.TFVarsFileToImport)
 		vars, err := terraformcfg.ParseTFVarsFile(opts.TFVarsFileToImport)
 		if err != nil {
 			return fmt.Errorf("failed parsing tfvars file: %w", err)
@@ -189,6 +190,8 @@ func runVariableImport(opts *ImportOpts) error {
 		return cmd.ErrDisplayUsage
 	}
 
+	opts.Logger.Debug("resolving target", "organization", opts.Organization, "workspace", opts.Workspace, "variable_set", opts.VariableSetName)
+
 	target, err := resolveTarget(opts.ShutdownCtx, opts)
 	if err != nil {
 		if opts.DryRun && opts.VariableSetName != "" {
@@ -202,6 +205,8 @@ func runVariableImport(opts *ImportOpts) error {
 		}
 		return err
 	}
+
+	opts.Logger.Debug("importing variables", "count", len(imported), "target", target.String(), "overwrite", opts.Overwrite)
 
 	existing, err := target.listExistingVariables(opts.ShutdownCtx)
 	if err != nil {

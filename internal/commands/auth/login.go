@@ -122,6 +122,7 @@ func loginRun(cmdCtx *cmd.Context, opts *LoginOpts) error {
 
 	// Set the token on the profile and create a client to verify it.
 	opts.Profile.Token = token
+	opts.Logger.Debug("verifying token", "hostname", hostname)
 	apiClient, err := cmdCtx.NewAPIClient(opts.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)

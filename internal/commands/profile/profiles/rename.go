@@ -86,6 +86,8 @@ type RenameOpts struct {
 }
 
 func renameRun(opts *RenameOpts) error {
+	opts.Logger.Debug("renaming profile", "from", opts.ExistingName, "to", opts.NewName)
+
 	if opts.ExistingName == opts.NewName {
 		return fmt.Errorf("new name must be different from the existing name")
 	}

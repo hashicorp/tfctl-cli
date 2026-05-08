@@ -98,10 +98,15 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				}
 			}
 
+			logger := c.Logger()
+			logger.Debug("resolving run", "id", id, "type", resourceType, "organization", org)
+
 			runID, err := resolver.RunOrCurrentRun(ctx.ShutdownCtx, org, resourceType, id)
 			if err != nil {
 				return err
 			}
+
+			logger.Debug("fetching run summary", "run_id", runID)
 
 			summary, err := client.NewRunSummary(ctx.ShutdownCtx, apiClient.TFE.API, runID)
 			if err != nil {
