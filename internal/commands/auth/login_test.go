@@ -12,9 +12,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 // newFakeTFE returns an httptest.Server that mimics the TFE /account/details endpoint.

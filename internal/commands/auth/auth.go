@@ -5,8 +5,8 @@
 package auth
 
 import (
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 )
 
 // NewCmdAuth returns the `tfcloud auth` command for managing authentication.

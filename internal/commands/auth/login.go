@@ -12,14 +12,14 @@ import (
 
 	tfe "github.com/hashicorp/go-tfe"
 
-	"github.com/hashicorp/tfcloud/internal/config"
-	"github.com/hashicorp/tfcloud/internal/pkg/client"
-	"github.com/hashicorp/tfcloud/internal/pkg/cmd"
-	"github.com/hashicorp/tfcloud/internal/pkg/flagvalue"
-	"github.com/hashicorp/tfcloud/internal/pkg/format"
-	"github.com/hashicorp/tfcloud/internal/pkg/heredoc"
-	"github.com/hashicorp/tfcloud/internal/pkg/iostreams"
-	"github.com/hashicorp/tfcloud/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/config"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 const (
