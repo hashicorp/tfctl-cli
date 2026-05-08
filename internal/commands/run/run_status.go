@@ -5,6 +5,7 @@ package run
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/mitchellh/go-wordwrap"
@@ -146,10 +147,15 @@ func (d *summaryDisplayer) StringPayload(f format.Format) string {
 		return d.formatDiagnostics(f)
 	}
 	if d.summary.RawLog != "" {
+		if f == format.Markdown {
+			return stripANSI(d.summary.RawLog)
+		}
 		return d.summary.RawLog
 	}
 	return d.summary.Message
 }
+
+var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 func (d *summaryDisplayer) formatDiagnostics(f format.Format) string {
 	switch f {
@@ -182,6 +188,22 @@ func (d *summaryDisplayer) formatDiagnosticsPretty() string {
 		body.WriteString(cs.String(fmt.Sprintf("%s: ", label)).Color(color).Bold().String())
 		body.WriteString(cs.String(diag.Summary).Bold().String())
 		body.WriteString("\n")
+
+		if diag.Range != nil {
+			body.WriteString("\n")
+			loc := fmt.Sprintf("  on %s line %d", diag.Range.Filename, diag.Range.Start.Line)
+			if diag.Snippet != nil && diag.Snippet.Context != nil {
+				loc += fmt.Sprintf(", in %s", *diag.Snippet.Context)
+			}
+			loc += ":"
+			body.WriteString(loc)
+			body.WriteString("\n")
+		}
+
+		if diag.Snippet != nil {
+			body.WriteString(formatSnippet(cs, diag.Snippet))
+		}
+
 		if diag.Detail != "" {
 			body.WriteString("\n")
 			for _, line := range strings.Split(diag.Detail, "\n") {
@@ -220,9 +242,61 @@ func (d *summaryDisplayer) formatDiagnosticsMarkdown() string {
 			label = "Warning"
 		}
 		fmt.Fprintf(&out, "**%s: %s**\n", label, diag.Summary)
+		if diag.Range != nil {
+			loc := fmt.Sprintf("on %s line %d", diag.Range.Filename, diag.Range.Start.Line)
+			if diag.Snippet != nil && diag.Snippet.Context != nil {
+				loc += fmt.Sprintf(", in %s", *diag.Snippet.Context)
+			}
+			fmt.Fprintf(&out, "\n%s:\n", loc)
+		}
+		if diag.Snippet != nil {
+			fmt.Fprintf(&out, "\n```hcl\n%s\n```\n", diag.Snippet.Code)
+		}
 		if diag.Detail != "" {
 			fmt.Fprintf(&out, "\n%s\n", diag.Detail)
 		}
 	}
 	return out.String()
+}
+
+// formatSnippet renders a code snippet with ANSI underline highlighting,
+// matching Terraform's diagnostic output style.
+func formatSnippet(cs *iostreams.ColorScheme, snippet *client.DiagnosticSnippet) string {
+	var out strings.Builder
+
+	code := snippet.Code
+	start := clamp(snippet.HighlightStartOffset, 0, len(code))
+	end := clamp(snippet.HighlightEndOffset, start, len(code))
+
+	// Apply underline to the highlighted range.
+	var rendered string
+	if end > start {
+		before := code[:start]
+		highlight := code[start:end]
+		after := code[end:]
+		rendered = before + cs.String(highlight).Underline().String() + after
+	} else {
+		rendered = code
+	}
+
+	lines := strings.Split(rendered, "\n")
+	for i, line := range lines {
+		fmt.Fprintf(&out, "  %4d: %s\n", snippet.StartLine+i, line)
+	}
+
+	return out.String()
+}
+
+func clamp(val, lo, hi int) int {
+	if val < lo {
+		return lo
+	}
+	if val > hi {
+		return hi
+	}
+	return val
+}
+
+func stripANSI(s string) string {
+	return ansiEscapeRe.ReplaceAllString(s, "")
 }

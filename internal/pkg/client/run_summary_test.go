@@ -86,6 +86,27 @@ func TestParseDiagnostics_RealHCPTerraformLog(t *testing.T) {
 	if diags[0].Detail != `A managed resource "random_string" "example" has not been declared in the root module.` {
 		t.Errorf("unexpected detail: %q", diags[0].Detail)
 	}
+	if diags[0].Range == nil {
+		t.Fatal("expected range to be parsed")
+	}
+	if diags[0].Range.Filename != "main.tf" {
+		t.Errorf("expected filename 'main.tf', got %q", diags[0].Range.Filename)
+	}
+	if diags[0].Range.Start.Line != 73 {
+		t.Errorf("expected start line 73, got %d", diags[0].Range.Start.Line)
+	}
+	if diags[0].Snippet == nil {
+		t.Fatal("expected snippet to be parsed")
+	}
+	if diags[0].Snippet.Code != "  value = random_string.example.result" {
+		t.Errorf("unexpected snippet code: %q", diags[0].Snippet.Code)
+	}
+	if diags[0].Snippet.StartLine != 73 {
+		t.Errorf("expected snippet start line 73, got %d", diags[0].Snippet.StartLine)
+	}
+	if diags[0].Snippet.HighlightStartOffset != 10 || diags[0].Snippet.HighlightEndOffset != 31 {
+		t.Errorf("unexpected highlight offsets: %d-%d", diags[0].Snippet.HighlightStartOffset, diags[0].Snippet.HighlightEndOffset)
+	}
 }
 
 func TestParseDiagnostics_RealConsoleLog(t *testing.T) {

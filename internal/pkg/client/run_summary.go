@@ -27,10 +27,35 @@ type RunSummary struct {
 
 // Diagnostic represents a Terraform diagnostic message.
 type Diagnostic struct {
-	Severity string `json:"severity"`
-	Summary  string `json:"summary"`
-	Detail   string `json:"detail"`
-	Address  string `json:"address,omitempty"`
+	Severity string             `json:"severity"`
+	Summary  string             `json:"summary"`
+	Detail   string             `json:"detail"`
+	Address  string             `json:"address,omitempty"`
+	Range    *DiagnosticRange   `json:"range,omitempty"`
+	Snippet  *DiagnosticSnippet `json:"snippet,omitempty"`
+}
+
+// DiagnosticRange represents the source location of a diagnostic.
+type DiagnosticRange struct {
+	Filename string         `json:"filename"`
+	Start    SourceLocation `json:"start"`
+	End      SourceLocation `json:"end"`
+}
+
+// SourceLocation represents a position in a source file.
+type SourceLocation struct {
+	Line   int `json:"line"`
+	Column int `json:"column"`
+	Byte   int `json:"byte"`
+}
+
+// DiagnosticSnippet contains the source code context for a diagnostic.
+type DiagnosticSnippet struct {
+	Context              *string `json:"context"`
+	Code                 string  `json:"code"`
+	StartLine            int     `json:"start_line"`
+	HighlightStartOffset int     `json:"highlight_start_offset"`
+	HighlightEndOffset   int     `json:"highlight_end_offset"`
 }
 
 type jsonLog struct {
