@@ -285,12 +285,12 @@ func formatSnippet(cs *iostreams.ColorScheme, snippet *client.DiagnosticSnippet)
 	return out.String()
 }
 
-func clamp(val, min, max int) int {
-	if val < min {
-		return min
+func clamp(val, lo, hi int) int {
+	if val < lo {
+		return lo
 	}
-	if val > max {
-		return max
+	if val > hi {
+		return hi
 	}
 	return val
 }
