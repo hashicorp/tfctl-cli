@@ -51,13 +51,14 @@ Walk the tree: start at `tfctl --help` for top-level commands, then drill into a
 
 ## Quick Reference
 
-| Task                  | Command                                                                   |
-|-----------------------|---------------------------------------------------------------------------|
+| Task                  | Command                                                                 |
+|-----------------------|-------------------------------------------------------------------------|
 | Find an API operation | `tfctl api schema search <keyword> --json`                              |
 | Get API schema        | `tfctl api schema get <operation>`                                      |
 | List projects         | `tfctl api /organizations/{organization}/projects --json`               |
 | Get Workspace state   | `tfctl api /organizations/{organization}/workspaces/{workspace} --json` |
-
+| Run diagnostics       | `tfctl run status {run id|workspace}`                                   |
+| Start a run           | `tfctl run start {workspace}                                            |
 
 ## API Conventions
 
@@ -96,7 +97,21 @@ Want to change something?
 
 ## Common Workflows
 
-### TO BE DOCUMENTED
+### Diagnosing run errors
+
+You can diagnose a particular run or the current run using:
+
+```bash
+$ tfctl run status ID
+```
+
+Where ID is either a run- ID, a ws- workspace ID, or a workspace name. You may need --organization flag unless there is a default organization set in the profile.
+
+If a run is in an errored state due to a configuration issue make the necessary adjustments and then start a new run with:
+
+```bash
+$ tfctl run start WORKSPACE
+```
 
 ## Common Errors and Debugging
 
