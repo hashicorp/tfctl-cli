@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func testAPI(t *testing.T, handler http.Handler) *client.Client {
@@ -209,6 +211,7 @@ func TestRunOrCurrentRun(t *testing.T) {
 	t.Run("workspaces type by ID", func(t *testing.T) {
 		t.Parallel()
 		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/api/v2/workspaces/ws-123", r.URL.Path, "should use workspace ID endpoint")
 			jsonapi(w, map[string]any{
 				"data": map[string]any{
 					"id": "ws-123", "type": "workspaces",
@@ -227,9 +230,32 @@ func TestRunOrCurrentRun(t *testing.T) {
 		assert.Equal(t, "run-current", runID)
 	})
 
+	t.Run("workspaces type by ID with org set", func(t *testing.T) {
+		t.Parallel()
+		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/api/v2/workspaces/ws-abc", r.URL.Path, "ws- prefix should bypass org-based name lookup")
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "ws-abc", "type": "workspaces",
+					"relationships": map[string]any{
+						"current-run": map[string]any{
+							"data": map[string]any{"id": "run-from-id", "type": "runs"},
+						},
+					},
+				},
+			})
+		}))
+
+		resolver := client.NewResolver(c, false, false)
+		runID, err := resolver.RunOrCurrentRun(context.Background(), "my-org", "workspaces", "ws-abc")
+		require.NoError(t, err)
+		assert.Equal(t, "run-from-id", runID)
+	})
+
 	t.Run("workspaces type by name", func(t *testing.T) {
 		t.Parallel()
 		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/api/v2/organizations/my-org/workspaces/my-ws", r.URL.Path, "should use org+name endpoint")
 			jsonapi(w, map[string]any{
 				"data": map[string]any{
 					"id": "ws-resolved", "type": "workspaces",
@@ -277,3 +303,162 @@ func TestRunOrCurrentRun(t *testing.T) {
 		assert.Contains(t, err.Error(), "unsupported resource type")
 	})
 }
+
+func TestFormatDiagnosticsPretty_WithSnippet(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	ctx := strPtr("output \"bad\"")
+	summary := &client.RunSummary{
+		Diagnostics: []client.Diagnostic{
+			{
+				Severity: "error",
+				Summary:  "Reference to undeclared input variable",
+				Detail:   "An input variable with the name \"does_not_exist\" has not been declared.",
+				Range: &client.DiagnosticRange{
+					Filename: "main.tf",
+					Start:    client.SourceLocation{Line: 2, Column: 11, Byte: 25},
+					End:      client.SourceLocation{Line: 2, Column: 31, Byte: 45},
+				},
+				Snippet: &client.DiagnosticSnippet{
+					Context:              ctx,
+					Code:                 "  value = var.does_not_exist.foo",
+					StartLine:            2,
+					HighlightStartOffset: 10,
+					HighlightEndOffset:   30,
+				},
+			},
+		},
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+	result := d.StringPayload(format.Pretty)
+
+	assert.Contains(t, result, "Error:")
+	assert.Contains(t, result, "Reference to undeclared input variable")
+	assert.Contains(t, result, "on main.tf line 2, in output \"bad\":")
+	assert.Contains(t, result, "   2:")
+	assert.Contains(t, result, "value = var.does_not_exist.foo")
+	assert.Contains(t, result, "╷")
+	assert.Contains(t, result, "│")
+	assert.Contains(t, result, "╵")
+}
+
+func TestFormatDiagnosticsMarkdown_WithSnippet(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	ctx := strPtr("output \"bad\"")
+	summary := &client.RunSummary{
+		Diagnostics: []client.Diagnostic{
+			{
+				Severity: "error",
+				Summary:  "Reference to undeclared input variable",
+				Detail:   "An input variable with the name \"does_not_exist\" has not been declared.",
+				Range: &client.DiagnosticRange{
+					Filename: "main.tf",
+					Start:    client.SourceLocation{Line: 2, Column: 11, Byte: 25},
+				},
+				Snippet: &client.DiagnosticSnippet{
+					Context:   ctx,
+					Code:      "  value = var.does_not_exist.foo",
+					StartLine: 2,
+				},
+			},
+		},
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+	result := d.StringPayload(format.Markdown)
+
+	assert.Contains(t, result, "**Error: Reference to undeclared input variable**")
+	assert.Contains(t, result, "on main.tf line 2, in output \"bad\":")
+	assert.Contains(t, result, "```hcl")
+	assert.Contains(t, result, "value = var.does_not_exist.foo")
+	assert.Contains(t, result, "```")
+	assert.NotContains(t, result, "╷")
+	assert.NotContains(t, result, "│")
+}
+
+func TestStringPayload_MarkdownStripsANSI(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	summary := &client.RunSummary{
+		Status: "errored",
+		RawLog: "Terraform v1.13.5\n\x1b[1m\x1b[31m╷\x1b[0m\n\x1b[1m\x1b[31m│\x1b[0m \x1b[1mError: Unsupported version\x1b[0m\n\x1b[1m\x1b[31m╵\x1b[0m\n",
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+	result := d.StringPayload(format.Markdown)
+
+	assert.NotContains(t, result, "\x1b[")
+	assert.Contains(t, result, "╷")
+	assert.Contains(t, result, "Error: Unsupported version")
+	assert.Contains(t, result, "╵")
+}
+
+func TestStringPayload_PrettyPreservesANSI(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	summary := &client.RunSummary{
+		Status: "errored",
+		RawLog: "Terraform v1.13.5\n\x1b[31mError\x1b[0m\n",
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+	result := d.StringPayload(format.Pretty)
+
+	assert.Contains(t, result, "\x1b[31m")
+}
+
+func TestFormatDiagnosticsPretty_RangeWithoutSnippet(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	summary := &client.RunSummary{
+		Diagnostics: []client.Diagnostic{
+			{
+				Severity: "error",
+				Summary:  "Some error",
+				Range: &client.DiagnosticRange{
+					Filename: "main.tf",
+					Start:    client.SourceLocation{Line: 5},
+				},
+			},
+		},
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+	result := d.StringPayload(format.Pretty)
+
+	assert.Contains(t, result, "on main.tf line 5:")
+	assert.NotContains(t, result, "in ")
+}
+
+func TestFormatDiagnosticsPretty_SnippetNoHighlight(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	summary := &client.RunSummary{
+		Diagnostics: []client.Diagnostic{
+			{
+				Severity: "error",
+				Summary:  "Some error",
+				Snippet: &client.DiagnosticSnippet{
+					Code:      "resource \"aws_instance\" \"web\" {}",
+					StartLine: 1,
+				},
+			},
+		},
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+	result := d.StringPayload(format.Pretty)
+
+	assert.Contains(t, result, "   1:")
+	assert.Contains(t, result, "resource \"aws_instance\" \"web\" {}")
+}
+
+func strPtr(s string) *string { return &s }
