@@ -160,11 +160,11 @@ func (c *Command) Run(args []string) int {
 }
 
 func notFoundErrorHelp(io iostreams.IOStreams) string {
-	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Must(`
+	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
 		Resource not found or you are unauthorized to this action. Check your account permissions.
 
-		  {{ Bold "$ tfctl auth info" }}
-	`)
+		  {{ Bold "$ %s auth info" }}
+	`, config.Name)
 }
 
 // authErrorHelp returns a help message for recovering from authentication errors.
@@ -188,10 +188,10 @@ func authErrorHelp(io iostreams.IOStreams, commandPath string, args []string) st
 	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
 		Unauthorized request. Re-attempt by first logging out and back in, and then re-run the command.
 
-		  {{ Bold "$ tfctl auth logout" }}
-		  {{ Bold "$ tfctl auth login" }}
+		  {{ Bold "$ %s auth logout" }}
+		  {{ Bold "$ %s auth login" }}
 		  {{ with $cmd := %s }}{{ Bold $cmd }}{{ end }}
-	`, command)
+	`, config.Name, config.Name, command)
 }
 
 // helpEntry is used to structure help output with titles.
@@ -390,7 +390,7 @@ func (c *Command) flagsHelpEntry() []helpEntry {
 		}
 	}
 
-	globalFlagUsages := flagsetUsageShort(c.globalFlags(), "For more global flag details, run $ tfctl --help")
+	globalFlagUsages := flagsetUsageShort(c.globalFlags(), fmt.Sprintf("For more global flag details, run $ %s --help", config.Name))
 	if globalFlagUsages != "" {
 		helpEntries = append(helpEntries, helpEntry{"GLOBAL FLAGS", globalFlagUsages})
 	}
@@ -515,7 +515,7 @@ func (c *Command) usageHelp() string {
 	global := c.globalFlags()
 	if global.HasFlags() {
 		fmt.Fprintln(&buf, "Global Flags:")
-		fmt.Fprint(&buf, indent.String(flagsetUsageShort(global, "For more global flag details, run $ tfctl --help"), 2))
+		fmt.Fprint(&buf, indent.String(flagsetUsageShort(global, fmt.Sprintf("For more global flag details, run $ %s --help", config.Name)), 2))
 	}
 
 	return buf.String()

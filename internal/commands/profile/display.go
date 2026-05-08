@@ -6,6 +6,7 @@ package profile
 import (
 	"fmt"
 
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -19,8 +20,8 @@ func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
 		Name:      "display",
 		ShortHelp: "Display the active profile.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "tfctl profile display" }} command displays the active profile.
-		`),
+		The {{ template "mdCodeOrBold" "%s profile display" }} command displays the active profile.
+		`, config.Name),
 		RunF: func(_ *cmd.Command, _ []string) error {
 			profileNoToken := ctx.Profile
 			profileNoToken.Token = ""

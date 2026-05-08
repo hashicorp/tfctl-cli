@@ -11,6 +11,7 @@ import (
 	"github.com/muesli/reflow/indent"
 	"golang.org/x/exp/maps"
 
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -40,11 +41,11 @@ func addCoreProperties(b *availablePropertiesBuilder) {
 	b.AddProperty("", "no_color", "If True, color will not be used when printing messages in the terminal.")
 	b.AddProperty("", "quiet", "If True, prompts will be disabled and output will be minimized.")
 	b.AddProperty("", "verbosity", `
-		Default logging verbosity for {{ template "mdCodeOrBold" "tfctl" }} commands. This is the
+		Default logging verbosity for {{ template "mdCodeOrBold" "%s" }} commands. This is the
 		equivalent of using the global {{ template "mdCodeOrBold" "--debug" }} flag. Supported log levels:
 		{{ template "mdCodeOrBold" "trace" }}, {{ template "mdCodeOrBold" "debug" }},
 		{{ template "mdCodeOrBold" "info" }}, {{ template "mdCodeOrBold" "warn" }}, and
-		{{ template "mdCodeOrBold" "error" }}.`)
+		{{ template "mdCodeOrBold" "error" }}.`, config.Name)
 }
 
 type availablePropertiesBuilder struct {

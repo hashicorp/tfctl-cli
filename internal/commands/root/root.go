@@ -5,6 +5,8 @@
 package root
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/tfctl-cli/internal/commands/api"
 	"github.com/hashicorp/tfctl-cli/internal/commands/profile"
 	"github.com/hashicorp/tfctl-cli/internal/commands/run"
@@ -18,7 +20,7 @@ func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
 	c := &cmd.Command{
 		Name:      config.Name,
 		ShortHelp: "Interact with HCP Terraform and Terraform Enterprise.",
-		LongHelp:  "The tfctl command-line interface (CLI) is a unified tool for managing HCP Terraform and Terraform Enterprise from the command line.",
+		LongHelp:  fmt.Sprintf("The %s command-line interface (CLI) is a unified tool for managing HCP Terraform and Terraform Enterprise from the command line.", config.Name),
 	}
 
 	//  _   _  ___ _____ _____

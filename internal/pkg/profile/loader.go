@@ -14,15 +14,18 @@ import (
 	"unicode"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/net/idna"
+
+	"github.com/hashicorp/tfctl-cli/internal/config"
+)
+
+var (
+	// ConfigDir is the directory that contains CLI configuration.
+	ConfigDir = fmt.Sprintf("~/.config/%s/", config.Name)
 )
 
 const (
-	// ConfigDir is the directory that contains CLI configuration.
-	ConfigDir = "~/.config/tfctl/"
-
 	// ProfileDir is the directory that contains CLI configuration profiles.
 	ProfileDir = "profiles/"
 

@@ -156,7 +156,7 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		global:        true,
 	}, &Flag{
 		Name:          "version",
-		Description:   "Print the version of tfctl CLI.",
+		Description:   fmt.Sprintf("Print the version of %s CLI.", config.Name),
 		Value:         flagvalue.Simple(false, &ctx.flags.Version),
 		IsBooleanFlag: true,
 		global:        true,
@@ -309,8 +309,9 @@ func isAuthenticated(ctx *Context, c *Command, args []string) error {
 func authHelp(io iostreams.IOStreams) error {
 	cs := io.ColorScheme()
 	help := heredoc.Docf(`
-No authentication detected. To get started with tfctl CLI, please run:  %s`,
-		cs.String("tfctl auth login").Bold().String())
+No authentication detected. To get started with %s CLI, please run: %s`,
+		config.Name,
+		cs.String(fmt.Sprintf("%s auth login", config.Name)).Bold().String())
 
 	return errors.New(help)
 }

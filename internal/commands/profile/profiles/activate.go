@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -21,15 +22,15 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "activate",
 		ShortHelp: "Activates an existing profile.",
-		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfctl profile profiles activate" }} command activates an existing profile.
-		`),
+		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		The {{ template "mdCodeOrBold" "%s profile profiles activate" }} command activates an existing profile.
+		`, config.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: heredoc.New(ctx.IO).Must(`
 				To active profile {{ template "mdCodeOrBold" "my-profile" }}, run:
 				`),
-				Command: "$ tfctl profile profiles activate my-profile",
+				Command: fmt.Sprintf("$ %s profile profiles activate my-profile", config.Name),
 			},
 		},
 		Args: cmd.PositionalArguments{

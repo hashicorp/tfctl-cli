@@ -5,6 +5,7 @@
 package variable
 
 import (
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 )
@@ -14,10 +15,10 @@ func NewCmdVariable(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "variable",
 		ShortHelp: "Manage variables in workspaces or variable sets.",
-		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfctl variable" }} command group lets you manage Terraform or
+		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		The {{ template "mdCodeOrBold" "%s variable" }} command group lets you manage Terraform or
 		environment variables belonging to Workspaces or Variable Sets.
-		`),
+		`, config.Name),
 	}
 
 	cmd.AddChild(NewCmdVariableImport(ctx))

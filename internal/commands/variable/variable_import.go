@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
@@ -53,11 +54,11 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "import",
 		ShortHelp: "Import variables from .tfvars or current env into workspaces or variable sets.",
-		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfctl variable import" }} command lets you import Terraform
-		variables from .tfvars files or environment variables from the tfctl process environment into
+		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		The {{ template "mdCodeOrBold" "%s variable import" }} command lets you import Terraform
+		variables from .tfvars files or environment variables from the %s process environment into
 		Workspaces or Variable Sets.
-		`),
+		`, config.Name, config.Name),
 		Args: cmd.PositionalArguments{
 			Args: []cmd.PositionalArgument{
 				{
@@ -102,11 +103,11 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "Import terraform variables from a .tfvars file into the current workspace",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfctl variable import variables.tfvars`),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s variable import variables.tfvars`, config.Name),
 			},
 			{
-				Preamble: "Import environment variables from the tfctl process into a variable set",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfctl variable import -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --variable-set-name my-variable-set`),
+				Preamble: fmt.Sprintf("Import environment variables from the %s process into a variable set", config.Name),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s variable import -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --variable-set-name my-variable-set`, config.Name),
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/posener/complete"
 
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -24,16 +25,16 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 		Name:      "create",
 		ShortHelp: "Create a new configuration profile.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "tfctl profile profiles create" }} command creates a new named profile.
+		The {{ template "mdCodeOrBold" "%s profile profiles create" }} command creates a new named profile.
 
 		Profile names start with a letter and may contain lower case letters a-z,
 		upper case letters A-Z, digits 0-9, and underscores '_'. The maximum length for
 		a profile name is 64 characters.
-		`),
+		`, config.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: "To create a new profile, run:",
-				Command:  "$ tfctl profile profiles create my_profile",
+				Command:  fmt.Sprintf("$ %s profile profiles create my_profile", config.Name),
 			},
 		},
 		Args: cmd.PositionalArguments{
@@ -146,11 +147,11 @@ func createRun(opts *CreateOpts) error {
 	}
 
 	fmt.Fprintln(opts.IO.Err())
-	fmt.Fprintln(opts.IO.Err(), heredoc.New(opts.IO).Must(`
+	fmt.Fprintln(opts.IO.Err(), heredoc.New(opts.IO).Mustf(`
 		To initialize the newly created profile, run:
 
-		  {{ Bold "$ tfctl profile init" }}
-		`))
+		  {{ Bold "$ %s profile init" }}
+		`, config.Name))
 	fmt.Fprintln(opts.IO.Err())
 
 	return nil

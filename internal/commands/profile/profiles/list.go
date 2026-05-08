@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -24,13 +25,13 @@ func NewCmdList(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "list",
 		ShortHelp: "List existing configuration profiles.",
-		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfctl profile profiles list" }} command lists existing configuration profiles.
-		`),
+		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		The {{ template "mdCodeOrBold" "%s profile profiles list" }} command lists existing configuration profiles.
+		`, config.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: "To list existing profiles, run:",
-				Command:  "$ tfctl profile profiles list",
+				Command:  fmt.Sprintf("$ %s profile profiles list", config.Name),
 			},
 		},
 		NoAuthRequired: true,

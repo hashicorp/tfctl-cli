@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/profile/profiles"
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/ld"
@@ -22,18 +23,18 @@ import (
 func NewCmdProfile(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "profile",
-		ShortHelp: "View and edit tfctl CLI configuration properties.",
-		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfctl profile" }} command group lets you initialize,
-		set, view and unset properties used by the tfctl CLI.
+		ShortHelp: fmt.Sprintf("View and edit %s CLI configuration properties.", config.Name),
+		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		The {{ template "mdCodeOrBold" "%s profile" }} command group lets you initialize,
+		set, view and unset properties used by the %s CLI.
 
 		A profile is a collection of properties/configuration values that inform the behavior
-		of {{ template "mdCodeOrBold" "tfctl" }} CLI. You can create additional profiles
-		using {{ template "mdCodeOrBold" "tfctl profile profiles create" }}.
+		of {{ template "mdCodeOrBold" "%s" }} CLI. You can create additional profiles
+		using {{ template "mdCodeOrBold" "%s profile profiles create" }}.
 
-		To switch between profiles, use {{ template "mdCodeOrBold" "tfctl profile profiles activate" }}.
+		To switch between profiles, use {{ template "mdCodeOrBold" "%s profile profiles activate" }}.
 
-		{{ template "mdCodeOrBold" "tfctl" }} has several global flags that have matching profile properties.
+		{{ template "mdCodeOrBold" "%s" }} has several global flags that have matching profile properties.
 		Examples are the {{ template "mdCodeOrBold" "verbosity" }} and
 		{{ template "mdCodeOrBold" "organization" }} properties and their respective flags
 		{{ template "mdCodeOrBold" "--debug" }} and {{ template "mdCodeOrBold" "--organization" }}.
@@ -44,7 +45,7 @@ func NewCmdProfile(ctx *cmd.Context) *cmd.Command {
 
 		To run a command using a profile other than the active profile, pass the
 		{{ template "mdCodeOrBold" "--profile" }} flag to the command.
-		`),
+		`, config.Name, config.Name, config.Name, config.Name, config.Name, config.Name),
 	}
 
 	cmd.AddChild(NewCmdDisplay(ctx))

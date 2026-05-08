@@ -11,6 +11,7 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -24,20 +25,20 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 		Name:      "set",
 		ShortHelp: "Set a profile configuration property.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "tfctl profile set" }} command sets the specified property in your
-		active profile. A property governs the behavior of a specific aspect of the tfctl CLI.
+		The {{ template "mdCodeOrBold" "%s profile set" }} command sets the specified property in your
+		active profile. A property governs the behavior of a specific aspect of the %s CLI.
 		This could be setting the hostname and organization to target, or configuring the default
 		level of logging across commands.
 
-		To view all currently set properties, run {{ template "mdCodeOrBold" "tfctl profile display" }}
-		or run {{ template "mdCodeOrBold" "tfctl profile get" }} to get the value of an individual property.
+		To view all currently set properties, run {{ template "mdCodeOrBold" "%s profile display" }}
+		or run {{ template "mdCodeOrBold" "%s profile get" }} to get the value of an individual property.
 
-		To unset properties, use {{ template "mdCodeOrBold" "tfctl profile unset" }}.
+		To unset properties, use {{ template "mdCodeOrBold" "%s profile unset" }}.
 
-		tfctl CLI comes with a default profile but supports multiple. To create multiple
-		configurations, use {{ template "mdCodeOrBold" "tfctl profile profiles create" }},
-		and {{ template "mdCodeOrBold" "tfctl profile profiles activate" }} to switch between them.
-		`),
+		%s CLI comes with a default profile but supports multiple. To create multiple
+		configurations, use {{ template "mdCodeOrBold" "%s profile profiles create" }},
+		and {{ template "mdCodeOrBold" "%s profile profiles activate" }} to switch between them.
+		`, config.Name, config.Name, config.Name, config.Name, config.Name, config.Name, config.Name, config.Name),
 		Args: cmd.PositionalArguments{
 			Autocomplete: ctx.Profile,
 			Args: []cmd.PositionalArgument{
@@ -96,7 +97,7 @@ func setRun(opts *SetOpts) error {
 	// Validate we are not changing the name
 	if opts.Property == "name" {
 		return fmt.Errorf("to update a profile name use %s",
-			opts.IO.ColorScheme().String("tfctl profile profiles rename").Bold())
+			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile profiles rename", config.Name)).Bold())
 	}
 
 	// Validate we are setting a valid property
@@ -187,7 +188,7 @@ func setRun(opts *SetOpts) error {
 		fmt.Fprintf(opts.IO.Err(), "\n%s Hostname changed to %q. Organization and token settings have been cleared.\n",
 			opts.IO.ColorScheme().WarningLabel(), opts.Value)
 		fmt.Fprintf(opts.IO.Err(), "Please run %s to reconfigure your organization and token for this hostname.\n\n",
-			opts.IO.ColorScheme().String("tfctl profile init").Bold())
+			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile init", config.Name)).Bold())
 	}
 
 	return nil

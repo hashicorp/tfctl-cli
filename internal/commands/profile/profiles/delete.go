@@ -6,6 +6,7 @@ package profiles
 import (
 	"fmt"
 
+	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -20,29 +21,29 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "delete",
 		ShortHelp: "Delete an existing configuration profile.",
-		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfctl profile profiles delete" }} command
+		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		The {{ template "mdCodeOrBold" "%s profile profiles delete" }} command
 		deletes an existing configuration profile. If the profile is the active profile,
 		it may not be deleted.
 
-		To delete the current active profile, first run {{ template "mdCodeOrBold" "tfctl profile profiles activate" }}
+		To delete the current active profile, first run {{ template "mdCodeOrBold" "%s profile profiles activate" }}
 		to active a different profile.
-		`),
+		`, config.Name, config.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Delete a profile:",
-				Command:  "$ tfctl profile profiles delete my-profile",
+				Command:  fmt.Sprintf("$ %s profile profiles delete my-profile", config.Name),
 			},
 			{
 				Preamble: "Delete multiple profiles:",
-				Command:  "$ tfctl profile profiles delete my-profile-1 my-profile-2 my-profile-3",
+				Command:  fmt.Sprintf("$ %s profile profiles delete my-profile-1 my-profile-2 my-profile-3", config.Name),
 			},
 			{
 				Preamble: "Delete the active profile:",
-				Command: heredoc.New(ctx.IO).Must(`
-				$ tfctl profile profiles active my-other-profile
-				$ tfctl profile profiles delete my-profile
-				`),
+				Command: heredoc.New(ctx.IO).Mustf(`
+				$ %s profile profiles active my-other-profile
+				$ %s profile profiles delete my-profile
+				`, config.Name, config.Name),
 			},
 		},
 		NoAuthRequired: true,
@@ -103,7 +104,7 @@ func deleteRun(opts *DeleteOpts) error {
 	for _, toDelete := range opts.Names {
 		if toDelete == active.Name {
 			return fmt.Errorf("profile %q is the active profile and may not be deleted. Use %s to change the active configuration",
-				toDelete, cs.String("tfctl profile profiles activate").Bold())
+				toDelete, cs.String(fmt.Sprintf("%s profile profiles activate", config.Name)).Bold())
 		}
 		if _, ok := existing[toDelete]; !ok {
 			return fmt.Errorf("profile %q does not exist", toDelete)
