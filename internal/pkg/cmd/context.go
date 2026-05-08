@@ -81,6 +81,27 @@ func (ctx *Context) IsDryRun() bool {
 	return ctx.GetGlobalFlags().dryRun
 }
 
+// IsDebug returns true when debug output is enabled via --debug flag or profile verbosity.
+func (ctx *Context) IsDebug() bool {
+	v := ctx.EffectiveVerbosity()
+	return v == profile.VerbosityDebug || v == profile.VerbosityTrace
+}
+
+// EffectiveVerbosity returns the resolved verbosity level, with the --debug
+// flag taking precedence over the profile setting.
+func (ctx *Context) EffectiveVerbosity() string {
+	switch ctx.GetGlobalFlags().debug {
+	case 1:
+		return profile.VerbosityDebug
+	case 2:
+		return profile.VerbosityTrace
+	}
+	if ctx.GetGlobalFlags().debug > 2 {
+		return profile.VerbosityTrace
+	}
+	return ctx.Profile.GetVerbosity()
+}
+
 // ConfigureRootCommand should be only called on the root command. It configures
 // global flags and ensures that the context is configured based on any flags
 // set during a command invocation.
@@ -211,9 +232,9 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 	case 0:
 		// nothing
 	case 1:
-		verbosity = "debug"
+		verbosity = profile.VerbosityDebug
 	default:
-		verbosity = "trace"
+		verbosity = profile.VerbosityTrace
 	}
 
 	if verbosity != "" {
