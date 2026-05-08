@@ -12,6 +12,8 @@ import (
 
 	tfe "github.com/hashicorp/go-tfe"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -75,7 +77,8 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(_ *cmd.Command, _ []string) error {
+		RunF: func(c *cmd.Command, _ []string) error {
+			opts.Logger = c.Logger()
 			opts.DryRun = ctx.IsDryRun()
 			return loginRun(ctx, opts)
 		},
@@ -90,6 +93,7 @@ type LoginOpts struct {
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
 	Output  *format.Outputter
+	Logger  hclog.Logger
 
 	Name   string
 	Token  bool
@@ -101,6 +105,8 @@ func loginRun(cmdCtx *cmd.Context, opts *LoginOpts) error {
 	if hostname == "" {
 		hostname = defaultHostname
 	}
+
+	opts.Logger.Debug("starting login process", "hostname", hostname, "token_from_stdin", opts.Token)
 
 	// Read the token.
 	var token string
@@ -116,7 +122,7 @@ func loginRun(cmdCtx *cmd.Context, opts *LoginOpts) error {
 
 	// Set the token on the profile and create a client to verify it.
 	opts.Profile.Token = token
-	apiClient, err := cmdCtx.NewAPIClient()
+	apiClient, err := cmdCtx.NewAPIClient(opts.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}

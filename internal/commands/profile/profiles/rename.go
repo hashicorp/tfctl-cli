@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
@@ -57,8 +59,9 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			opts.ExistingName = args[0]
+			opts.Logger = c.Logger()
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
@@ -75,6 +78,7 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 // RenameOpts defines the options for the `profile profiles rename` command.
 type RenameOpts struct {
 	IO           iostreams.IOStreams
+	Logger       hclog.Logger
 	Profiles     *profile.Loader
 	ExistingName string
 	NewName      string

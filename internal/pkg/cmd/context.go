@@ -40,9 +40,6 @@ type Context struct {
 	// from the arguments.
 	flags GlobalFlags
 
-	// apiLogger is the logger used for API client HTTP tracing.
-	apiLogger hclog.Logger
-
 	Profile *profile.Profile
 }
 
@@ -85,7 +82,11 @@ func (ctx *Context) IsDryRun() bool {
 }
 
 // IsDebug returns true when debug output is enabled via --debug flag or profile verbosity.
+// Returns false if flags have not been parsed yet.
 func (ctx *Context) IsDebug() bool {
+	if !ctx.flags.parsed {
+		return false
+	}
 	v := ctx.EffectiveVerbosity()
 	return v == profile.VerbosityDebug || v == profile.VerbosityTrace
 }
@@ -191,11 +192,6 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 			return err
 		}
 
-		// Setup the API logger from the command's logger so HTTP calls
-		// are namespaced under the subcommand. Must be after applyGlobalFlags
-		// so the logger level is set.
-		ctx.apiLogger = c.Logger()
-
 		c.io = ctx.IO
 
 		err := isAuthenticated(ctx, c, args)
@@ -292,7 +288,9 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 }
 
 // NewAPIClient returns a new API Client configured using the context Profile.
-func (ctx *Context) NewAPIClient() (*client.Client, error) {
+// When debug output is enabled and a non-nil logger is provided, the client's
+// HTTP transport is wrapped to log requests and responses.
+func (ctx *Context) NewAPIClient(logger hclog.Logger) (*client.Client, error) {
 	address := ctx.Profile.Hostname
 	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
 		address = "https://" + address
@@ -303,8 +301,8 @@ func (ctx *Context) NewAPIClient() (*client.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ctx.apiLogger != nil && ctx.IsDebug() {
-		apiClient.SetLogger(ctx.apiLogger)
+	if logger != nil && ctx.IsDebug() {
+		apiClient.SetLogger(logger)
 	}
 	return apiClient, nil
 }

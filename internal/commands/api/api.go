@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
 	tfe "github.com/hashicorp/go-tfe"
@@ -43,6 +44,7 @@ const (
 type Opts struct {
 	IO           iostreams.IOStreams
 	Output       *format.Outputter
+	Logger       hclog.Logger
 	ShutdownCtx  context.Context
 	Client       *client.Client
 	Quiet        bool
@@ -220,14 +222,14 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 }}'`, config.Name),
 			},
 		},
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			if len(args) < 1 {
 				return cmd.ErrDisplayUsage
 			}
 
 			path := args[0]
 
-			apiClient, err := ctx.NewAPIClient()
+			apiClient, err := ctx.NewAPIClient(c.Logger())
 			if err != nil {
 				return fmt.Errorf("failed to create API client: %w", err)
 			}
@@ -258,6 +260,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			opts.URL = resolvedURL
 			opts.Client = apiClient
+			opts.Logger = c.Logger()
 
 			opts.Debug = ctx.IsDebug()
 			opts.Quiet = ctx.Profile.IsQuiet()

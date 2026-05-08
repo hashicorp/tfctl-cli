@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hashicorp/tfctl-cli/internal/config"
@@ -52,8 +53,9 @@ func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 			availablePropertiesDoc(ctx.IO),
 		},
 		NoAuthRequired: true,
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			opts.Property = args[0]
+			opts.Logger = c.Logger()
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
@@ -73,6 +75,7 @@ type UnsetOpts struct {
 	Ctx     context.Context
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
+	Logger  hclog.Logger
 
 	Property string
 	Profiles *profile.Loader
