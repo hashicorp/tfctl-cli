@@ -29,6 +29,8 @@ type Client struct {
 	BaseURL *url.URL
 	// DefaultHeaders are applied to every request.
 	DefaultHeaders http.Header
+	// logger is the structured logger for debug output.
+	logger hclog.Logger
 }
 
 // Request describes a raw HTTP request to send to the API.
@@ -200,13 +202,23 @@ func SummarizeAPIErrors(body []byte) string {
 	return payload.Error
 }
 
-// SetLogger attaches a debug logging transport to the API client's HTTP
-// transport. All HTTP requests and responses are logged at the debug level.
+// SetLogger attaches a logger to the API client and wraps the HTTP transport
+// to log all requests and responses at the debug level.
 func (c *Client) SetLogger(logger hclog.Logger) {
+	c.logger = logger
 	c.Adapter.Client.Transport = &loggingTransport{
 		inner:  c.Adapter.Client.Transport,
 		logger: logger,
 	}
+}
+
+// Logger returns the client's logger. Returns a no-op logger if none has been
+// set, so callers never need nil checks.
+func (c *Client) Logger() hclog.Logger {
+	if c.logger == nil {
+		return hclog.NewNullLogger()
+	}
+	return c.logger
 }
 
 // loggingTransport wraps an http.RoundTripper to log every request and response.
