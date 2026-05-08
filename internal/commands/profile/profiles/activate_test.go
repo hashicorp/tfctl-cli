@@ -6,6 +6,7 @@ package profiles
 import (
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -67,6 +68,7 @@ func TestActivate(t *testing.T) {
 
 			opts := &ActivateOpts{
 				IO:       io,
+				Logger:   hclog.NewNullLogger(),
 				Profiles: l,
 				Name:     c.Activate,
 			}
@@ -103,7 +105,7 @@ func TestActivateDryRun(t *testing.T) {
 	active.Name = "foo"
 	r.NoError(active.Write())
 
-	opts := &ActivateOpts{IO: io, Profiles: l, Name: "bar", DryRun: true}
+	opts := &ActivateOpts{IO: io, Logger: hclog.NewNullLogger(), Profiles: l, Name: "bar", DryRun: true}
 	r.NoError(activateRun(opts))
 	r.Contains(io.Error.String(), `would activate profile "bar"`)
 

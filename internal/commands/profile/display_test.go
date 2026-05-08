@@ -6,6 +6,7 @@ package profile
 import (
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -16,8 +17,6 @@ import (
 func TestDisplay(t *testing.T) {
 	t.Parallel()
 
-	io := iostreams.Test()
-	output := format.New(io)
 	p := profile.TestProfile(t)
 	p.Organization = "123"
 	p.Hostname = "app.eu.terraform.io"
@@ -26,11 +25,13 @@ func TestDisplay(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		t.Parallel()
 		r := require.New(t)
+		io := iostreams.Test()
 
 		opts := &DisplayOpts{
 			IO:      io,
+			Logger:  hclog.NewNullLogger(),
 			Profile: p,
-			Output:  output,
+			Output:  format.New(io),
 		}
 
 		r.NoError(displayRun(opts))
@@ -41,11 +42,13 @@ func TestDisplay(t *testing.T) {
 	t.Run("json", func(t *testing.T) {
 		t.Parallel()
 		r := require.New(t)
-
+		io := iostreams.Test()
+		output := format.New(io)
 		output.SetFormat(format.JSON)
 
 		opts := &DisplayOpts{
 			IO:      io,
+			Logger:  hclog.NewNullLogger(),
 			Profile: p,
 			Output:  output,
 		}

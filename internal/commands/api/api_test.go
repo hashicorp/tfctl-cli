@@ -15,10 +15,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-tfe"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/hashicorp/go-tfe"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -677,6 +677,7 @@ func newTestOpts(t *testing.T, address string, io *iostreams.Testing, mutate fun
 
 	opts := &Opts{
 		IO:          io,
+		Logger:      hclog.NewNullLogger(),
 		Output:      format.New(io),
 		ShutdownCtx: context.Background(),
 		Client:      apiClient,

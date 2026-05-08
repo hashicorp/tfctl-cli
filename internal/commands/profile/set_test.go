@@ -6,6 +6,7 @@ package profile
 import (
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -96,6 +97,7 @@ func TestSet(t *testing.T) {
 
 			o := &SetOpts{
 				IO:       io,
+				Logger:   hclog.NewNullLogger(),
 				Profile:  profile,
 				Property: c.Property,
 				Value:    c.Value,
@@ -123,6 +125,7 @@ func TestSet_Organization(t *testing.T) {
 	r.NoError(p.Write())
 	o := &SetOpts{
 		IO:       io,
+		Logger:   hclog.NewNullLogger(),
 		Profile:  p,
 		Property: "organization",
 	}
@@ -164,6 +167,7 @@ func TestSetDryRun(t *testing.T) {
 	r.NoError(p.Write())
 	o := &SetOpts{
 		IO:       io,
+		Logger:   hclog.NewNullLogger(),
 		Profile:  p,
 		Property: "organization",
 		Value:    "dry-run-org",

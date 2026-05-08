@@ -6,6 +6,7 @@ package profiles
 import (
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -86,6 +87,7 @@ func TestRename(t *testing.T) {
 
 			opts := &RenameOpts{
 				IO:           io,
+				Logger:       hclog.NewNullLogger(),
 				Profiles:     l,
 				ExistingName: c.ExistingName,
 				NewName:      c.NewName,
@@ -134,7 +136,7 @@ func TestRenameDryRun(t *testing.T) {
 	active.Name = "bar"
 	r.NoError(active.Write())
 
-	opts := &RenameOpts{IO: io, Profiles: l, ExistingName: "bar", NewName: "baz", DryRun: true}
+	opts := &RenameOpts{IO: io, Logger: hclog.NewNullLogger(), Profiles: l, ExistingName: "bar", NewName: "baz", DryRun: true}
 	r.NoError(renameRun(opts))
 	r.Contains(io.Error.String(), `would rename profile "bar" to "baz"`)
 	r.Contains(io.Error.String(), `would activate profile "baz"`)
