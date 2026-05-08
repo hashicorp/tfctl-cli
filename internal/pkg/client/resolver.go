@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-tfe/api/models"
 	"github.com/hashicorp/go-tfe/api/organizations"
@@ -77,7 +78,7 @@ func (r Resolver) RunOrCurrentRun(ctx context.Context, organization, resourceTyp
 }
 
 func (r Resolver) currentRunForWorkspace(ctx context.Context, organization, id string) (string, error) {
-	if organization != "" {
+	if organization != "" && !strings.HasPrefix(id, "ws-") {
 		ws, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Workspaces().ByWorkspace_name(id).Get(ctx, nil)
 		if err != nil {
 			return "", fmt.Errorf("resolving workspace %q: %w", id, err)
