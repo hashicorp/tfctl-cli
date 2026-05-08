@@ -5,6 +5,7 @@ package run
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/mitchellh/go-wordwrap"
@@ -144,10 +145,15 @@ func (d *summaryDisplayer) StringPayload(f format.Format) string {
 		return d.formatDiagnostics(f)
 	}
 	if d.summary.RawLog != "" {
+		if f == format.Markdown {
+			return stripANSI(d.summary.RawLog)
+		}
 		return d.summary.RawLog
 	}
 	return d.summary.Message
 }
+
+var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 func (d *summaryDisplayer) formatDiagnostics(f format.Format) string {
 	switch f {
@@ -287,4 +293,8 @@ func clamp(val, min, max int) int {
 		return max
 	}
 	return val
+}
+
+func stripANSI(s string) string {
+	return ansiEscapeRe.ReplaceAllString(s, "")
 }
