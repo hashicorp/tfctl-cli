@@ -27,15 +27,13 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "status",
 		ShortHelp: "Show the status of a run, printing diagnostics if it failed.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "%s run status" }} command inspects a Terraform Cloud run
-		and prints its current status. If the run has errored, it fetches the plan or apply log and
-		extracts diagnostic messages.
+		LongHelp: heredoc.New(ctx.IO, heredoc.WithPreserveNewlines()).Mustf(`
+		The {{ template "mdCodeOrBold" "%s run status" }} command inspects an HCP Terraform run and prints its current status. If the run has errored, it fetches the plan or apply log and extracts diagnostic messages.
 
 		The ID argument can be:
 		- A run ID ({{ template "mdCodeOrBold" "run-..." }})
 		- A workspace ID ({{ template "mdCodeOrBold" "ws-..." }}) to get the latest run
-		- A workspace name to get the latest run (requires {{ template "mdCodeOrBold" "--organization" }})
+		- A workspace name to get the latest run (may require {{ template "mdCodeOrBold" "--organization" }})
 		`, config.Name),
 		Args: cmd.PositionalArguments{
 			Args: []cmd.PositionalArgument{

@@ -22,6 +22,7 @@ func NewCmdRun(ctx *cmd.Context) *cmd.Command {
 	}
 
 	cmd.AddChild(NewCmdRunStatus(ctx))
+	cmd.AddChild(NewCmdRunStart(ctx))
 
 	return cmd
 }

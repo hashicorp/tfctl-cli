@@ -71,13 +71,23 @@ func (r Resolver) RunOrCurrentRun(ctx context.Context, organization, resourceTyp
 	case "runs":
 		return id, nil
 	case "workspaces":
-		return r.currentRunForWorkspace(ctx, organization, id)
+		return r.CurrentRunForWorkspace(ctx, organization, id)
 	default:
 		return "", fmt.Errorf("unsupported resource type %q", resourceType)
 	}
 }
 
-func (r Resolver) currentRunForWorkspace(ctx context.Context, organization, id string) (string, error) {
+// Workspace resolves a workspace ID by name and organization.
+func (r Resolver) Workspace(ctx context.Context, organization, name string) (*string, error) {
+	ws, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Workspaces().ByWorkspace_name(name).Get(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("resolving workspace %q: %w", name, err)
+	}
+	return ws.GetData().GetId(), nil
+}
+
+// CurrentRunForWorkspace resolves the current run for a given workspace, which can be identified by either ID or name (with organization).
+func (r Resolver) CurrentRunForWorkspace(ctx context.Context, organization, id string) (string, error) {
 	if organization != "" && !strings.HasPrefix(id, "ws-") {
 		ws, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Workspaces().ByWorkspace_name(id).Get(ctx, nil)
 		if err != nil {
