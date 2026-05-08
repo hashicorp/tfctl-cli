@@ -30,7 +30,7 @@ const (
 	tokenPagePath = "/app/settings/tokens?source=" + config.Name + "-login"
 )
 
-// NewCmdLogin returns the `tfcloud auth login` command for authenticating.
+// NewCmdLogin returns the `auth login` command for authenticating.
 func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 	opts := &LoginOpts{
 		Ctx:     ctx.ShutdownCtx,
@@ -42,9 +42,9 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "login",
 		ShortHelp: "Authenticate with HCP Terraform or Terraform Enterprise.",
-		LongHelp: heredoc.New(ctx.IO).Must(`
-		The {{ template "mdCodeOrBold" "tfcloud auth login" }} command authenticates
-		the tfcloud CLI with HCP Terraform or Terraform Enterprise.
+		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		The {{ template "mdCodeOrBold" "%s auth login" }} command authenticates
+		the %s CLI with HCP Terraform or Terraform Enterprise.
 
 		When {{ template "mdCodeOrBold" "--token" }} is specified, the token is read
 		from standard input. This is useful for non-interactive environments such as
@@ -53,15 +53,15 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 		When {{ template "mdCodeOrBold" "--token" }} is not specified, the browser is
 		opened to the token creation page for the configured hostname and the user is
 		prompted to paste the generated token.
-		`),
+		`, config.Name, config.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Login interactively:",
-				Command:  "$ tfcloud auth login",
+				Command:  fmt.Sprintf("$ %s auth login", config.Name),
 			},
 			{
 				Preamble: "Login with a token from stdin:",
-				Command:  "$ echo my-token | tfcloud auth login --token",
+				Command:  fmt.Sprintf("$ echo my-token | %s auth login --token", config.Name),
 			},
 		},
 		Flags: cmd.Flags{
@@ -84,7 +84,7 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
-// LoginOpts defines the options for the `tfcloud auth login` command.
+// LoginOpts defines the options for the `auth login` command.
 type LoginOpts struct {
 	Ctx     context.Context
 	IO      iostreams.IOStreams
