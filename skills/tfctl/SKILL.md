@@ -17,7 +17,7 @@ Full CLI coverage for the entire HCP Terraform API.
 1. **Choose the right output mode** — `--jq` when you need to filter/extract data; `--json` for full JSON; `--markdown` when presenting results to a human (see Output Modes below). **Never pipe to external `jq` — use `--jq` instead.**
 2. **Check context** using `tfctl profile display` before assuming configuration
 3. **API Discovery** The API is too large to document every resource. You can perform a search using `tfctl api schema search <keyword>` to find relevant operations. When you are ready to make an API request, get the full request schema in OpenAPI format using `tfctl api schema get <operationId>`
-4. **No Delete Operations** using the `tfctl api` command. All delete methods must be confimed interactively. Always prompt a human to perform delete operations themselves.
+4. **No Delete Operations** using the `tfctl api` command. All delete methods must be confirmed interactively. Always prompt a human to perform delete operations themselves.
 
 ### Output Modes
 
@@ -51,13 +51,14 @@ Walk the tree: start at `tfctl --help` for top-level commands, then drill into a
 
 ## Quick Reference
 
-| Task                  | Command                                                                   |
-|-----------------------|---------------------------------------------------------------------------|
+| Task                  | Command                                                                 |
+|-----------------------|-------------------------------------------------------------------------|
 | Find an API operation | `tfctl api schema search <keyword> --json`                              |
 | Get API schema        | `tfctl api schema get <operation>`                                      |
 | List projects         | `tfctl api /organizations/{organization}/projects --json`               |
 | Get Workspace state   | `tfctl api /organizations/{organization}/workspaces/{workspace} --json` |
-
+| Run diagnostics       | `tfctl run status {run id or workspace}`                                |
+| Start a run           | `tfctl run start {workspace}`                                           |
 
 ## API Conventions
 
@@ -96,7 +97,21 @@ Want to change something?
 
 ## Common Workflows
 
-### TO BE DOCUMENTED
+### Diagnosing run errors
+
+You can diagnose a particular run or the current run using:
+
+```bash
+$ tfctl run status ID
+```
+
+Where ID is either a run- ID, a ws- workspace ID, or a workspace name. You may need --organization flag unless there is a default organization set in the profile.
+
+If a run is in an errored state due to a configuration issue make the necessary adjustments and then start a new run with:
+
+```bash
+$ tfctl run start WORKSPACE
+```
 
 ## Common Errors and Debugging
 
@@ -159,16 +174,16 @@ tfctl api /organizations/{organization}/projects --jq '.meta.pagination.["total-
 
 ## Exit Codes
 
-| Exit | Meaning                          | Solution                    |
-|------|----------------------------------|-----------------------------|
-| 0    | OK                               | &mdash;                     |
-| 1    | Usage error                      | Read `tfctl <cmd> --help` |
-| 2    | Not Found or Authorization Error | Verify URL/ID               |
-| 3    | Authentication Error             | `tfctl auth login`        |
-| 4    | Network error                    | Check connectivity          |
-| 5    | API Server Error Persists        | Try again later             |
+| Exit | Meaning                          | Solution                              |
+|------|----------------------------------|---------------------------------------|
+| 0    | OK                               | &mdash;                               |
+| 1    | Usage error                      | Read `tfctl <cmd> --help`             |
+| 2    | Not Found or Authorization Error | Verify URL/ID                         |
+| 3    | Authentication Error             | `tfctl auth login`                    |
+| 4    | Network error                    | Check connectivity                    |
+| 5    | API Server Error Persists        | Try again later                       |
 | 6    | Underlying error detected        | Command succeeded but found a problem |
-| 130  | Canceled (ctrl-c).               | &mdash;                     |
+| 130  | Canceled (ctrl-c).               | &mdash;                               |
 
 ## Learn More
 
