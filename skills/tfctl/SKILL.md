@@ -57,8 +57,8 @@ Walk the tree: start at `tfctl --help` for top-level commands, then drill into a
 | Get API schema        | `tfctl api schema get <operation>`                                      |
 | List projects         | `tfctl api /organizations/{organization}/projects --json`               |
 | Get Workspace state   | `tfctl api /organizations/{organization}/workspaces/{workspace} --json` |
-| Run diagnostics       | `tfctl run status {run id|workspace}`                                   |
-| Start a run           | `tfctl run start {workspace}                                            |
+| Run diagnostics       | `tfctl run status {run id or workspace}`                                |
+| Start a run           | `tfctl run start {workspace}`                                           |
 
 ## API Conventions
 
@@ -174,16 +174,16 @@ tfctl api /organizations/{organization}/projects --jq '.meta.pagination.["total-
 
 ## Exit Codes
 
-| Exit | Meaning                          | Solution                    |
-|------|----------------------------------|-----------------------------|
-| 0    | OK                               | &mdash;                     |
-| 1    | Usage error                      | Read `tfctl <cmd> --help` |
-| 2    | Not Found or Authorization Error | Verify URL/ID               |
-| 3    | Authentication Error             | `tfctl auth login`        |
-| 4    | Network error                    | Check connectivity          |
-| 5    | API Server Error Persists        | Try again later             |
+| Exit | Meaning                          | Solution                              |
+|------|----------------------------------|---------------------------------------|
+| 0    | OK                               | &mdash;                               |
+| 1    | Usage error                      | Read `tfctl <cmd> --help`             |
+| 2    | Not Found or Authorization Error | Verify URL/ID                         |
+| 3    | Authentication Error             | `tfctl auth login`                    |
+| 4    | Network error                    | Check connectivity                    |
+| 5    | API Server Error Persists        | Try again later                       |
 | 6    | Underlying error detected        | Command succeeded but found a problem |
-| 130  | Canceled (ctrl-c).               | &mdash;                     |
+| 130  | Canceled (ctrl-c).               | &mdash;                               |
 
 ## Learn More
 
