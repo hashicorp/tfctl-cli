@@ -78,22 +78,22 @@ func (r Resolver) RunOrCurrentRun(ctx context.Context, organization, resourceTyp
 }
 
 // Workspace resolves a workspace ID by name and organization.
-func (r Resolver) Workspace(ctx context.Context, organization, name string) (*string, error) {
+func (r Resolver) Workspace(ctx context.Context, organization, name string) (*models.Workspaces, error) {
 	ws, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Workspaces().ByWorkspace_name(name).Get(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("resolving workspace %q: %w", name, err)
 	}
-	return ws.GetData().GetId(), nil
+	return ws.GetData().(*models.Workspaces), nil
 }
 
 // CurrentRunForWorkspace resolves the current run for a given workspace, which can be identified by either ID or name (with organization).
 func (r Resolver) CurrentRunForWorkspace(ctx context.Context, organization, id string) (string, error) {
 	if organization != "" && !strings.HasPrefix(id, "ws-") {
-		ws, err := r.client.TFE.API.Organizations().ByOrganization_name(organization).Workspaces().ByWorkspace_name(id).Get(ctx, nil)
+		ws, err := r.Workspace(ctx, organization, id)
 		if err != nil {
 			return "", fmt.Errorf("resolving workspace %q: %w", id, err)
 		}
-		return extractCurrentRunID(ws.GetData().GetRelationships().GetCurrentRun(), id)
+		return extractCurrentRunID(ws.GetRelationships().GetCurrentRun(), id)
 	}
 
 	ws, err := r.client.TFE.API.Workspaces().ByWorkspace_id(id).Get(ctx, nil)

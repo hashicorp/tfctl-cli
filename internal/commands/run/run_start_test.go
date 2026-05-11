@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 func TestRunStart(t *testing.T) {
@@ -21,11 +22,25 @@ func TestRunStart(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
 
+		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/api/v2/workspaces/ws-abc123", r.URL.Path)
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "ws-resolved", "type": "workspaces",
+					"attributes": map[string]any{
+						"name": "foobar",
+					},
+				},
+			})
+		}))
+
 		err := runStart(context.Background(), StartOpts{
 			IO:        io,
+			Profile:   profile.TestProfile(t),
 			Workspace: "ws-abc123",
 			DryRun:    true,
-		})
+			APIClient: c,
+		}, CreateOpts{})
 
 		require.NoError(t, err)
 		assert.Contains(t, io.Error.String(), "would create run for workspace ID ws-abc123")
@@ -40,7 +55,7 @@ func TestRunStart(t *testing.T) {
 			jsonapi(w, map[string]any{
 				"data": map[string]any{
 					"id": "ws-resolved", "type": "workspaces",
-					"attributes": map[string]any{},
+					"attributes": map[string]any{"name": "my-workspace"},
 				},
 			})
 		}))
@@ -48,10 +63,11 @@ func TestRunStart(t *testing.T) {
 		err := runStart(context.Background(), StartOpts{
 			IO:           io,
 			APIClient:    c,
+			Profile:      profile.TestProfile(t),
 			Workspace:    "my-workspace",
 			Organization: "my-org",
 			DryRun:       true,
-		})
+		}, CreateOpts{})
 
 		require.NoError(t, err)
 		assert.Contains(t, io.Error.String(), "would create run for workspace ID ws-resolved")
@@ -68,10 +84,11 @@ func TestRunStart(t *testing.T) {
 		err := runStart(context.Background(), StartOpts{
 			IO:           io,
 			APIClient:    c,
+			Profile:      profile.TestProfile(t),
 			Workspace:    "no-such-ws",
 			Organization: "my-org",
 			DryRun:       false,
-		})
+		}, CreateOpts{})
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "resolving workspace")
@@ -83,6 +100,13 @@ func TestRunStart(t *testing.T) {
 
 		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch route(r) {
+			case "GET /api/v2/workspaces/ws-abc123":
+				jsonapi(w, map[string]any{
+					"data": map[string]any{
+						"id": "ws-resolved", "type": "workspaces",
+						"attributes": map[string]any{"name": "foobar"},
+					},
+				})
 			case "POST /api/v2/runs":
 				jsonapi(w, map[string]any{
 					"data": map[string]any{
@@ -98,9 +122,10 @@ func TestRunStart(t *testing.T) {
 		err := runStart(context.Background(), StartOpts{
 			IO:        io,
 			APIClient: c,
+			Profile:   profile.TestProfile(t),
 			Workspace: "ws-abc123",
 			DryRun:    false,
-		})
+		}, CreateOpts{})
 
 		require.NoError(t, err)
 		assert.Contains(t, io.Error.String(), "run-new123")
@@ -117,7 +142,7 @@ func TestRunStart(t *testing.T) {
 				jsonapi(w, map[string]any{
 					"data": map[string]any{
 						"id": "ws-resolved", "type": "workspaces",
-						"attributes": map[string]any{},
+						"attributes": map[string]any{"name": "my-ws"},
 					},
 				})
 			case "POST /api/v2/runs":
@@ -135,10 +160,11 @@ func TestRunStart(t *testing.T) {
 		err := runStart(context.Background(), StartOpts{
 			IO:           io,
 			APIClient:    c,
+			Profile:      profile.TestProfile(t),
 			Workspace:    "my-ws",
 			Organization: "my-org",
 			DryRun:       false,
-		})
+		}, CreateOpts{})
 
 		require.NoError(t, err)
 		assert.Contains(t, io.Error.String(), "run-fromname")
@@ -150,6 +176,13 @@ func TestRunStart(t *testing.T) {
 
 		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch route(r) {
+			case "GET /api/v2/workspaces/ws-abc123":
+				jsonapi(w, map[string]any{
+					"data": map[string]any{
+						"id": "ws-resolved", "type": "workspaces",
+						"attributes": map[string]any{"name": "foobar"},
+					},
+				})
 			case "POST /api/v2/runs":
 				http.Error(w, "server error", http.StatusInternalServerError)
 			default:
@@ -160,9 +193,10 @@ func TestRunStart(t *testing.T) {
 		err := runStart(context.Background(), StartOpts{
 			IO:        io,
 			APIClient: c,
+			Profile:   profile.TestProfile(t),
 			Workspace: "ws-abc123",
 			DryRun:    false,
-		})
+		}, CreateOpts{})
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to start run")

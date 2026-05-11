@@ -21,7 +21,7 @@ import (
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
 )
 
-// StartOpts defines the options for the `run retry` command.
+// StartOpts defines the options for the `run start` command.
 type StartOpts struct {
 	IO           iostreams.IOStreams
 	Profile      *profile.Profile
@@ -32,6 +32,13 @@ type StartOpts struct {
 	Organization string
 }
 
+// CreateOpts defines the options for running a run start, which may be shared with other commands.
+type CreateOpts struct {
+	DebuggingMode   bool
+	Message         string
+	AllowEmptyApply bool
+}
+
 // NewCmdRunStart creates the `run start` command.
 func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 	startOpts := StartOpts{
@@ -39,6 +46,8 @@ func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 		Profile: ctx.Profile,
 		Output:  ctx.Output,
 	}
+
+	runOpts := CreateOpts{}
 
 	cmd := &cmd.Command{
 		Name:      "start",
@@ -64,6 +73,23 @@ func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 					Name:        "organization",
 					Description: "Organization name (defaults to profile or terraform cloud config context)",
 					Value:       flagvalue.Simple("", &startOpts.Organization),
+				},
+				{
+					Name:          "debugging-mode",
+					Description:   "Enables trace logging for this run by setting TF_LOG=trace in the terraform environment for this run.",
+					Value:         flagvalue.Simple(false, &runOpts.DebuggingMode),
+					IsBooleanFlag: true,
+				},
+				{
+					Name:        "message",
+					Description: "A message to attach to the run",
+					Value:       flagvalue.Simple("", &runOpts.Message),
+				},
+				{
+					Name:          "allow-empty-apply",
+					Description:   "Allow the run to proceed even if the plan has no changes. Useful for applying a side effect such as a terraform upgrade when no other changes are present.",
+					Value:         flagvalue.Simple(false, &runOpts.AllowEmptyApply),
+					IsBooleanFlag: true,
 				},
 			},
 		},
@@ -102,14 +128,14 @@ func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 
 			startOpts.APIClient = apiClient
 
-			return runStart(ctx.ShutdownCtx, startOpts)
+			return runStart(ctx.ShutdownCtx, startOpts, runOpts)
 		},
 	}
 
 	return cmd
 }
 
-func runStart(ctx context.Context, opts StartOpts) error {
+func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 	io := opts.IO
 	cs := io.ColorScheme()
 
@@ -117,12 +143,19 @@ func runStart(ctx context.Context, opts StartOpts) error {
 	id := opts.Workspace
 
 	wsID := &id
-	var err error
+	wsName := &id
 	if !strings.HasPrefix(id, "ws-") {
-		wsID, err = resolver.Workspace(ctx, opts.Organization, opts.Workspace)
+		ws, err := resolver.Workspace(ctx, opts.Organization, opts.Workspace)
 		if err != nil {
 			return err
 		}
+		wsID = ws.GetId()
+	} else {
+		response, err := opts.APIClient.TFE.API.Workspaces().ByWorkspace_id(id).Get(ctx, nil)
+		if err != nil {
+			return err
+		}
+		wsName = response.GetData().GetAttributes().GetName()
 	}
 
 	if opts.DryRun {
@@ -131,7 +164,7 @@ func runStart(ctx context.Context, opts StartOpts) error {
 		return nil
 	}
 
-	response, err := opts.APIClient.TFE.API.Runs().Post(ctx, buildRunsEnvelope(wsID), nil)
+	response, err := opts.APIClient.TFE.API.Runs().Post(ctx, buildRunsEnvelope(*wsID, runOpts), nil)
 	if err != nil {
 		return fmt.Errorf("failed to start run: %w", err)
 	}
@@ -142,16 +175,18 @@ func runStart(ctx context.Context, opts StartOpts) error {
 %s %s created. You can monitor the status of the run using:
 
 {{ Bold "$ %s run status %s" }}
-`, cs.SuccessIcon(), newRunID, config.Name, newRunID))
+
+or by visiting {{ Bold "https://%s/app/%s/workspaces/%s/runs/%s" }}
+`, cs.SuccessIcon(), newRunID, config.Name, newRunID, opts.Profile.Hostname, opts.Organization, *wsName, newRunID))
 	fmt.Fprintln(io.Err())
 	return nil
 }
 
-func buildRunsEnvelope(wsID *string) *models.RunsEnvelope {
+func buildRunsEnvelope(wsID string, ro CreateOpts) *models.RunsEnvelope {
 	wsType := models.WORKSPACES_WORKSPACESID_DATA_TYPE
 
 	workspaceIDData := models.NewWorkspacesId_data()
-	workspaceIDData.SetId(wsID)
+	workspaceIDData.SetId(&wsID)
 	workspaceIDData.SetTypeEscaped(&wsType)
 
 	workspaceID := models.NewWorkspacesId()
@@ -160,8 +195,22 @@ func buildRunsEnvelope(wsID *string) *models.RunsEnvelope {
 	relationships := models.NewRuns_relationships()
 	relationships.SetWorkspace(workspaceID)
 
+	attributes := models.NewRuns_attributes()
+	attributes.SetMessage(&ro.Message)
+	attributes.SetAllowEmptyApply(&ro.AllowEmptyApply)
+
+	if ro.DebuggingMode {
+		// This attribute is missing from the API spec! If you are reading this, it's been added by now
+		// so try this instead
+		// attributes.SetDebuggingMode(&debuggingMode)
+		attributes.SetAdditionalData(map[string]any{
+			"debugging-mode": true,
+		})
+	}
+
 	runData := &models.Runs{}
 	runData.SetRelationships(relationships)
+	runData.SetAttributes(attributes)
 
 	result := models.NewRunsEnvelope()
 	result.SetData(runData)
