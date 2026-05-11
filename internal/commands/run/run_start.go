@@ -139,13 +139,14 @@ func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 	io := opts.IO
 	cs := io.ColorScheme()
 
-	resolver := client.NewResolver(opts.APIClient, false, false)
+	resolver := client.NewResolver(opts.APIClient, false, opts.DryRun)
 	id := opts.Workspace
 
 	wsID := &id
-	wsName := &id
+	var ws *models.Workspaces
+	var err error
 	if !strings.HasPrefix(id, "ws-") {
-		ws, err := resolver.Workspace(ctx, opts.Organization, opts.Workspace)
+		ws, err = resolver.Workspace(ctx, opts.Organization, opts.Workspace)
 		if err != nil {
 			return err
 		}
@@ -155,8 +156,10 @@ func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 		if err != nil {
 			return err
 		}
-		wsName = response.GetData().GetAttributes().GetName()
+		ws = response.GetData().(*models.Workspaces)
 	}
+
+	organizationName := ws.GetRelationships().GetOrganization().GetData().GetId()
 
 	if opts.DryRun {
 		fmt.Fprintf(opts.IO.Err(), "%s would create run for workspace ID %s\n",
@@ -177,7 +180,7 @@ func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 {{ Bold "$ %s run status %s" }}
 
 or by visiting {{ Bold "https://%s/app/%s/workspaces/%s/runs/%s" }}
-`, cs.SuccessIcon(), newRunID, config.Name, newRunID, opts.Profile.Hostname, opts.Organization, *wsName, newRunID))
+`, cs.SuccessIcon(), newRunID, config.Name, newRunID, opts.Profile.Hostname, *organizationName, *ws.GetAttributes().GetName(), newRunID))
 	fmt.Fprintln(io.Err())
 	return nil
 }

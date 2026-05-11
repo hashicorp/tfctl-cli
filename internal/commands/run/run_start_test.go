@@ -5,6 +5,7 @@ package run
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -29,6 +30,13 @@ func TestRunStart(t *testing.T) {
 					"id": "ws-resolved", "type": "workspaces",
 					"attributes": map[string]any{
 						"name": "foobar",
+					},
+					"relationships": map[string]any{
+						"organization": map[string]any{
+							"data": map[string]any{
+								"id": "org-resolved", "type": "organizations",
+							},
+						},
 					},
 				},
 			})
@@ -56,6 +64,13 @@ func TestRunStart(t *testing.T) {
 				"data": map[string]any{
 					"id": "ws-resolved", "type": "workspaces",
 					"attributes": map[string]any{"name": "my-workspace"},
+					"relationships": map[string]any{
+						"organization": map[string]any{
+							"data": map[string]any{
+								"id": "org-resolved", "type": "organizations",
+							},
+						},
+					},
 				},
 			})
 		}))
@@ -105,6 +120,13 @@ func TestRunStart(t *testing.T) {
 					"data": map[string]any{
 						"id": "ws-resolved", "type": "workspaces",
 						"attributes": map[string]any{"name": "foobar"},
+						"relationships": map[string]any{
+							"organization": map[string]any{
+								"data": map[string]any{
+									"id": "org-resolved", "type": "organizations",
+								},
+							},
+						},
 					},
 				})
 			case "POST /api/v2/runs":
@@ -143,6 +165,13 @@ func TestRunStart(t *testing.T) {
 					"data": map[string]any{
 						"id": "ws-resolved", "type": "workspaces",
 						"attributes": map[string]any{"name": "my-ws"},
+						"relationships": map[string]any{
+							"organization": map[string]any{
+								"data": map[string]any{
+									"id": "org-resolved", "type": "organizations",
+								},
+							},
+						},
 					},
 				})
 			case "POST /api/v2/runs":
@@ -170,6 +199,63 @@ func TestRunStart(t *testing.T) {
 		assert.Contains(t, io.Error.String(), "run-fromname")
 	})
 
+	t.Run("successful start with create options", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+
+		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch route(r) {
+			case "GET /api/v2/organizations/my-org/workspaces/my-ws":
+				jsonapi(w, map[string]any{
+					"data": map[string]any{
+						"id": "ws-resolved", "type": "workspaces",
+						"attributes": map[string]any{"name": "my-ws"},
+						"relationships": map[string]any{
+							"organization": map[string]any{
+								"data": map[string]any{
+									"id": "org-resolved", "type": "organizations",
+								},
+							},
+						},
+					},
+				})
+			case "POST /api/v2/runs":
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				data := body["data"].(map[string]any)
+				attrs := data["attributes"].(map[string]any)
+				assert.Equal(t, true, attrs["debugging-mode"])
+				assert.Equal(t, "test start", attrs["message"])
+				assert.Equal(t, true, attrs["allow-empty-apply"])
+
+				jsonapi(w, map[string]any{
+					"data": map[string]any{
+						"id": "run-fromname", "type": "runs",
+						"attributes": map[string]any{"status": "pending"},
+					},
+				})
+			default:
+				http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+			}
+		}))
+
+		err := runStart(context.Background(), StartOpts{
+			IO:           io,
+			APIClient:    c,
+			Profile:      profile.TestProfile(t),
+			Workspace:    "my-ws",
+			Organization: "my-org",
+			DryRun:       false,
+		}, CreateOpts{
+			DebuggingMode:   true,
+			Message:         "test start",
+			AllowEmptyApply: true,
+		})
+
+		require.NoError(t, err)
+		assert.Contains(t, io.Error.String(), "run-fromname")
+	})
+
 	t.Run("API error on run creation", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
@@ -181,6 +267,13 @@ func TestRunStart(t *testing.T) {
 					"data": map[string]any{
 						"id": "ws-resolved", "type": "workspaces",
 						"attributes": map[string]any{"name": "foobar"},
+						"relationships": map[string]any{
+							"organization": map[string]any{
+								"data": map[string]any{
+									"id": "org-resolved", "type": "organizations",
+								},
+							},
+						},
 					},
 				})
 			case "POST /api/v2/runs":
