@@ -17,7 +17,7 @@ Full CLI coverage for the entire HCP Terraform API.
 1. **Choose the right output mode** — `--jq` when you need to filter/extract data; `--json` for full JSON; `--markdown` when presenting results to a human (see Output Modes below). **Never pipe to external `jq` — use `--jq` instead.**
 2. **Check context** using `tfctl profile display` before assuming configuration
 3. **API Discovery** The API is too large to document every resource. You can perform a search using `tfctl api schema search <keyword>` to find relevant operations. When you are ready to make an API request, get the full request schema in OpenAPI format using `tfctl api schema get <operationId>`
-4. **No Delete Operations** using the `tfctl api` command. All delete methods must be confimed interactively. Always prompt a human to perform delete operations themselves.
+4. **No Delete Operations** using the `tfctl api` command. All delete methods must be confirmed interactively. Always prompt a human to perform delete operations themselves.
 
 ### Output Modes
 
