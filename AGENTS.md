@@ -14,5 +14,5 @@ A CLI for interacting with HCP Terraform and Terraform Enterprise in several way
 
 ## Testing instructions
 - Test: `go test ./... -run "<MyTestFunc>"`
-- Line: `golangci-lint run`
+- Lint: `golangci-lint run`
 - Test for regressions: `go test ./... -race`
