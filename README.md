@@ -1,10 +1,18 @@
 ## tfctl: The HCP Terraform CLI
 
-Effectively interact with the HCP Terraform platform.
+Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise platform.
 
 ![tfctl](assets/tfctl.png "tfctl")
 
-#### Quick Start
+### Quick Start / Early Access
+
+If you have a go environment, clone the repo and run `make go/install`. Binary releases available soon.
+
+**Install Shell Completion**
+
+```bash
+$ tfctl --autocomplete-install
+```
 
 tfctl uses a host-centric, layered configuration with a logical precedence. Configuration commands
 do not yet exist in the CLI, so start by writing this file to `$HOME/.config/tfctl/profiles/default.hcl`
@@ -17,7 +25,10 @@ hostname     = "app.staging.terraform.io"
 token        = "TOKEN"
 ```
 
-```
+```bash
+# See status/diagnose Workspace current run
+tfctl run status my-workspace
+
 # Migrate a tfvars file to the current workspace
 tfctl variable import bigsecret.tfvars
 
@@ -44,21 +55,7 @@ tfctl api /organizations/acme/projects -input my-project.json
 tfctl api /organizations/acme/workspaces --all -f "sort=-current-run.created-at"
 ```
 
-#### Shell Completion
-
-**Install**
-
-```
-$ tfctl --autocomplete-install
-```
-
-**Uninstall**
-
-```
-$ tfctl --autocomplete-uninstall
-```
-
-#### Configuration Reference
+### Configuration Reference
 
 **Profile-level Configuration**
 
@@ -83,7 +80,7 @@ If information is not found in the profile, the following environment variables 
 
 `TF_TOKEN_<hostname>`: An API token to use with the specified hostname with punycode formatting, e.g. `TF_TOKEN_app_terraform_io`, only used if the token is not specified in any other way.
 
-#### Usage
+### Usage
 
 You can use `tfctl <command> --help` for detailed usage instructions.
 
@@ -91,15 +88,22 @@ You can use `tfctl <command> --help` for detailed usage instructions.
 
 Perform an API request. See `tfctl api --help` for usage and examples.
 
-#### Exit Codes
+### Exit Codes
 
-| Exit | Meaning                          | Solution                    |
-|------|----------------------------------|-----------------------------|
-| 0    | OK                               | &mdash;                     |
-| 1    | Usage error                      | Read `tfctl <cmd> --help` |
-| 2    | Not Found or Authorization Error | Verify URL/ID               |
-| 3    | Authentication Error             | `tfctl auth login`        |
-| 4    | Network error                    | Check connectivity          |
-| 5    | API Server Error Persists        | Try again later             |
+| Exit | Meaning                          | Solution                              |
+|------|----------------------------------|---------------------------------------|
+| 0    | OK                               | &mdash;                               |
+| 1    | Usage error                      | Read `tfctl <cmd> --help`             |
+| 2    | Not Found or Authorization Error | Verify URL/ID                         |
+| 3    | Authentication Error             | `tfctl auth login`                    |
+| 4    | Network error                    | Check connectivity                    |
+| 5    | API Server Error Persists        | Try again later                       |
 | 6    | Underlying error detected        | Command succeeded but found a problem |
-| 130  | Canceled (ctrl-c).               | &mdash;                     |
+| 130  | Canceled (ctrl-c).               | &mdash;                               |
+
+
+**Uninstall Shell Completions**
+
+```bash
+$ tfctl --autocomplete-uninstall
+```
