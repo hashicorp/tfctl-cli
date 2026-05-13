@@ -150,9 +150,17 @@ func ResolveURL(base url.URL, path string) (*url.URL, error) {
 	}
 
 	resolved := base
-	resolved.Path = strings.TrimRight(base.Path, "/") + parsed.Path
+	basePath := strings.TrimRight(base.Path, "/")
+	resolved.Path = basePath + parsed.Path
+	resolved.RawPath = "" // clear any base RawPath; re-set below if needed
 	resolved.RawQuery = parsed.RawQuery
 	resolved.Fragment = parsed.Fragment
+
+	// Preserve RawPath so percent-encoded separators (e.g. %2F) are not
+	// decoded into literal slashes, which would alter the path hierarchy.
+	if parsed.RawPath != "" {
+		resolved.RawPath = basePath + parsed.RawPath
+	}
 
 	return &resolved, nil
 }
