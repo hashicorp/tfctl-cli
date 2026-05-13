@@ -241,6 +241,66 @@ func TestRunAPI_ExplicitMethodHeadersAndQuery(t *testing.T) {
 	require.Equal(t, "organization", req.Query.Get("include"))
 }
 
+func TestRunAPI_InlineQueryParamsSparseFieldsets(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"GET /api/v2/organizations/my-org/workspaces?fields%5Bworkspaces%5D=name": func(w http.ResponseWriter, r *http.Request) {
+			writeJSONAPIResponse(w, http.StatusOK, map[string]any{
+				"data": []any{
+					map[string]any{
+						"id":         "ws-1",
+						"type":       "workspaces",
+						"attributes": map[string]any{"name": "alpha"},
+					},
+				},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/organizations/my-org/workspaces?fields[workspaces]=name")
+	}))
+	require.NoError(t, err)
+
+	req := recorder.Last()
+	require.Equal(t, "GET", req.Method)
+	require.Equal(t, "/api/v2/organizations/my-org/workspaces", req.Path)
+	require.Equal(t, "name", req.Query.Get("fields[workspaces]"))
+}
+
+func TestRunAPI_InlineQueryParamsMergedWithFlags(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"GET /api/v2/workspaces?fields%5Bworkspaces%5D=name&include=organization": func(w http.ResponseWriter, r *http.Request) {
+			writeJSONAPIResponse(w, http.StatusOK, map[string]any{
+				"data": []any{
+					map[string]any{
+						"id":         "ws-1",
+						"type":       "workspaces",
+						"attributes": map[string]any{"name": "alpha"},
+					},
+				},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces?fields[workspaces]=name")
+		opts.Query = map[string]string{"include": "organization"}
+	}))
+	require.NoError(t, err)
+
+	req := recorder.Last()
+	require.Equal(t, "name", req.Query.Get("fields[workspaces]"))
+	require.Equal(t, "organization", req.Query.Get("include"))
+}
+
 func TestRunAPI_Paginate(t *testing.T) {
 	t.Parallel()
 
