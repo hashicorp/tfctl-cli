@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
@@ -91,6 +92,14 @@ func newFakeStatusTFE(t *testing.T, username, tokenType, tokenID, expiredAt stri
 	return srv
 }
 
+// newStatusClient returns a *client.Client pointed at srv, for use in StatusOpts.
+func newStatusClient(t *testing.T, srv *httptest.Server) *client.Client {
+	t.Helper()
+	c, err := client.New(srv.URL, "test-token", nil)
+	require.NoError(t, err)
+	return c
+}
+
 func TestStatus_Success(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
@@ -105,10 +114,11 @@ func TestStatus_Success(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
-		IO:      io,
-		Profile: p,
-		Output:  output,
+		Ctx:       context.Background(),
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
 	}
 
 	r.NoError(runStatus(opts))
@@ -131,10 +141,11 @@ func TestStatus_Success_NoExpiration(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
-		IO:      io,
-		Profile: p,
-		Output:  output,
+		Ctx:       context.Background(),
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
 	}
 
 	r.NoError(runStatus(opts))
@@ -157,10 +168,11 @@ func TestStatus_Success_NoTokenLink(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
-		IO:      io,
-		Profile: p,
-		Output:  output,
+		Ctx:       context.Background(),
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
 	}
 
 	r.NoError(runStatus(opts))
@@ -183,10 +195,11 @@ func TestStatus_Unauthorized(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
-		IO:      io,
-		Profile: p,
-		Output:  output,
+		Ctx:       context.Background(),
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
 	}
 
 	err := runStatus(opts)
@@ -235,10 +248,11 @@ func TestStatus_JSONOutput(t *testing.T) {
 	output.SetFormat(format.JSON)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
-		IO:      io,
-		Profile: p,
-		Output:  output,
+		Ctx:       context.Background(),
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
 	}
 
 	r.NoError(runStatus(opts))
@@ -263,10 +277,11 @@ func TestStatus_MarkdownOutput(t *testing.T) {
 	output.SetFormat(format.Markdown)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
-		IO:      io,
-		Profile: p,
-		Output:  output,
+		Ctx:       context.Background(),
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
 	}
 
 	r.NoError(runStatus(opts))
@@ -288,10 +303,11 @@ func TestStatus_OrganizationToken(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
-		IO:      io,
-		Profile: p,
-		Output:  output,
+		Ctx:       context.Background(),
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
 	}
 
 	r.NoError(runStatus(opts))
@@ -313,10 +329,11 @@ func TestStatus_TeamToken(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
-		IO:      io,
-		Profile: p,
-		Output:  output,
+		Ctx:       context.Background(),
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
 	}
 
 	r.NoError(runStatus(opts))
@@ -339,10 +356,11 @@ func TestStatus_QuietMode(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
-		IO:      io,
-		Profile: p,
-		Output:  output,
+		Ctx:       context.Background(),
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
 	}
 
 	r.NoError(runStatus(opts))

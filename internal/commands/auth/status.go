@@ -44,6 +44,13 @@ func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
 		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
+			if ctx.Profile.Token != "" {
+				apiClient, err := ctx.NewAPIClient()
+				if err != nil {
+					return fmt.Errorf("failed to create API client: %w", err)
+				}
+				opts.APIClient = apiClient
+			}
 			return runStatus(opts)
 		},
 	}
@@ -53,10 +60,11 @@ func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
 
 // StatusOpts defines the options for the `auth status` command.
 type StatusOpts struct {
-	Ctx     context.Context
-	IO      iostreams.IOStreams
-	Profile *profile.Profile
-	Output  *format.Outputter
+	Ctx       context.Context
+	IO        iostreams.IOStreams
+	Profile   *profile.Profile
+	Output    *format.Outputter
+	APIClient *client.Client
 }
 
 // StatusResult is the structured output for auth status.
@@ -79,15 +87,7 @@ func runStatus(opts *StatusOpts) error {
 		return displayUnauthorized(opts, hostname)
 	}
 
-	// Build a one-off API client from the profile.
-	address := opts.Profile.Hostname
-	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
-		address = "https://" + address
-	}
-	apiClient, err := client.New(address, opts.Profile.Token, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
+	apiClient := opts.APIClient
 
 	// Call /account/details.
 	resp, err := apiClient.TFE.API.Account().Details().Get(opts.Ctx, nil)
