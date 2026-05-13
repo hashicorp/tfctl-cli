@@ -6,12 +6,9 @@ package auth
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
-
-	tfe "github.com/hashicorp/go-tfe"
 
 	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
@@ -65,8 +62,8 @@ type StatusOpts struct {
 // StatusResult is the structured output for auth status.
 type StatusResult struct {
 	Hostname  string     `json:"hostname"`
-	Username  string     `json:"username"`
-	TokenType string     `json:"token_type"`
+	Username  string     `json:"username,omitempty"`
+	TokenType string     `json:"token_type,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	Active    bool       `json:"active"`
 }
@@ -77,12 +74,9 @@ func runStatus(opts *StatusOpts) error {
 		hostname = defaultHostname
 	}
 
-	cs := opts.IO.ColorScheme()
-
 	// No token configured at all.
 	if opts.Profile.Token == "" {
-		fmt.Fprintf(opts.IO.Err(), "%s Unauthorized for %s\n", cs.FailureIcon(), hostname)
-		return cmd.ErrUnderlyingError
+		return displayUnauthorized(opts, hostname)
 	}
 
 	// Build a one-off API client from the profile.
@@ -98,13 +92,7 @@ func runStatus(opts *StatusOpts) error {
 	// Call /account/details.
 	resp, err := apiClient.TFE.API.Account().Details().Get(opts.Ctx, nil)
 	if err != nil {
-		fmt.Fprintf(opts.IO.Err(), "%s Unauthorized for %s\n", cs.FailureIcon(), hostname)
-
-		var apiErr *tfe.APIError
-		if errors.As(err, &apiErr) {
-			return cmd.ErrUnderlyingError
-		}
-		return cmd.ErrUnderlyingError
+		return displayUnauthorized(opts, hostname)
 	}
 
 	data := resp.GetData()
@@ -162,11 +150,28 @@ func runStatus(opts *StatusOpts) error {
 	return opts.Output.Display(&statusDisplayer{result: result, io: opts.IO})
 }
 
+// displayUnauthorized emits a machine-readable inactive result for JSON/agent
+// consumers and writes the human-readable failure message to stderr. It always
+// returns cmd.ErrUnderlyingError so callers can tail-call it.
+func displayUnauthorized(opts *StatusOpts, hostname string) error {
+	if opts.Output.GetFormat().IsJSONOrAgent() {
+		result := &StatusResult{Active: false, Hostname: hostname}
+		// Best-effort: ignore display errors since we are already in a failure path.
+		_ = opts.Output.Display(&statusDisplayer{result: result, io: opts.IO})
+	}
+	cs := opts.IO.ColorScheme()
+	fmt.Fprintf(opts.IO.Err(), "%s Unauthorized for %s\n", cs.FailureIcon(), hostname)
+	return cmd.ErrUnderlyingError
+}
+
 // fetchTokenExpiration follows the auth-token link and returns the expiration
 // time if available. Returns nil on any error (best-effort).
 func fetchTokenExpiration(ctx context.Context, apiClient *client.Client, path string) *time.Time {
-	// The path from the API is absolute (e.g., /api/v2/authentication-tokens/at-xxx).
-	// Build the URL from the base URL's scheme+host, not using the full API base path.
+	// The path from the API is already root-absolute (e.g. /api/v2/authentication-tokens/at-xxx),
+	// so we replace BaseURL.Path entirely rather than appending to it.
+	// Do NOT use client.ResolveURL here: that helper appends to the base path
+	// (which already contains /api/v2), which would produce a double-prefixed
+	// path like /api/v2/api/v2/authentication-tokens/at-xxx.
 	tokenURL := *apiClient.BaseURL
 	tokenURL.Path = path
 	tokenURL.RawQuery = ""
