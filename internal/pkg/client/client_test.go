@@ -20,10 +20,11 @@ func TestResolveURL(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		path     string
-		wantPath string
-		wantRaw  string
+		name        string
+		path        string
+		wantPath    string
+		wantRawPath string
+		wantRaw     string
 	}{
 		{
 			name:     "simple path",
@@ -55,6 +56,13 @@ func TestResolveURL(t *testing.T) {
 			wantPath: "/api/v2/workspaces",
 			wantRaw:  "page%5Bnumber%5D=2&page%5Bsize%5D=50",
 		},
+		{
+			name:        "percent-encoded path segment",
+			path:        "/workspaces/my%2Fworkspace/runs",
+			wantPath:    "/api/v2/workspaces/my/workspace/runs",
+			wantRawPath: "/api/v2/workspaces/my%2Fworkspace/runs",
+			wantRaw:     "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -63,6 +71,7 @@ func TestResolveURL(t *testing.T) {
 			got, err := ResolveURL(base, tt.path)
 			require.NoError(t, err)
 			require.Equal(t, tt.wantPath, got.Path)
+			require.Equal(t, tt.wantRawPath, got.RawPath)
 			require.Equal(t, tt.wantRaw, got.Query().Encode())
 		})
 	}
