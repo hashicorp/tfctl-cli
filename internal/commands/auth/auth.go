@@ -22,5 +22,6 @@ func NewCmdAuth(ctx *cmd.Context) *cmd.Command {
 	}
 
 	cmd.AddChild(NewCmdLogin(ctx))
+	cmd.AddChild(NewCmdStatus(ctx))
 	return cmd
 }
