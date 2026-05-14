@@ -43,9 +43,9 @@ func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(_ *cmd.Command, _ []string) error {
+		RunF: func(c *cmd.Command, _ []string) error {
 			if ctx.Profile.Token != "" {
-				apiClient, err := ctx.NewAPIClient()
+				apiClient, err := ctx.NewAPIClient(c.Logger())
 				if err != nil {
 					return fmt.Errorf("failed to create API client: %w", err)
 				}
