@@ -234,16 +234,6 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("failed to create API client: %w", err)
 			}
 
-			// Attach debug logging transport before resolution so resolver
-			// HTTP calls are visible in --debug output.
-			debug := ctx.IsDebug()
-			if debug {
-				apiClient.Adapter.Client.Transport = &debugTransport{
-					inner: apiClient.Adapter.Client.Transport,
-					w:     ctx.IO.Err(),
-				}
-			}
-
 			// Resolve path params ({workspace}, {organization}, etc.) before URL resolution.
 			if strings.Contains(path, "{") {
 				resolvedPath, resolveErr := resolvePathParamsFromContext(ctx, apiClient, path, opts.PathParams)
