@@ -445,7 +445,7 @@ func (o *Outputter) outputPretty(d Displayer) error {
 		p = d.Payload()
 	}
 
-	tmpl, err := template.New("cli").Parse(prettyPrintTemplate(d))
+	tmpl, err := template.New("cli").Parse(prettyPrintTemplate(d, o.io.ColorScheme()))
 	if err != nil {
 		return err
 	}
@@ -481,7 +481,7 @@ func (o *Outputter) outputPretty(d Displayer) error {
 
 // prettyPrintTemplate returns a text/template string for pretty printing the
 // given payload. The template will align the values so they are easily scannable.
-func prettyPrintTemplate(d Displayer) string {
+func prettyPrintTemplate(d Displayer, cs *iostreams.ColorScheme) string {
 	// Write to the buffer using a tabwriter. The Tabwriter will ensure that
 	// each key/value is aligned.
 	var buf bytes.Buffer
@@ -490,7 +490,11 @@ func prettyPrintTemplate(d Displayer) string {
 	// Go through each field and output a new line
 	fields := d.FieldTemplates()
 	for i, f := range fields {
-		fmt.Fprintf(w, "%s:\t%s", f.Name, f.ValueFormat)
+		fmt.Fprint(w, cs.String(f.Name).Bold().Color(cs.LightGreen()).String())
+		fmt.Fprint(w, ":\t")
+		// Limitation of field templates: ValueFormat is a text template but without the context of
+		// io/heredoc template functions.
+		fmt.Fprint(w, f.ValueFormat)
 		if i != len(fields)-1 {
 			fmt.Fprintln(w)
 		}

@@ -93,13 +93,14 @@ func (f *Formatter) templateFuncs(t *template.Template) template.FuncMap {
 func getColor(cs *iostreams.ColorScheme, c string) (iostreams.Color, error) {
 	c = strings.ToLower(c)
 	valid := map[string]func() iostreams.Color{
-		"white":  cs.White,
-		"black":  cs.Black,
-		"red":    cs.Red,
-		"green":  cs.Green,
-		"orange": cs.Orange,
-		"yellow": cs.Yellow,
-		"gray":   cs.Gray,
+		"white":      cs.White,
+		"black":      cs.Black,
+		"red":        cs.Red,
+		"green":      cs.Green,
+		"orange":     cs.Orange,
+		"yellow":     cs.Yellow,
+		"gray":       cs.Gray,
+		"lightgreen": cs.LightGreen,
 	}
 
 	if strings.HasPrefix(c, "#") {
