@@ -4,6 +4,7 @@
 package run
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -20,8 +21,21 @@ import (
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
 )
 
+// StatusOpts stores the options parsed from flags for the run status command.
+type StatusOpts struct {
+	IO           iostreams.IOStreams
+	ShutdownCtx  context.Context
+	Output       *format.Outputter
+	Client       *client.Client
+	Organization string
+	ID           string
+}
+
 // NewCmdRunStatus creates the `run status` command.
 func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
+	opts := &StatusOpts{
+		IO: ctx.IO,
+	}
 	var organization string
 
 	cmd := &cmd.Command{
@@ -83,48 +97,53 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
-			resolver := client.NewResolver(apiClient, false, false)
+			opts.ShutdownCtx = ctx.ShutdownCtx
+			opts.Output = ctx.Output
+			opts.Client = apiClient
+			opts.Organization = org
+			opts.ID = args[0]
 
-			id := args[0]
-			resourceType := "workspaces"
-			switch {
-			case strings.HasPrefix(id, "run-"):
-				resourceType = "runs"
-			case strings.HasPrefix(id, "ws-"):
-				resourceType = "workspaces"
-			default:
-				if org == "" {
-					return fmt.Errorf("--organization is required when specifying a workspace name")
-				}
-			}
-
-			logger := c.Logger(ctx)
-			logger.Debug("resolving run", "id", id, "type", resourceType, "organization", org)
-
-			runID, err := resolver.RunOrCurrentRun(ctx.ShutdownCtx, org, resourceType, id)
-			if err != nil {
-				return err
-			}
-
-			logger.Debug("fetching run summary", "run_id", runID)
-
-			summary, err := client.NewRunSummary(ctx.ShutdownCtx, apiClient.TFE.API, runID)
-			if err != nil {
-				return err
-			}
-
-			if err := ctx.Output.Display(&summaryDisplayer{summary: summary, io: ctx.IO}); err != nil {
-				return err
-			}
-
-			if summary.Status == "errored" {
-				return cmd.ErrUnderlyingError
-			}
-			return nil
+			return runStatus(opts)
 		},
 	}
 
 	return cmd
+}
+
+func runStatus(opts *StatusOpts) error {
+	resolver := client.NewResolver(opts.Client, false, false)
+
+	id := opts.ID
+	resourceType := "workspaces"
+	switch {
+	case strings.HasPrefix(id, "run-"):
+		resourceType = "runs"
+	case strings.HasPrefix(id, "ws-"):
+		resourceType = "workspaces"
+	default:
+		if opts.Organization == "" {
+			return fmt.Errorf("--organization is required when specifying a workspace name")
+		}
+	}
+
+	runID, err := resolver.RunOrCurrentRun(opts.ShutdownCtx, opts.Organization, resourceType, id)
+	if err != nil {
+		return err
+	}
+
+	summary, err := client.NewRunSummary(opts.ShutdownCtx, opts.Client.TFE.API, runID)
+	if err != nil {
+		return err
+	}
+
+	if err := opts.Output.Display(&summaryDisplayer{summary: summary, io: opts.IO}); err != nil {
+		return err
+	}
+
+	if summary.Status == "errored" {
+		return cmd.ErrUnderlyingError
+	}
+	return nil
 }
 
 // summaryDisplayer implements format.Displayer and format.StringPayload.
