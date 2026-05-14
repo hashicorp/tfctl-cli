@@ -142,8 +142,14 @@ func buildRunSummary(ctx context.Context, c *Client, runID string, status models
 
 	case models.POLICY_OVERRIDE_RUNS_ATTRIBUTES_STATUS:
 		result.Message = "Run awaiting policy override"
+		if err := populatePolicySummary(ctx, c, runID, result); err != nil {
+			return nil, err
+		}
 	case models.POLICY_SOFT_FAILED_RUNS_ATTRIBUTES_STATUS:
 		result.Message = "Run has soft-failed policies"
+		if err := populatePolicySummary(ctx, c, runID, result); err != nil {
+			return nil, err
+		}
 
 	case models.ERRORED_RUNS_ATTRIBUTES_STATUS:
 		result.Message = "Run errored"
@@ -156,6 +162,22 @@ func buildRunSummary(ctx context.Context, c *Client, runID string, status models
 	}
 
 	return result, nil
+}
+
+// populatePolicySummary fetches policy failure details for runs in
+// policy_soft_failed or policy_override status. It tries legacy Sentinel
+// policy checks first, then falls back to task stages (OPA evaluations).
+func populatePolicySummary(ctx context.Context, c *Client, runID string, result *RunSummary) error {
+	result.Phase = "policy_check"
+
+	if err := populatePolicyCheckSummary(ctx, c, runID, result); err != nil {
+		return err
+	}
+	if result.PolicyCheckLog != "" {
+		return nil
+	}
+
+	return populateTaskStageSummary(ctx, c, runID, result)
 }
 
 func populateErroredSummary(ctx context.Context, c *Client, runID string, result *RunSummary) error {

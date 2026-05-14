@@ -51,8 +51,6 @@ func TestNewRunSummary_Statuses(t *testing.T) {
 		{"discarded", "Run was discarded"},
 		{"planned_and_finished", "Plan complete, no apply needed"},
 		{"planned_and_saved", "Plan complete, no apply needed"},
-		{"policy_override", "Run awaiting policy override"},
-		{"policy_soft_failed", "Run has soft-failed policies"},
 	}
 
 	for _, tt := range tests {
@@ -460,6 +458,90 @@ func TestNewRunSummary_ErroredTaskStageRunTask(t *testing.T) {
 	assert.Equal(t, "https://example.com/scan/123", tr.URL)
 	assert.Equal(t, "mandatory", tr.EnforcementLevel)
 	assert.Equal(t, "post_plan", tr.Stage)
+}
+
+func TestNewRunSummary_PolicySoftFailed(t *testing.T) {
+	t.Parallel()
+
+	sentinelLog := "Sentinel Result: false\n\n## Policy 1: cost-limit (soft-mandatory)\n\nResult: false\n"
+
+	c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch route(r) {
+		case "GET /api/v2/runs/run-1":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "run-1", "type": "runs",
+					"attributes": map[string]any{"status": "policy_soft_failed"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/policy-checks":
+			jsonapi(w, map[string]any{
+				"data": []map[string]any{
+					{
+						"id": "polchk-1", "type": "policy-checks",
+						"attributes": map[string]any{"status": "soft_failed"},
+						"links":      map[string]any{"output": "/api/v2/policy-checks/polchk-1/output"},
+					},
+				},
+			})
+		case "GET /api/v2/policy-checks/polchk-1/output":
+			http.Redirect(w, r, "/sentinel-log", http.StatusFound)
+		case "GET /sentinel-log":
+			fmt.Fprint(w, sentinelLog)
+		default:
+			http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+		}
+	}))
+
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
+	require.NoError(t, err)
+
+	assert.Equal(t, "policy_soft_failed", summary.Status)
+	assert.Equal(t, "Run has soft-failed policies", summary.Message)
+	assert.Equal(t, "policy_check", summary.Phase)
+	assert.Contains(t, summary.PolicyCheckLog, "soft-mandatory")
+}
+
+func TestNewRunSummary_PolicyOverride(t *testing.T) {
+	t.Parallel()
+
+	sentinelLog := "Sentinel Result: false\n\n## Policy 1: cost-limit (soft-mandatory)\n\nResult: false\n"
+
+	c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch route(r) {
+		case "GET /api/v2/runs/run-1":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "run-1", "type": "runs",
+					"attributes": map[string]any{"status": "policy_override"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/policy-checks":
+			jsonapi(w, map[string]any{
+				"data": []map[string]any{
+					{
+						"id": "polchk-1", "type": "policy-checks",
+						"attributes": map[string]any{"status": "soft_failed"},
+						"links":      map[string]any{"output": "/api/v2/policy-checks/polchk-1/output"},
+					},
+				},
+			})
+		case "GET /api/v2/policy-checks/polchk-1/output":
+			http.Redirect(w, r, "/sentinel-log", http.StatusFound)
+		case "GET /sentinel-log":
+			fmt.Fprint(w, sentinelLog)
+		default:
+			http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+		}
+	}))
+
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
+	require.NoError(t, err)
+
+	assert.Equal(t, "policy_override", summary.Status)
+	assert.Equal(t, "Run awaiting policy override", summary.Message)
+	assert.Equal(t, "policy_check", summary.Phase)
+	assert.Contains(t, summary.PolicyCheckLog, "soft-mandatory")
 }
 
 func TestRunOrCurrentRun(t *testing.T) {
