@@ -148,6 +148,8 @@ func TestNewRunSummary_ErroredApply(t *testing.T) {
 					"attributes": map[string]any{"status": "errored", "log-read-url": logServer.URL},
 				},
 			})
+		case "GET /api/v2/runs/run-1/policy-checks":
+			jsonapi(w, map[string]any{"data": []any{}})
 		default:
 			http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
 		}
@@ -195,6 +197,104 @@ func TestNewRunSummary_ErroredNoDiagnostics(t *testing.T) {
 
 	assert.Empty(t, summary.Diagnostics)
 	assert.Contains(t, summary.RawLog, "Plain text error output")
+}
+
+func TestNewRunSummary_ErroredPolicyCheckHardFailed(t *testing.T) {
+	t.Parallel()
+
+	sentinelLog := "Sentinel Result: false\n\nThis result means that one or more Sentinel policies failed.\n\n1 policies evaluated.\n\n## Policy 1: deny-all (hard-mandatory)\n\nResult: false\n"
+
+	c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch route(r) {
+		case "GET /api/v2/runs/run-1":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "run-1", "type": "runs",
+					"attributes": map[string]any{"status": "errored"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/plan":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "plan-1", "type": "plans",
+					"attributes": map[string]any{"status": "finished"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/policy-checks":
+			jsonapi(w, map[string]any{
+				"data": []map[string]any{
+					{
+						"id": "polchk-1", "type": "policy-checks",
+						"attributes": map[string]any{"status": "hard_failed"},
+						"links":      map[string]any{"output": "/api/v2/policy-checks/polchk-1/output"},
+					},
+				},
+			})
+		case "GET /api/v2/policy-checks/polchk-1/output":
+			// Simulate the 302 redirect that the real API returns.
+			http.Redirect(w, r, "/sentinel-log", http.StatusFound)
+		case "GET /sentinel-log":
+			fmt.Fprint(w, sentinelLog)
+		default:
+			http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+		}
+	}))
+
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
+	require.NoError(t, err)
+
+	assert.Equal(t, "errored", summary.Status)
+	assert.Equal(t, "policy_check", summary.Phase)
+	assert.Contains(t, summary.PolicyCheckLog, "deny-all")
+	assert.Contains(t, summary.PolicyCheckLog, "hard-mandatory")
+}
+
+func TestNewRunSummary_ErroredPolicyCheckSoftFailed(t *testing.T) {
+	t.Parallel()
+
+	sentinelLog := "Sentinel Result: false\n\n## Policy 1: warn-all (soft-mandatory)\n\nResult: false\n"
+
+	c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch route(r) {
+		case "GET /api/v2/runs/run-1":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "run-1", "type": "runs",
+					"attributes": map[string]any{"status": "errored"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/plan":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "plan-1", "type": "plans",
+					"attributes": map[string]any{"status": "finished"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/policy-checks":
+			jsonapi(w, map[string]any{
+				"data": []map[string]any{
+					{
+						"id": "polchk-1", "type": "policy-checks",
+						"attributes": map[string]any{"status": "soft_failed"},
+						"links":      map[string]any{"output": "/api/v2/policy-checks/polchk-1/output"},
+					},
+				},
+			})
+		case "GET /api/v2/policy-checks/polchk-1/output":
+			http.Redirect(w, r, "/sentinel-log", http.StatusFound)
+		case "GET /sentinel-log":
+			fmt.Fprint(w, sentinelLog)
+		default:
+			http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+		}
+	}))
+
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
+	require.NoError(t, err)
+
+	assert.Equal(t, "errored", summary.Status)
+	assert.Equal(t, "policy_check", summary.Phase)
+	assert.Contains(t, summary.PolicyCheckLog, "soft-mandatory")
 }
 
 func TestRunOrCurrentRun(t *testing.T) {

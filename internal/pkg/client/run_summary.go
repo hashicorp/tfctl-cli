@@ -172,6 +172,14 @@ func populateErroredSummary(ctx context.Context, c *Client, runID string, result
 		return populateLogDiagnostics(result, *logURL)
 	}
 
+	// Check legacy policy checks.
+	if err := populatePolicyCheckSummary(ctx, c, runID, result); err != nil {
+		return err
+	}
+	if result.PolicyCheckLog != "" {
+		return nil
+	}
+
 	result.Phase = "apply"
 	runData, err := c.TFE.API.Runs().ById(runID).Get(ctx, nil)
 	if err != nil {
@@ -194,6 +202,55 @@ func populateErroredSummary(ctx context.Context, c *Client, runID string, result
 		return fmt.Errorf("apply %s has no log URL", applyID)
 	}
 	return populateLogDiagnostics(result, *logURL)
+}
+
+// populatePolicyCheckSummary handles the legacy Sentinel policy check path.
+// If a policy check has hard_failed, soft_failed, or errored, it fetches the
+// Sentinel log output via the policy check output endpoint (which returns a
+// 302 redirect to a presigned URL).
+func populatePolicyCheckSummary(ctx context.Context, c *Client, runID string, result *RunSummary) error {
+	resp, err := c.TFE.API.Runs().ById(runID).PolicyChecks().Get(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("fetching policy checks for run %s: %w", runID, err)
+	}
+
+	for _, pc := range resp.GetData() {
+		status := pc.GetAttributes().GetStatus()
+		if status == nil {
+			continue
+		}
+
+		switch *status {
+		case models.HARD_FAILED_POLICYCHECKS_ATTRIBUTES_STATUS,
+			models.SOFT_FAILED_POLICYCHECKS_ATTRIBUTES_STATUS,
+			models.ERRORED_POLICYCHECKS_ATTRIBUTES_STATUS:
+		default:
+			continue
+		}
+
+		// Found a failed policy check — fetch its output log.
+		result.Phase = "policy_check"
+
+		pcID := pc.GetId()
+		if pcID == nil {
+			return fmt.Errorf("policy check has no ID")
+		}
+
+		outputURL, err := ResolveURL(*c.BaseURL, "/policy-checks/"+*pcID+"/output")
+		if err != nil {
+			return fmt.Errorf("resolving policy check output URL: %w", err)
+		}
+
+		resp, err := c.RawRequest(ctx, &Request{Method: "GET", URL: outputURL})
+		if err != nil {
+			return fmt.Errorf("fetching policy check output for %s: %w", *pcID, err)
+		}
+
+		result.PolicyCheckLog = string(resp.Body)
+		return nil // Stop after the first failed policy check (they run sequentially).
+	}
+
+	return nil
 }
 
 func populateLogDiagnostics(result *RunSummary, logURL string) error {
