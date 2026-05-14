@@ -17,12 +17,43 @@ import (
 
 // RunSummary is the result of inspecting a Terraform Cloud run.
 type RunSummary struct {
-	RunID       string       `json:"run_id"`
-	Status      string       `json:"status"`
-	Message     string       `json:"message"`
-	Phase       string       `json:"phase,omitempty"`
-	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
-	RawLog      string       `json:"raw_log,omitempty"`
+	RunID             string             `json:"run_id"`
+	Status            string             `json:"status"`
+	Message           string             `json:"message"`
+	Phase             string             `json:"phase,omitempty"`
+	Diagnostics       []Diagnostic       `json:"diagnostics,omitempty"`
+	RawLog            string             `json:"raw_log,omitempty"`
+	PolicyCheckLog    string             `json:"policy_check_log,omitempty"`
+	PolicyEvaluations []PolicyEvalResult `json:"policy_evaluations,omitempty"`
+	TaskResults       []TaskResult       `json:"task_results,omitempty"`
+}
+
+// PolicyEvalResult holds the outcome of a policy evaluation (OPA/Sentinel via task stages).
+type PolicyEvalResult struct {
+	PolicyKind    string          `json:"policy_kind"`     // "opa" or "sentinel"
+	Status        string          `json:"status"`
+	PolicySetName string          `json:"policy_set_name"`
+	Outcomes      []PolicyOutcome `json:"outcomes,omitempty"`
+	Error         string          `json:"error,omitempty"`
+}
+
+// PolicyOutcome represents a single policy's result within a policy set.
+type PolicyOutcome struct {
+	PolicyName       string   `json:"policy_name"`
+	EnforcementLevel string   `json:"enforcement_level"` // "advisory", "mandatory", "hard-mandatory", "soft-mandatory"
+	Status           string   `json:"status"`            // "passed", "failed"
+	Description      string   `json:"description,omitempty"`
+	Output           []string `json:"output,omitempty"` // denial reason strings
+}
+
+// TaskResult holds the outcome of a run task.
+type TaskResult struct {
+	TaskName         string `json:"task_name"`
+	Status           string `json:"status"`
+	Message          string `json:"message,omitempty"`
+	URL              string `json:"url,omitempty"`
+	EnforcementLevel string `json:"enforcement_level"` // "advisory" or "mandatory"
+	Stage            string `json:"stage"`             // "pre_plan", "post_plan", "pre_apply", "post_apply"
 }
 
 // Diagnostic represents a Terraform diagnostic message.
