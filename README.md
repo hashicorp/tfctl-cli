@@ -4,7 +4,7 @@ Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise p
 
 ![tfctl](assets/tfctl.png "tfctl")
 
-### Quick Start / Early Access
+### Installation
 
 If you have a go environment, clone the repo and run `make go/install`. Binary releases available soon.
 
@@ -14,16 +14,43 @@ If you have a go environment, clone the repo and run `make go/install`. Binary r
 $ tfctl --autocomplete-install
 ```
 
-tfctl uses a host-centric, layered configuration with a logical precedence. Configuration commands
-do not yet exist in the CLI, so start by writing this file to `$HOME/.config/tfctl/profiles/default.hcl`
-(or `%AppData%/tfctl/profiles/default.hcl` on Windows) substituting your own hostname, token, and organization.
+### AI Agent Skill
 
-```hcl
-name         = "default"
-organization = "default-organization"
-hostname     = "app.staging.terraform.io"
-token        = "TOKEN"
+tfctl ships with an agent skill that gives AI coding agents full access to HCP Terraform. Install it with:
+
 ```
+npx skills add hashicorp/tfctl-cli --skill 'tfctl'
+```
+
+This adds the skill to your project so that compatible agents (OpenCode, Claude Code, etc.) can use tfctl on your behalf.
+
+### Quick Start
+
+tfctl uses a host-centric, layered configuration with a logical precedence. Get started by signing in to a host:
+
+**Change the hostname of the default profile (If not app.terraform.io):**
+
+```bash
+$ tfctl profile set hostname app.eu.terraform.io
+```
+
+**...Or create and activate a new named profile for another host**
+
+```bash
+$ tfctl profile profiles create NAME --hostname app.eu.terraform.io
+```
+
+**Create a token for use by tfctl**
+```bash
+$ tfctl auth login
+```
+
+**Set a Default Organization (Recommended)**
+```bash
+$ tfctl profile set organization NAME
+```
+
+### Example Usage
 
 ```bash
 # See status/diagnose Workspace current run
