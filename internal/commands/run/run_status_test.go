@@ -150,6 +150,8 @@ func TestNewRunSummary_ErroredApply(t *testing.T) {
 			})
 		case "GET /api/v2/runs/run-1/policy-checks":
 			jsonapi(w, map[string]any{"data": []any{}})
+		case "GET /api/v2/runs/run-1/task-stages":
+			jsonapi(w, map[string]any{"data": []any{}})
 		default:
 			http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
 		}
@@ -295,6 +297,169 @@ func TestNewRunSummary_ErroredPolicyCheckSoftFailed(t *testing.T) {
 	assert.Equal(t, "errored", summary.Status)
 	assert.Equal(t, "policy_check", summary.Phase)
 	assert.Contains(t, summary.PolicyCheckLog, "soft-mandatory")
+}
+
+func TestNewRunSummary_ErroredTaskStagePolicyEvaluation(t *testing.T) {
+	t.Parallel()
+
+	c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch route(r) {
+		case "GET /api/v2/runs/run-1":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "run-1", "type": "runs",
+					"attributes": map[string]any{"status": "errored"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/plan":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "plan-1", "type": "plans",
+					"attributes": map[string]any{"status": "finished"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/policy-checks":
+			jsonapi(w, map[string]any{"data": []any{}})
+		case "GET /api/v2/runs/run-1/task-stages":
+			jsonapi(w, map[string]any{
+				"data": []map[string]any{
+					{
+						"id": "ts-1", "type": "task-stages",
+						"attributes": map[string]any{"stage": "post_plan", "status": "errored"},
+						"relationships": map[string]any{
+							"policy-evaluations": map[string]any{
+								"data": []map[string]any{
+									{"id": "poleval-1", "type": "policy-evaluations"},
+								},
+							},
+							"task-results": map[string]any{
+								"data": []any{},
+							},
+						},
+					},
+				},
+			})
+		case "GET /api/v2/policy-evaluations/poleval-1/policy-set-outcomes":
+			jsonapi(w, map[string]any{
+				"data": []map[string]any{
+					{
+						"id": "psout-1", "type": "policy-set-outcomes",
+						"attributes": map[string]any{
+							"policy-set-name": "deny-all-opa-test",
+							"overridable":     false,
+							"result-count": map[string]any{
+								"advisory-failed":  0,
+								"mandatory-failed": 1,
+								"passed":           0,
+								"errored":          0,
+							},
+							"outcomes": []map[string]any{
+								{
+									"enforcement_level": "mandatory",
+									"query":             "data.terraform.deny",
+									"status":            "failed",
+									"output":            []string{"all resources are denied"},
+									"policy_name":       "deny-all-opa",
+									"description":       "Denies all resources",
+								},
+							},
+						},
+					},
+				},
+			})
+		default:
+			http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+		}
+	}))
+
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
+	require.NoError(t, err)
+
+	assert.Equal(t, "errored", summary.Status)
+	assert.Equal(t, "post_plan", summary.Phase)
+	require.Len(t, summary.PolicyEvaluations, 1)
+	pe := summary.PolicyEvaluations[0]
+	assert.Equal(t, "deny-all-opa-test", pe.PolicySetName)
+	require.Len(t, pe.Outcomes, 1)
+	assert.Equal(t, "deny-all-opa", pe.Outcomes[0].PolicyName)
+	assert.Equal(t, "mandatory", pe.Outcomes[0].EnforcementLevel)
+	assert.Equal(t, "failed", pe.Outcomes[0].Status)
+	assert.Equal(t, []string{"all resources are denied"}, pe.Outcomes[0].Output)
+	assert.Equal(t, "Denies all resources", pe.Outcomes[0].Description)
+}
+
+func TestNewRunSummary_ErroredTaskStageRunTask(t *testing.T) {
+	t.Parallel()
+
+	c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch route(r) {
+		case "GET /api/v2/runs/run-1":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "run-1", "type": "runs",
+					"attributes": map[string]any{"status": "errored"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/plan":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "plan-1", "type": "plans",
+					"attributes": map[string]any{"status": "finished"},
+				},
+			})
+		case "GET /api/v2/runs/run-1/policy-checks":
+			jsonapi(w, map[string]any{"data": []any{}})
+		case "GET /api/v2/runs/run-1/task-stages":
+			jsonapi(w, map[string]any{
+				"data": []map[string]any{
+					{
+						"id": "ts-1", "type": "task-stages",
+						"attributes": map[string]any{"stage": "post_plan", "status": "failed"},
+						"relationships": map[string]any{
+							"policy-evaluations": map[string]any{
+								"data": []any{},
+							},
+							"task-results": map[string]any{
+								"data": []map[string]any{
+									{"id": "tr-1", "type": "task-results"},
+								},
+							},
+						},
+					},
+				},
+			})
+		case "GET /api/v2/task-results/tr-1":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "tr-1", "type": "task-results",
+					"attributes": map[string]any{
+						"task-name":                          "security-scan",
+						"status":                            "failed",
+						"message":                           "Security vulnerabilities found",
+						"url":                               "https://example.com/scan/123",
+						"workspace-task-enforcement-level":   "mandatory",
+						"stage":                             "post_plan",
+					},
+				},
+			})
+		default:
+			http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+		}
+	}))
+
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
+	require.NoError(t, err)
+
+	assert.Equal(t, "errored", summary.Status)
+	assert.Equal(t, "post_plan", summary.Phase)
+	require.Len(t, summary.TaskResults, 1)
+	tr := summary.TaskResults[0]
+	assert.Equal(t, "security-scan", tr.TaskName)
+	assert.Equal(t, "failed", tr.Status)
+	assert.Equal(t, "Security vulnerabilities found", tr.Message)
+	assert.Equal(t, "https://example.com/scan/123", tr.URL)
+	assert.Equal(t, "mandatory", tr.EnforcementLevel)
+	assert.Equal(t, "post_plan", tr.Stage)
 }
 
 func TestRunOrCurrentRun(t *testing.T) {

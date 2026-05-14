@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/hashicorp/go-tfe/api/models"
+	"github.com/microsoft/kiota-abstractions-go/serialization"
 )
 
 // RunSummary is the result of inspecting a Terraform Cloud run.
@@ -180,6 +182,14 @@ func populateErroredSummary(ctx context.Context, c *Client, runID string, result
 		return nil
 	}
 
+	// Check task stages (OPA policy evaluations + run tasks).
+	if err := populateTaskStageSummary(ctx, c, runID, result); err != nil {
+		return err
+	}
+	if len(result.PolicyEvaluations) > 0 || len(result.TaskResults) > 0 {
+		return nil
+	}
+
 	result.Phase = "apply"
 	runData, err := c.TFE.API.Runs().ById(runID).Get(ctx, nil)
 	if err != nil {
@@ -251,6 +261,223 @@ func populatePolicyCheckSummary(ctx context.Context, c *Client, runID string, re
 	}
 
 	return nil
+}
+
+// stageOrder defines the lifecycle order for task stages.
+var stageOrder = map[string]int{
+	"pre_plan":  0,
+	"post_plan": 1,
+	"pre_apply": 2,
+	"post_apply": 3,
+}
+
+// populateTaskStageSummary handles OPA policy evaluations and run tasks via
+// the task stages API. It finds the first failed/errored stage in lifecycle
+// order and populates the result with policy evaluation outcomes and/or task
+// result details.
+func populateTaskStageSummary(ctx context.Context, c *Client, runID string, result *RunSummary) error {
+	resp, err := c.TFE.API.Runs().ById(runID).TaskStages().Get(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("fetching task stages for run %s: %w", runID, err)
+	}
+
+	stages := resp.GetData()
+	if len(stages) == 0 {
+		return nil
+	}
+
+	// Sort stages by lifecycle order.
+	sort.Slice(stages, func(i, j int) bool {
+		oi, oj := 99, 99
+		if si := stages[i].GetAttributes().GetStage(); si != nil {
+			if o, ok := stageOrder[*si]; ok {
+				oi = o
+			}
+		}
+		if sj := stages[j].GetAttributes().GetStage(); sj != nil {
+			if o, ok := stageOrder[*sj]; ok {
+				oj = o
+			}
+		}
+		return oi < oj
+	})
+
+	for _, ts := range stages {
+		status := ts.GetAttributes().GetStatus()
+		if status == nil {
+			continue
+		}
+
+		switch *status {
+		case models.FAILED_TASKSTAGES_ATTRIBUTES_STATUS,
+			models.ERRORED_TASKSTAGES_ATTRIBUTES_STATUS:
+		default:
+			continue
+		}
+
+		// Found a failed/errored task stage.
+		stage := ts.GetAttributes().GetStage()
+		if stage != nil {
+			result.Phase = *stage
+		}
+
+		// Fetch policy evaluations.
+		if peRel := ts.GetRelationships().GetPolicyEvaluations(); peRel != nil {
+			for _, pe := range peRel.GetData() {
+				peID := relationshipID(pe.GetAdditionalData())
+				if peID == "" {
+					continue
+				}
+				evals, err := fetchPolicySetOutcomes(ctx, c, peID)
+				if err != nil {
+					return err
+				}
+				result.PolicyEvaluations = append(result.PolicyEvaluations, evals...)
+			}
+		}
+
+		// Fetch task results.
+		if trRel := ts.GetRelationships().GetTaskResults(); trRel != nil {
+			for _, tr := range trRel.GetData() {
+				trID := relationshipID(tr.GetAdditionalData())
+				if trID == "" {
+					continue
+				}
+				taskResult, err := fetchTaskResult(ctx, c, trID)
+				if err != nil {
+					return err
+				}
+				if taskResult != nil {
+					result.TaskResults = append(result.TaskResults, *taskResult)
+				}
+			}
+		}
+
+		// Stop after the first failed stage in lifecycle order.
+		return nil
+	}
+
+	return nil
+}
+
+// fetchPolicySetOutcomes fetches policy set outcomes for a policy evaluation
+// and converts them to PolicyEvalResult structs.
+func fetchPolicySetOutcomes(ctx context.Context, c *Client, peID string) ([]PolicyEvalResult, error) {
+	resp, err := c.TFE.API.PolicyEvaluations().ByPolicy_evaluation_id(peID).PolicySetOutcomes().Get(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching policy set outcomes for %s: %w", peID, err)
+	}
+
+	var results []PolicyEvalResult
+	for _, pso := range resp.GetData() {
+		attrs := pso.GetAttributes()
+		if attrs == nil {
+			continue
+		}
+
+		eval := PolicyEvalResult{}
+		if name := attrs.GetPolicySetName(); name != nil {
+			eval.PolicySetName = *name
+		}
+		if e := attrs.GetError(); e != nil {
+			eval.Error = *e
+		}
+
+		for _, outcome := range attrs.GetOutcomes() {
+			po := PolicyOutcome{}
+			if name := outcome.GetPolicyName(); name != nil {
+				po.PolicyName = *name
+			}
+			if level := outcome.GetEnforcementLevel(); level != nil {
+				po.EnforcementLevel = *level
+			}
+			if s := outcome.GetStatus(); s != nil {
+				po.Status = *s
+			}
+			if desc := outcome.GetDescription(); desc != nil {
+				po.Description = *desc
+			}
+			po.Output = extractStringSlice(outcome.GetOutput())
+			eval.Outcomes = append(eval.Outcomes, po)
+		}
+
+		results = append(results, eval)
+	}
+
+	return results, nil
+}
+
+// relationshipID extracts the "id" string from a Kiota relationship object's
+// additional data. The generated types store flat JSON:API {id, type}
+// relationship fields in AdditionalData rather than typed accessors.
+func relationshipID(ad map[string]any) string {
+	if id, ok := ad["id"].(*string); ok && id != nil {
+		return *id
+	}
+	return ""
+}
+
+// extractStringSlice extracts a []string from a Kiota UntypedNodeable that
+// represents a JSON array of strings.
+func extractStringSlice(node serialization.UntypedNodeable) []string {
+	if node == nil {
+		return nil
+	}
+	arr, ok := node.(*serialization.UntypedArray)
+	if !ok {
+		return nil
+	}
+	var result []string
+	for _, elem := range arr.GetValue() {
+		str, ok := elem.(*serialization.UntypedString)
+		if !ok {
+			continue
+		}
+		if v := str.GetValue(); v != nil {
+			result = append(result, *v)
+		}
+	}
+	return result
+}
+
+// fetchTaskResult fetches a single task result by ID and converts it to a
+// TaskResult struct.
+func fetchTaskResult(ctx context.Context, c *Client, trID string) (*TaskResult, error) {
+	resp, err := c.TFE.API.TaskResults().ByTask_result_id(trID).Get(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching task result %s: %w", trID, err)
+	}
+
+	data := resp.GetData()
+	if data == nil {
+		return nil, nil
+	}
+	attrs := data.GetAttributes()
+	if attrs == nil {
+		return nil, nil
+	}
+
+	tr := &TaskResult{}
+	if name := attrs.GetTaskName(); name != nil {
+		tr.TaskName = *name
+	}
+	if s := attrs.GetStatus(); s != nil {
+		tr.Status = s.String()
+	}
+	if msg := attrs.GetMessage(); msg != nil {
+		tr.Message = *msg
+	}
+	if u := attrs.GetUrl(); u != nil {
+		tr.URL = *u
+	}
+	if level := attrs.GetWorkspaceTaskEnforcementLevel(); level != nil {
+		tr.EnforcementLevel = *level
+	}
+	if stage := attrs.GetStage(); stage != nil {
+		tr.Stage = *stage
+	}
+
+	return tr, nil
 }
 
 func populateLogDiagnostics(result *RunSummary, logURL string) error {
