@@ -100,7 +100,6 @@ func getColor(cs *iostreams.ColorScheme, c string) (iostreams.Color, error) {
 		"orange":     cs.Orange,
 		"yellow":     cs.Yellow,
 		"gray":       cs.Gray,
-		"dimblue":    cs.DimBlue,
 		"lightgreen": cs.LightGreen,
 	}
 

@@ -17,7 +17,6 @@ const (
 	orange     = "#BB5A00"
 	yellow     = "#FFD814"
 	gray       = "#C2C5CB"
-	dimblue    = "#BDC7F0"
 	lightgreen = "#73DACA"
 )
 
@@ -234,13 +233,6 @@ func (cs *ColorScheme) Yellow() Color {
 func (cs *ColorScheme) Gray() Color {
 	return Color{
 		color: cs.profile.Color(gray),
-	}
-}
-
-// DimBlue is a dim blue color.
-func (cs *ColorScheme) DimBlue() Color {
-	return Color{
-		color: cs.profile.Color(dimblue),
 	}
 }
 

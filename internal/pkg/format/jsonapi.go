@@ -171,8 +171,10 @@ func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 			if !ok {
 				return nil, ErrNotJSONAPI
 			}
-			if resourceType == "" {
-				resourceType = row["type"].(string)
+			if resourceType == "" && row["type"] != nil {
+				if rt, ok := row["type"].(string); ok {
+					resourceType = rt
+				}
 			}
 			payload.([]map[string]any)[i] = row
 		}
@@ -183,7 +185,11 @@ func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 			return nil, ErrNotJSONAPI
 		}
 		payload = row
-		resourceType = row["type"].(string)
+		if row["type"] != nil {
+			if rt, ok := row["type"].(string); ok {
+				resourceType = rt
+			}
+		}
 	default:
 		return nil, ErrNotJSONAPI
 	}

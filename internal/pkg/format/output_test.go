@@ -183,18 +183,13 @@ func TestWithJSONAPIResource(t *testing.T) {
   }
 }`
 
-	disp, err := format.NewJSONAPIDisplayer([]byte(j))
-	r.NoError(err)
-
-	io := iostreams.Test()
-	out := format.New(io)
-	out.SetFormat(format.Pretty)
-	err = out.Display(disp)
-
-	r.NoError(err)
-	fmt.Println(io.Output.String())
-
-	expected := `ID:                                   user-V3R563qtJNcExAkN
+	cases := []struct {
+		format   format.Format
+		expected string
+	}{
+		{
+			format: format.Pretty,
+			expected: `ID:                                   user-V3R563qtJNcExAkN
 Auth Method:                          tfc
 Authenticated Resource:               user-V3R563qtJNcExAkN
 Avatar URL:                           https://www.gravatar.com/avatar/9babb00091b97b9ce9538c45807fd35f?s=100&d=mm
@@ -218,6 +213,54 @@ Tags.2:                               us-east
 Triple Nested.Level1.Level2.Key:      hello
 Triple Nested.Level1.Level2.Value:    world
 Type:                                 users
-`
-	r.Equal(expected, io.Output.String())
+`,
+		},
+		{
+			format: format.Markdown,
+			expected: `
+| Field                                | Value                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------- |
+| ID                                   | user-V3R563qtJNcExAkN                                                       |
+| Auth Method                          | tfc                                                                         |
+| Authenticated Resource               | user-V3R563qtJNcExAkN                                                       |
+| Avatar URL                           | https://www.gravatar.com/avatar/9babb00091b97b9ce9538c45807fd35f?s=100&d=mm |
+| Email                                | admin@hashicorp.com                                                         |
+| Is Service Account                   | false                                                                       |
+| Is Site Admin                        | true                                                                        |
+| Is SSO Login                         | false                                                                       |
+| Unconfirmed Email                    | <no value>                                                                  |
+| Username                             | admin                                                                       |
+| V2 Only                              | false                                                                       |
+| Double Nested.0.Key                  | foo                                                                         |
+| Double Nested.0.Value                | bar                                                                         |
+| Double Nested.1.Key                  | fizz                                                                        |
+| Double Nested.1.Value                | buzz                                                                        |
+| Permissions.Can Change Email         | true                                                                        |
+| Permissions.Can Change Username      | true                                                                        |
+| Permissions.Can Create Organizations | true                                                                        |
+| Tags.0                               | networking                                                                  |
+| Tags.1                               | production                                                                  |
+| Tags.2                               | us-east                                                                     |
+| Triple Nested.Level1.Level2.Key      | hello                                                                       |
+| Triple Nested.Level1.Level2.Value    | world                                                                       |
+| Type                                 | users                                                                       |
+
+`,
+		},
+	}
+
+	disp, err := format.NewJSONAPIDisplayer([]byte(j))
+	r.NoError(err)
+
+	for _, c := range cases {
+		io := iostreams.Test()
+		out := format.New(io)
+		out.SetFormat(c.format)
+		err = out.Display(disp)
+
+		r.NoError(err)
+		fmt.Println(io.Output.String())
+
+		r.Equal(c.expected, io.Output.String())
+	}
 }
