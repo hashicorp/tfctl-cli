@@ -1,190 +1,191 @@
 ---
 name: tfctl
 description: |
-  Interact with HCP Terraform using the tfctl CLI. Full API coverage. Use for ANY HCP Terraform
-  or Terraform Cloud question or action.
+  Interact with HCP Terraform / Terraform Cloud using the tfctl CLI. Full API coverage.
+  Use for ANY HCP Terraform or Terraform Cloud question or action — listing workspaces,
+  starting/diagnosing runs, reading vars, modifying resources, calling API operations.
 license: MPL-2.0
 ---
 
-# tfctl - HCP Terraform (Terraform Cloud) Workflow CLI
+# tfctl — HCP Terraform CLI
 
-Full CLI coverage for the entire HCP Terraform API.
+Single binary, full v2 API coverage. Already authenticated.
 
-## Agent Invariants
+## Hard rules
 
-**MUST follow these rules:**
+1. **Never pipe `tfctl` JSON to an external `jq`.** Use the built-in `--jq '<expr>'` flag — it implies `--json` and runs gojq on the response envelope.
+2. **Never issue `-X DELETE`.** All deletes need a human. If asked to delete, print the exact command and ask the user to run it.
+3. **Resolve names with `-p`, not separate lookup calls.** Paths with `{workspace}`/`{team}`/`{project}`/`{varset}` accept `-p workspace=NAME` etc. — tfctl resolves name→ID for you. Don't fetch the ID first.
+4. **Trust the first answer.** `data: []`, `data: null`, `relationships.X.data: null`, or stderr "no current run"/"not found" ARE the answer. Don't re-query in another format. Don't walk relationships "to verify".
+5. **When a named resource is not found, stop completely.** Exit code 2 or absence from a listing IS the full answer. Never:
+   - Try a different resource ID "to verify the endpoint works"
+   - Pivot to another org/workspace that appeared in the available list
+   - Explore related resources to find "similar" information
+   - Use Rule 4 to justify switching to a different resource: if you listed orgs and 'platform' isn't there, the first answer is "platform doesn't exist" — stop, don't use whatever org IS listed instead.
+   
+   Examples: `run-POLICY` returns exit 2 → stop, don't query other run IDs. Listing orgs shows no 'platform' → stop, don't use the org that IS listed.
 
-1. **Choose the right output mode** — `--jq` when you need to filter/extract data; `--json` for full JSON; `--markdown` when presenting results to a human (see Output Modes below). **Never pipe to external `jq` — use `--jq` instead.**
-2. **Check context** using `tfctl profile display` before assuming configuration
-3. **API Discovery** The API is too large to document every resource. You can perform a search using `tfctl api schema search <keyword>` to find relevant operations. When you are ready to make an API request, get the full request schema in OpenAPI format using `tfctl api schema get <operationId>`
-4. **No Delete Operations** using the `tfctl api` command. All delete methods must be confirmed interactively. Always prompt a human to perform delete operations themselves.
+### URL shape: per-workspace subpaths live at `/workspaces/{workspace}/...`
 
-### Output Modes
+Most "things attached to a workspace" (vars, runs, varsets, remote-state-consumers, configuration-versions, notification-configurations, state-versions) are under `/workspaces/{workspace}/...`, NOT `/organizations/{org}/workspaces/{name}/...`. The org-nested form only exists for the workspace resource itself (`/organizations/{org}/workspaces/{name}`). For everything else, use `/workspaces/{workspace}/X -p workspace=NAME`.
 
-**Choosing a mode:**
+**Exception: Policy checks and run-specific data** live under `/runs/{run-id}/...`, not under workspace paths. For example: `/runs/{run-id}/policy-checks`.
 
-| Goal                     | Flag            | Format                                                                                     |
-|--------------------------|-----------------|--------------------------------------------------------------------------------------------|
-| Filter/extract JSON data | `--jq '<expr>'` | Built-in jq filter (no external jq needed). Implies `--json`; filter runs on the envelope. |
-| Full JSON output         | `--json`        | JSON envelope: `{data, relationships, meta}`                                               |
-| Show results to a user   | `--markdown`    | GFM tables, structured Markdown                                                            |
-| Audit mutations          | `--dry-run`     | No changes, only a description of what would be modified rendered to stderr.               |
+### Anti-patterns to avoid
 
-Always pass `--json` or `--markdown` explicitly — auto-detection depends on config and may not produce the format you expect. Use `--markdown` when composing reports, summarizing data, or displaying results inline. `--agent` is for headless integration scripts.
+These paths **do not exist**; don't try them:
+- ❌ `/organizations/{org}/workspaces/{name}/vars` — use `/workspaces/{workspace}/vars -p workspace=NAME` instead
+- ❌ `/organizations/{org}/workspaces/{name}/state-versions` — use `/workspaces/{workspace}/state-versions -p workspace=NAME`
+- ❌ `/organizations/{org}/workspaces/{name}/configuration-versions` — use `/workspaces/{workspace}/configuration-versions -p workspace=NAME`
+- ❌ `/workspaces/{workspace}/policy-checks` — use `/runs/{run-id}/policy-checks` instead
+- ❌ `/organizations/{org}/varsets` (partially wrong path) — use `/organizations/{organization}/varsets` with correct org placeholder
+- ❌ External `jq` pipes like `tfctl ... | jq '...'` — always use `tfctl api ... --jq '...'` with built-in flag
 
-**Other modes:** `--quiet` (no output), `--debug` (verbose/debug logging enabled), `--jq '<expr>'` (built-in jq filter — see below),
-
-### CLI Introspection
-
-Navigate unfamiliar commands with `--help`
-
-```bash
-tfctl api --help
-```
-
-Walk the tree: start at `tfctl --help` for top-level commands, then drill into any subcommand. Commands include `EXAMPLES` with real invocation examples.
-
-### Smart Defaults
-
-- Some commands require an `--organization` argument, but it can be omitted if there is a profile default.
-- Some commands require a `--workspace` argument, but it can be omitted if there is a terraform cloud block in the CWD.
-
-## Quick Reference
-
-| Task                  | Command                                                                 |
-|-----------------------|-------------------------------------------------------------------------|
-| Find an API operation | `tfctl api schema search <keyword> --json`                              |
-| Get API schema        | `tfctl api schema get <operation>`                                      |
-| List projects         | `tfctl api /organizations/{organization}/projects --json`               |
-| Get Workspace state   | `tfctl api /organizations/{organization}/workspaces/{workspace} --json` |
-| Run diagnostics       | `tfctl run status {run id or workspace}`                                |
-| Start a run           | `tfctl run start {workspace}`                                           |
-
-## API Conventions
-
-The API follows a JSON:API standard convention, which all resources appearing within a JSON:API resource envelope with a `type` attribute.
-
-Most related resources, such as the current run of a workspace, can be followed by consulting the `relationships/<key>` property of the resource envelope.
-
-**URL patterns:**
-- All resource collections are typically nested one resource deep. For example, `/organizations/{name}/workspaces` and `/workspaces/{id}/vars`.
-
-**Pagination:**
-When fetching lists of resources using the `api` command, the API returns paginated results. By default, only the first page of results is returned. You can use the following flags to control pagination:
-
-- Use `--all` to fetch all pages of results (up to 1000 items). By default, only the first page is returned.
-- Use `--page-size` to limit the number of items returned (default varies by resource).
-- Use `--page-number` to specify the page number to fetch (default is 1).
-
-## Decision Trees
-
-### Finding Content
-
-```
-Need to find something?
-├── Don't know the resource ID? → find by name using a list operation with a filter parameter
-├── Workspace run logs? → Get the current-run ID from the workspace and `tfctl api /runs/{id} --jq '.data.attributes.["log-read-url"]'`
-└── All else fail? → tfctl api schema search "query" --json
-```
-
-### Modifying Content
-
-```
-Want to change something?
-├── Need PATCH schema? → `tfctl api schema get <operation>`
-└── Have ID? → `tfctl /path/to/{id} -X PATCH -i'{ ...request body... }'`
-```
-
-## Common Workflows
-
-### Diagnosing run errors
-
-You can diagnose a particular run or the current run using:
+## Cookbook — one-line answers for common tasks
 
 ```bash
-$ tfctl run status ID
+# Count workspaces in an org
+tfctl api /organizations/{organization}/workspaces --page-size 1 --jq '.meta.pagination.["total-count"]'
+
+# Find workspace by partial name (server-side search) — also returns current run state in one call
+tfctl api /organizations/{organization}/workspaces -f 'search[name]=TERM' --jq '.data[] | {id, name: .attributes.name, current_run: .relationships.["current-run"].data}'
+
+# Filter workspaces by attribute
+tfctl api /organizations/{organization}/workspaces --all --jq '.data[] | select(.attributes.["terraform-version"] | startswith("1.8")) | .attributes.name'
+
+# List variables on a workspace — path is /workspaces/{workspace}/vars (NOT /organizations/{org}/workspaces/{name}/vars; that endpoint does not exist)
+tfctl api /workspaces/{workspace}/vars -p workspace=NAME --jq '.data[] | {key: .attributes.key, category: .attributes.category, sensitive: .attributes.sensitive}'
+
+# Get current run status
+tfctl run status NAME_OR_ID            # If it prints "no current run" or exits non-zero with that message, that IS the answer.
+
+# Get current run ID for a workspace
+tfctl api /organizations/{organization}/workspaces/NAME --jq '.data.relationships.["current-run"].data.id'
+
+# List runs in a workspace with status filtering
+tfctl api /workspaces/{workspace}/runs -p workspace=NAME --jq '.data[] | select(.attributes.status == "planned") | {id, status: .attributes.status}'
+
+# Find workspace by VCS repo identifier (single call; no results = not connected to that repo)
+tfctl api /organizations/{organization}/workspaces --all \
+  --jq '.data[] | select(.attributes.["vcs-repo"] != null and .attributes.["vcs-repo"].identifier == "org/repo") | {id: .id, name: .attributes.name}'
+
+# List workspaces accessible to a team (two-step: resolve team name → query team-workspaces)
+# Note: /organizations/{org}/teams/{id}/workspaces does NOT exist — use /team-workspaces instead
+tfctl api /organizations/{organization}/teams -f 'filter[names]=TEAM_NAME' --jq '.data[0].id'
+tfctl api /team-workspaces -f 'filter[team][id]=TEAM_ID' --jq '.data[] | {workspace_id: .relationships.workspace.data.id, access: .attributes.access}'
+
+# Get organization details and settings
+tfctl api /organizations/{organization} --jq '.data | {id, name: .attributes.name, created_at: .attributes."created-at", terraform_version_default: .attributes."terraform-version"}'
+
+# Get the current state version for a workspace
+# (operationId: getCurrentStateVersion — single resource, not a list)
+tfctl api /workspaces/{workspace}/current-state-version -p workspace=NAME --jq '.data | {serial: .attributes.serial, created_at: .attributes.["created-at"], status: .attributes.status}'
+
+# List all variable sets in an org and their variable counts
+tfctl api /organizations/{organization}/varsets --all --jq '.data[] | {name: .attributes.name, id: .id, var_count: (.relationships.vars.data | length)}'
+
+# Get configuration version details
+tfctl api /workspaces/{workspace}/configuration-versions -p workspace=NAME --jq '.data[] | {id, source: .attributes.source, created_at: .attributes.created-at}'
+
+# List notification configurations
+tfctl api /workspaces/{workspace}/notification-configurations -p workspace=NAME --jq '.data[] | {id, type: .attributes.destination-type, trigger: .attributes.triggers}'
+
+# Filter workspaces by terraform version (1.7+)
+tfctl api /organizations/{organization}/workspaces --all --jq '.data[] | select(.attributes.["terraform-version"] | ltrimstr("v") | split(".") | [.[0], .[1]] | join(".") | tonumber >= 1.7) | {name: .attributes.name, tf_version: .attributes.["terraform-version"]}'
+
+# Filter workspaces excluding certain names
+tfctl api /organizations/{organization}/workspaces --all --jq '.data[] | select(.attributes.name | test("^temp-|^old-") | not) | .attributes.name'
+
+# Count resources by status (e.g., runs by status)
+tfctl api /workspaces/{workspace}/runs -p workspace=NAME --all --jq '[.data[] | .attributes.status] | group_by(.) | map({status: .[0], count: length})'
+
+# Get log URL for a completed run
+# Note: run.log-read-url is null on completed runs — the URL lives on plan/apply.
+tfctl api /runs/RUN_ID --jq '.data.relationships | {plan: .plan.data.id, apply: .apply.data.id}'
+tfctl api /plans/PLAN_ID --jq '.data.attributes.["log-read-url"]'
+
+# Start a run
+tfctl run start NAME_OR_ID
+
+# Add a remote state consumer to a workspace
+# (operationId: addWorkspaceRemoteStateConsumers — POST returns 204)
+tfctl api /workspaces/{workspace}/relationships/remote-state-consumers -p workspace=NAME \
+  -i '{"data":[{"type":"workspaces","id":"ws-CONSUMER_ID"}]}'
+
+# Apply a variable set to a workspace
+# (operationId: updateWorkspaceRelationship for varsets)
+tfctl api /workspaces/{workspace}/relationships/varsets -p workspace=NAME \
+  -X POST -i '{"data":[{"type":"varsets","id":"varset-VARSET_ID"}]}'
+
+# Get policy check results for a run
+tfctl api /runs/{run-id}/policy-checks --jq '.data[] | {id: .id, status: .attributes.status, enforced: .attributes.enforcement-level}'
+
+# Discover an API operation when you don't know it
+tfctl api schema search "KEYWORD" --json     # returns operationIds
+tfctl api schema get OPERATION_ID            # full OpenAPI schema (large response — only call when needed)
 ```
 
-Where ID is either a run- ID, a ws- workspace ID, or a workspace name. You may need --organization flag unless there is a default organization set in the profile.
+## Output flags
 
-If a run is in an errored state due to a configuration issue make the necessary adjustments and then start a new run with:
+| Need              | Flag             |
+|-------------------|------------------|
+| Filter / extract  | `--jq '<expr>'`  |
+| Full JSON         | `--json`         |
+| Render for human  | `--markdown`     |
+| Audit a mutation  | `--dry-run`      |
+
+`--jq` implies `--json`. Don't pass both. Always pass one explicitly — don't rely on auto-detect.
+
+## JSON:API conventions
+
+Responses are JSON:API envelopes: `{data: {id, type, attributes, relationships}}` (or `data: [...]` for lists). To follow a link, read `data.relationships.<name>.data` which gives `{id, type}` or `null`. A `null` is final — there is no related resource.
+
+Pagination: default page 1. Add `--all` for all pages (cap 2000), or `--page-size N` / `--page-number N` for explicit control. For counts, use `--page-size 1 --jq '.meta.pagination.["total-count"]'`.
+
+## Mutations & batch updates
 
 ```bash
-$ tfctl run start WORKSPACE
+# Create or update a single variable
+tfctl api /workspaces/{workspace}/vars -p workspace=NAME -a key=VARKEY -a value=VALUE -a category=env
+
+# Batch updates: use separate calls (HCP TFC doesn't support bulk POST for vars)
+# Instead of trying /workspaces/{ws}/vars with multiple items, do:
+tfctl api /workspaces/{workspace}/vars -p workspace=NAME -a key=VAR1 -a value=VAL1 -a category=env
+tfctl api /workspaces/{workspace}/vars -p workspace=NAME -a key=VAR2 -a value=VAL2 -a category=env
+# (Multiple calls cost more, but it's the supported pattern)
+
+# PATCH with a raw body
+tfctl api /workspaces/{workspace}/X -X PATCH -p workspace=NAME -i '{"data":{"type":"X","attributes":{…}}}'
 ```
+Add `--dry-run` to preview without sending.
 
-## Common Errors and Debugging
+## Exit codes (quick map)
 
-**Rate limiting (429):** The CLI handles backoff automatically. If you see 429 errors (exit code 5), reduce request frequency.
+| Code | Meaning | Action |
+|------|---------|--------|
+| 0 | Success | Done |
+| 1 | Informational message or usage error | Read stderr; if it says "no current run" or similar, **that IS the answer — stop** |
+| 2 | Not found (workspace/run doesn't exist) OR invalid auth | Verify the ID/name is correct, then check token if still failing |
+| 3 | Auth token expired or invalid | Re-authenticate |
+| 4 | Network error | Retry after brief delay |
+| 5 | Rate limited (429) or server error (5xx) | Retry with backoff |
+| 6 | Resource has an error state | The error is already diagnosed in output (e.g., plan failed); read it |
 
-**Missing argument errors (exit 1):**
-When a required positional argument is missing, the CLI returns a structured error naming
-the specific argument. Use this for elicitation:
+**Important**: When an API returns `data: []` (empty list) or `data: null`, that IS the answer. Don't retry with different flags or endpoints.
 
-```bash
-$ tfctl <command> --help
-```
+### Common troubleshooting
 
-**Not found/Authorization errors (exit 2):**
-For security reasons, unauthorized access errors look identical to resource not found errors.
-Verify you are signed in as the expected account.
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `exit 2` when listing workspaces | Organization doesn't exist or auth token has no access | Verify org name and re-authenticate |
+| `exit 1` with "no current run" | Workspace simply has no active run (informational) | **This is the answer** — stop, don't verify |
+| `exit 3` when making any API call | Auth token expired | Re-authenticate with `tfctl login` |
+| `exit 5` (429 rate limit) | Too many requests | Wait and retry; tfctl will backoff automatically |
+| `exit 6` with "plan is errored" | Terraform plan had syntax errors (not CLI error) | Read the plan output for details |
+| Empty list (`data: []`) when filtering | No resources match criteria | Verify criteria is correct; empty list is valid answer |
 
-```bash
-tfctl api /account/details                      # Verify auth working
-tfctl profile display                           # Check current configuration
-```
+## Smart defaults
 
-**Authentication errors (exit 3):**
-This could indicate a token misconfiguration.
-
-```bash
-tfctl api /account/details                      # Verify auth working
-tfctl profile display                           # Check current configuration
-```
-
-**Network errors (exit 4):**
-This could indicate a temporary network condition or a hostname misconfiguration.
-
-```bash
-tfctl profile display                           # Check current hostname configuration
-```
-
-**API errors (exit 5):**
-This could indicate a bug in the platform API or an inability to process the command in a timely
-manner. Try again or try a workaround.
-
-**Underlying error detected (exit 6):**
-The command ran successfully but the inspected resource is in an error state. For example,
-`tfctl run status` returns exit 6 when the run has errored. The command will have already
-printed diagnostic output.
-
-## Built-in jq Filtering
-
-The CLI has a built-in `--jq` flag powered by gojq — no external `jq` binary required. **Always prefer `--jq` over piping to external `jq`.**
-
-```bash
-# Extract fields from data array and filter by attribute
-tfctl api /organizations/{organization}/workspaces --jq '.data[] | select(.attributes.["terraform-version"] != "1.15.1") | .relationships.["current-run"].data.id'
-
-# Access envelope metadata
-tfctl api /organizations/{organization}/projects --jq '.meta.pagination.["total-count"]'
-```
-
-`--jq` implies `--json` — no need to pass both. String results print as plain text; objects and arrays print as formatted JSON.
-
-## Exit Codes
-
-| Exit | Meaning                          | Solution                              |
-|------|----------------------------------|---------------------------------------|
-| 0    | OK                               | &mdash;                               |
-| 1    | Usage error                      | Read `tfctl <cmd> --help`             |
-| 2    | Not Found or Authorization Error | Verify URL/ID                         |
-| 3    | Authentication Error             | `tfctl auth login`                    |
-| 4    | Network error                    | Check connectivity                    |
-| 5    | API Server Error Persists        | Try again later                       |
-| 6    | Underlying error detected        | Command succeeded but found a problem |
-| 130  | Canceled (ctrl-c).               | &mdash;                               |
-
-## Learn More
-
-- API overview: https://developer.hashicorp.com/terraform/cloud-docs/api-docs
+- `{organization}` resolves from active profile if set.
+- `{workspace}` resolves from a local `cloud {}` block in CWD.
+- Already-formed IDs (`ws-…`, `team-…`, `prj-…`, `varset-…`) are passed through as-is.
