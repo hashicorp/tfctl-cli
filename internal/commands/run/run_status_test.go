@@ -67,7 +67,7 @@ func TestNewRunSummary_Statuses(t *testing.T) {
 				})
 			}))
 
-			summary, err := client.NewRunSummary(context.Background(), c.TFE.API, "run-1")
+			summary, err := client.NewRunSummary(context.Background(), c, "run-1")
 			require.NoError(t, err)
 			assert.Equal(t, tt.status, summary.Status)
 			assert.Equal(t, tt.message, summary.Message)
@@ -106,7 +106,7 @@ func TestNewRunSummary_ErroredPlan(t *testing.T) {
 		}
 	}))
 
-	summary, err := client.NewRunSummary(context.Background(), c.TFE.API, "run-1")
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
 	require.NoError(t, err)
 
 	assert.Equal(t, "errored", summary.Status)
@@ -153,7 +153,7 @@ func TestNewRunSummary_ErroredApply(t *testing.T) {
 		}
 	}))
 
-	summary, err := client.NewRunSummary(context.Background(), c.TFE.API, "run-1")
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
 	require.NoError(t, err)
 
 	assert.Equal(t, "apply", summary.Phase)
@@ -190,7 +190,7 @@ func TestNewRunSummary_ErroredNoDiagnostics(t *testing.T) {
 		}
 	}))
 
-	summary, err := client.NewRunSummary(context.Background(), c.TFE.API, "run-1")
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
 	require.NoError(t, err)
 
 	assert.Empty(t, summary.Diagnostics)

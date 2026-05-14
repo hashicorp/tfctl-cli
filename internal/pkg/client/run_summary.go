@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/hashicorp/go-tfe/api"
 	"github.com/hashicorp/go-tfe/api/models"
 )
 
@@ -98,8 +97,8 @@ type jsonLog struct {
 
 // NewRunSummary fetches a run and returns a summary of its status. If the run
 // has errored, it fetches the relevant log and extracts diagnostics.
-func NewRunSummary(ctx context.Context, tfeAPI *api.ApiClient, runID string) (*RunSummary, error) {
-	run, err := tfeAPI.Runs().ById(runID).Get(ctx, nil)
+func NewRunSummary(ctx context.Context, c *Client, runID string) (*RunSummary, error) {
+	run, err := c.TFE.API.Runs().ById(runID).Get(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetching run %s: %w", runID, err)
 	}
@@ -109,10 +108,10 @@ func NewRunSummary(ctx context.Context, tfeAPI *api.ApiClient, runID string) (*R
 		return nil, fmt.Errorf("run %s has no status", runID)
 	}
 
-	return buildRunSummary(ctx, tfeAPI, runID, *status)
+	return buildRunSummary(ctx, c, runID, *status)
 }
 
-func buildRunSummary(ctx context.Context, tfeAPI *api.ApiClient, runID string, status models.Runs_attributes_status) (*RunSummary, error) {
+func buildRunSummary(ctx context.Context, c *Client, runID string, status models.Runs_attributes_status) (*RunSummary, error) {
 	result := &RunSummary{
 		RunID:  runID,
 		Status: status.String(),
@@ -146,7 +145,7 @@ func buildRunSummary(ctx context.Context, tfeAPI *api.ApiClient, runID string, s
 
 	case models.ERRORED_RUNS_ATTRIBUTES_STATUS:
 		result.Message = "Run errored"
-		if err := populateErroredSummary(ctx, tfeAPI, runID, result); err != nil {
+		if err := populateErroredSummary(ctx, c, runID, result); err != nil {
 			return nil, err
 		}
 
@@ -157,8 +156,8 @@ func buildRunSummary(ctx context.Context, tfeAPI *api.ApiClient, runID string, s
 	return result, nil
 }
 
-func populateErroredSummary(ctx context.Context, tfeAPI *api.ApiClient, runID string, result *RunSummary) error {
-	plan, err := tfeAPI.Runs().ById(runID).Plan().Get(ctx, nil)
+func populateErroredSummary(ctx context.Context, c *Client, runID string, result *RunSummary) error {
+	plan, err := c.TFE.API.Runs().ById(runID).Plan().Get(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("fetching plan for run %s: %w", runID, err)
 	}
@@ -174,7 +173,7 @@ func populateErroredSummary(ctx context.Context, tfeAPI *api.ApiClient, runID st
 	}
 
 	result.Phase = "apply"
-	runData, err := tfeAPI.Runs().ById(runID).Get(ctx, nil)
+	runData, err := c.TFE.API.Runs().ById(runID).Get(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("fetching run %s: %w", runID, err)
 	}
@@ -185,7 +184,7 @@ func populateErroredSummary(ctx context.Context, tfeAPI *api.ApiClient, runID st
 	}
 	applyID := *applyRel.GetData().GetId()
 
-	apply, err := tfeAPI.Applies().ById(applyID).Get(ctx, nil)
+	apply, err := c.TFE.API.Applies().ById(applyID).Get(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("fetching apply %s: %w", applyID, err)
 	}

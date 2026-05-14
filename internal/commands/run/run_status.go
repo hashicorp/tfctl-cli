@@ -131,7 +131,7 @@ func runStatus(opts *StatusOpts) error {
 		return err
 	}
 
-	summary, err := client.NewRunSummary(opts.ShutdownCtx, opts.Client.TFE.API, runID)
+	summary, err := client.NewRunSummary(opts.ShutdownCtx, opts.Client, runID)
 	if err != nil {
 		return err
 	}
