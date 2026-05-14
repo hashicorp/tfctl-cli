@@ -162,7 +162,7 @@ func notFoundErrorHelp(io iostreams.IOStreams) string {
 	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
 		Resource not found or you are unauthorized to this action. Check your account permissions.
 
-		  {{ Bold "$ %s auth info" }}
+		  {{ Bold "$ %s auth status" }}
 	`, config.Name)
 }
 
