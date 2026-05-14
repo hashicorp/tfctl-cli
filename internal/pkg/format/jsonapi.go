@@ -124,13 +124,13 @@ func (d JSONAPIDisplayer) FieldTemplates() []Field {
 		if att == "external-id" {
 			name = "id"
 		}
-		result[i] = NewField(kebabToCapital(name), fmt.Sprintf(`{{ index . "%s" }}`, att))
+		result[i] = NewField(kebabToLabel(name), fmt.Sprintf(`{{ index . "%s" }}`, att))
 	}
 
 	return result
 }
 
-func kebabToCapital(input string) string {
+func kebabToLabel(input string) string {
 	caser := cases.Title(language.AmericanEnglish)
 	parts := strings.Split(input, ".")
 	for i, part := range parts {
