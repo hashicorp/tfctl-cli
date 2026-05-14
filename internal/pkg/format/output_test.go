@@ -194,13 +194,14 @@ func TestWithJSONAPIResource(t *testing.T) {
 	r.NoError(err)
 	fmt.Println(io.Output.String())
 
-	expected := `Id:                                   user-V3R563qtJNcExAkN
+	expected := `ID:                                   user-V3R563qtJNcExAkN
 Auth Method:                          tfc
-Avatar Url:                           https://www.gravatar.com/avatar/9babb00091b97b9ce9538c45807fd35f?s=100&d=mm
+Authenticated Resource:               user-V3R563qtJNcExAkN
+Avatar URL:                           https://www.gravatar.com/avatar/9babb00091b97b9ce9538c45807fd35f?s=100&d=mm
 Email:                                admin@hashicorp.com
 Is Service Account:                   false
 Is Site Admin:                        true
-Is Sso Login:                         false
+Is SSO Login:                         false
 Unconfirmed Email:                    <no value>
 Username:                             admin
 V2 Only:                              false
