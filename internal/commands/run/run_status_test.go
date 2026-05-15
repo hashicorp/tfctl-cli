@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
@@ -431,12 +432,12 @@ func TestNewRunSummary_ErroredTaskStageRunTask(t *testing.T) {
 				"data": map[string]any{
 					"id": "tr-1", "type": "task-results",
 					"attributes": map[string]any{
-						"task-name":                          "security-scan",
-						"status":                            "failed",
-						"message":                           "Security vulnerabilities found",
-						"url":                               "https://example.com/scan/123",
-						"workspace-task-enforcement-level":   "mandatory",
-						"stage":                             "post_plan",
+						"task-name":                        "security-scan",
+						"status":                           "failed",
+						"message":                          "Security vulnerabilities found",
+						"url":                              "https://example.com/scan/123",
+						"workspace-task-enforcement-level": "mandatory",
+						"stage":                            "post_plan",
 					},
 				},
 			})
@@ -542,6 +543,185 @@ func TestNewRunSummary_PolicyOverride(t *testing.T) {
 	assert.Equal(t, "Run awaiting policy override", summary.Message)
 	assert.Equal(t, "policy_check", summary.Phase)
 	assert.Contains(t, summary.PolicyCheckLog, "soft-mandatory")
+}
+
+func TestStringPayload_PolicyCheckLog(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	log := "Sentinel Result: false\n\n## Policy 1: deny-all (hard-mandatory)\n\nResult: false\n"
+	summary := &client.RunSummary{
+		Status:         "errored",
+		Phase:          "policy_check",
+		PolicyCheckLog: log,
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+
+	t.Run("pretty", func(t *testing.T) {
+		result := d.StringPayload(format.Pretty)
+		assert.Equal(t, log, result)
+	})
+
+	t.Run("markdown", func(t *testing.T) {
+		// PolicyCheckLog may contain ANSI; markdown should strip it.
+		summaryWithANSI := &client.RunSummary{
+			PolicyCheckLog: "Result: \x1b[31mfalse\x1b[0m\n",
+		}
+		dm := &summaryDisplayer{summary: summaryWithANSI, io: io}
+		result := dm.StringPayload(format.Markdown)
+		assert.NotContains(t, result, "\x1b[")
+		assert.Contains(t, result, "Result: false")
+	})
+}
+
+func TestStringPayload_PolicyEvaluations(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	summary := &client.RunSummary{
+		Status: "errored",
+		Phase:  "post_plan",
+		PolicyEvaluations: []client.PolicyEvalResult{
+			{
+				PolicyKind:    "opa",
+				PolicySetName: "deny-all-opa-test",
+				Outcomes: []client.PolicyOutcome{
+					{
+						PolicyName:       "deny-all-opa",
+						EnforcementLevel: "mandatory",
+						Status:           "failed",
+						Description:      "Denies all resources",
+						Output:           []string{"all resources are denied"},
+					},
+					{
+						PolicyName:       "allow-tags",
+						EnforcementLevel: "advisory",
+						Status:           "failed",
+						Description:      "Requires tags on resources",
+					},
+					{
+						PolicyName:       "cost-check",
+						EnforcementLevel: "mandatory",
+						Status:           "passed",
+					},
+				},
+			},
+		},
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+
+	t.Run("pretty", func(t *testing.T) {
+		result := d.StringPayload(format.Pretty)
+		assert.Contains(t, result, "Policy Evaluations")
+		assert.Contains(t, result, "OPA Policy Evaluation")
+		assert.Contains(t, result, "Overall Result:")
+		assert.Contains(t, result, "FAILED")
+		assert.Contains(t, result, "deny-all-opa-test")
+		assert.Contains(t, result, "3 policies evaluated")
+		// TF CLI-style per-policy format
+		assert.Contains(t, result, symbolDownArrow+" Policy name:")
+		assert.Contains(t, result, "deny-all-opa")
+		assert.Contains(t, result, symbolCross+" Failed")
+		assert.Contains(t, result, symbolInfo+" Advisory")
+		assert.Contains(t, result, symbolTick+" Passed")
+		assert.Contains(t, result, "Denies all resources")
+		assert.Contains(t, result, "all resources are denied")
+	})
+
+	t.Run("markdown", func(t *testing.T) {
+		result := d.StringPayload(format.Markdown)
+		assert.Contains(t, result, "## Policy Evaluations")
+		assert.Contains(t, result, "### OPA Policy Evaluation")
+		assert.Contains(t, result, "**Overall Result: FAILED**")
+		assert.Contains(t, result, "3 policies evaluated")
+		assert.Contains(t, result, "deny-all-opa-test")
+		assert.Contains(t, result, "deny-all-opa")
+		assert.Contains(t, result, "Failed")
+		assert.Contains(t, result, "Advisory")
+		assert.Contains(t, result, "Passed")
+		assert.Contains(t, result, "all resources are denied")
+	})
+}
+
+func TestStringPayload_PolicyEvaluationsError(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	summary := &client.RunSummary{
+		Status: "errored",
+		Phase:  "post_plan",
+		PolicyEvaluations: []client.PolicyEvalResult{
+			{
+				PolicyKind:    "opa",
+				PolicySetName: "deny-all-opa-test",
+				Error:         "rego_parse_error: unexpected token",
+			},
+		},
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+	result := d.StringPayload(format.Pretty)
+	assert.Contains(t, result, "Overall Result:")
+	assert.Contains(t, result, "ERRORED")
+	assert.Contains(t, result, "deny-all-opa-test")
+	assert.Contains(t, result, "rego_parse_error")
+}
+
+func TestStringPayload_TaskResults(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	summary := &client.RunSummary{
+		Status: "errored",
+		Phase:  "post_plan",
+		TaskResults: []client.TaskResult{
+			{
+				TaskName:         "security-scan",
+				Status:           "failed",
+				Message:          "Security vulnerabilities found",
+				URL:              "https://example.com/scan/123",
+				EnforcementLevel: "mandatory",
+				Stage:            "post_plan",
+			},
+			{
+				TaskName:         "cost-estimate",
+				Status:           "passed",
+				EnforcementLevel: "advisory",
+				Stage:            "post_plan",
+			},
+		},
+	}
+
+	d := &summaryDisplayer{summary: summary, io: io}
+
+	t.Run("pretty", func(t *testing.T) {
+		result := d.StringPayload(format.Pretty)
+		assert.Contains(t, result, "All tasks completed! 1 passed, 1 failed")
+		assert.Contains(t, result, "security-scan "+symbolDash)
+		assert.Contains(t, result, "Failed (Mandatory)")
+		assert.Contains(t, result, "Security vulnerabilities found")
+		assert.Contains(t, result, "Details: https://example.com/scan/123")
+		assert.Contains(t, result, "cost-estimate "+symbolDash)
+		assert.Contains(t, result, "Passed")
+		assert.Contains(t, result, "Error:")
+		assert.Contains(t, result, "security-scan, is required to succeed")
+		assert.Contains(t, result, "Overall Result:")
+	})
+
+	t.Run("markdown", func(t *testing.T) {
+		result := d.StringPayload(format.Markdown)
+		assert.Contains(t, result, "All tasks completed! 1 passed, 1 failed")
+		assert.Contains(t, result, "security-scan")
+		assert.Contains(t, result, "Failed (mandatory)")
+		assert.Contains(t, result, "Security vulnerabilities found")
+		assert.Contains(t, result, "Details: https://example.com/scan/123")
+		assert.Contains(t, result, "cost-estimate")
+		assert.Contains(t, result, "Passed")
+		assert.Contains(t, result, "**Error:**")
+		assert.Contains(t, result, "**Overall Result: Failed**")
+	})
 }
 
 func TestRunOrCurrentRun(t *testing.T) {
@@ -806,6 +986,77 @@ func TestFormatDiagnosticsPretty_SnippetNoHighlight(t *testing.T) {
 
 	assert.Contains(t, result, "   1:")
 	assert.Contains(t, result, "resource \"aws_instance\" \"web\" {}")
+}
+
+func TestRunStatus_ExitCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		status  string
+		wantErr bool
+	}{
+		{"errored exits non-zero", "errored", true},
+		{"policy_soft_failed exits non-zero", "policy_soft_failed", true},
+		{"policy_override exits non-zero", "policy_override", true},
+		{"applied exits zero", "applied", false},
+		{"planned_and_finished exits zero", "planned_and_finished", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			logServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprint(w, `{"@level":"error","@message":"Error: fail","type":"diagnostic","diagnostic":{"severity":"error","summary":"fail"}}`)
+			}))
+			t.Cleanup(logServer.Close)
+
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch route(r) {
+				case "GET /api/v2/runs/run-1":
+					jsonapi(w, map[string]any{
+						"data": map[string]any{
+							"id": "run-1", "type": "runs",
+							"attributes": map[string]any{"status": tt.status},
+						},
+					})
+				case "GET /api/v2/runs/run-1/plan":
+					jsonapi(w, map[string]any{
+						"data": map[string]any{
+							"id": "plan-1", "type": "plans",
+							"attributes": map[string]any{"status": "errored", "log-read-url": logServer.URL},
+						},
+					})
+				case "GET /api/v2/runs/run-1/policy-checks":
+					jsonapi(w, map[string]any{"data": []any{}})
+				case "GET /api/v2/runs/run-1/task-stages":
+					jsonapi(w, map[string]any{"data": []any{}})
+				default:
+					http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+				}
+			})
+
+			c := testAPI(t, handler)
+			io := iostreams.Test()
+			out := format.New(io)
+
+			opts := &StatusOpts{
+				IO:          io,
+				ShutdownCtx: context.Background(),
+				Output:      out,
+				Client:      c,
+				ID:          "run-1",
+			}
+
+			err := runStatus(opts)
+			if tt.wantErr {
+				assert.ErrorIs(t, err, cmd.ErrUnderlyingError)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
 
 func strPtr(s string) *string { return &s }

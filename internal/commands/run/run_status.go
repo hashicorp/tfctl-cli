@@ -140,7 +140,8 @@ func runStatus(opts *StatusOpts) error {
 		return err
 	}
 
-	if summary.Status == "errored" {
+	switch summary.Status {
+	case "errored", "policy_soft_failed", "policy_override":
 		return cmd.ErrUnderlyingError
 	}
 	return nil
@@ -167,6 +168,18 @@ func (d *summaryDisplayer) FieldTemplates() []format.Field {
 func (d *summaryDisplayer) StringPayload(f format.Format) string {
 	if len(d.summary.Diagnostics) > 0 {
 		return d.formatDiagnostics(f)
+	}
+	if d.summary.PolicyCheckLog != "" {
+		if f == format.Markdown {
+			return stripANSI(d.summary.PolicyCheckLog)
+		}
+		return d.summary.PolicyCheckLog
+	}
+	if len(d.summary.PolicyEvaluations) > 0 {
+		return d.formatPolicyEvaluations(f)
+	}
+	if len(d.summary.TaskResults) > 0 {
+		return d.formatTaskResults(f)
 	}
 	if d.summary.RawLog != "" {
 		if f == format.Markdown {
@@ -278,6 +291,361 @@ func (d *summaryDisplayer) formatDiagnosticsMarkdown() string {
 			fmt.Fprintf(&out, "\n%s\n", diag.Detail)
 		}
 	}
+	return out.String()
+}
+
+func policyKindLabel(kind string) string {
+	if kind == "sentinel" {
+		return "Sentinel"
+	}
+	return "OPA"
+}
+
+// Unicode symbols matching Terraform CLI output.
+const (
+	symbolTick      = "\u2713" // ✓
+	symbolCross     = "\u00d7" // ×
+	symbolInfo      = "\u24be" // Ⓘ
+	symbolArrow     = "\u2192" // →
+	symbolDownArrow = "\u21b3" // ↳
+	symbolDash      = "\u2e3a" // ⸺
+)
+
+// policyIcon returns a colored icon for a policy outcome, matching TF CLI.
+func policyIcon(cs *iostreams.ColorScheme, status, enforcementLevel string) iostreams.String {
+	switch status {
+	case "passed":
+		return cs.String(symbolTick).Color(cs.Green()).Bold()
+	case "failed":
+		if enforcementLevel == "advisory" {
+			return cs.String(symbolInfo).Color(cs.Orange()).Bold()
+		}
+		return cs.String(symbolCross).Color(cs.Red()).Bold()
+	default:
+		return cs.String("-")
+	}
+}
+
+// policyStatusLabel returns the display label for a policy status, matching TF CLI.
+func policyStatusLabel(status, enforcementLevel string) string {
+	switch status {
+	case "passed":
+		return "Passed"
+	case "failed":
+		if enforcementLevel == "advisory" {
+			return "Advisory"
+		}
+		return "Failed"
+	default:
+		return status
+	}
+}
+
+// taskStatusLabel returns a colored status string for a run task, matching TF CLI.
+func taskStatusLabel(cs *iostreams.ColorScheme, status, enforcementLevel string) iostreams.String {
+	switch status {
+	case "passed":
+		return cs.String("Passed").Color(cs.Green())
+	case "failed":
+		label := "Failed"
+		if enforcementLevel != "" {
+			label += " (" + strings.ToTitle(enforcementLevel[:1]) + enforcementLevel[1:] + ")"
+		}
+		return cs.String(label).Color(cs.Red())
+	default:
+		return cs.String(status)
+	}
+}
+
+// --- Policy evaluations ---
+
+func (d *summaryDisplayer) formatPolicyEvaluations(f format.Format) string {
+	switch f {
+	case format.Markdown:
+		return d.formatPolicyEvaluationsMarkdown()
+	default:
+		return d.formatPolicyEvaluationsPretty()
+	}
+}
+
+func (d *summaryDisplayer) formatPolicyEvaluationsPretty() string {
+	cs := d.io.ColorScheme()
+	var out strings.Builder
+
+	out.WriteString(cs.String("Policy Evaluations").Bold().String())
+	out.WriteString("\n")
+
+	for i, eval := range d.summary.PolicyEvaluations {
+		if i > 0 || true {
+			out.WriteString("\n")
+		}
+		kind := policyKindLabel(eval.PolicyKind)
+		out.WriteString(cs.String(kind + " Policy Evaluation").Bold().String())
+		out.WriteString("\n")
+
+		if eval.Error != "" {
+			fmt.Fprintf(&out, "%s %s %s\n",
+				cs.String(symbolArrow+symbolArrow).Bold(),
+				cs.String("Overall Result:").Bold(),
+				cs.String("ERRORED").Color(cs.Red()).Bold())
+			fmt.Fprintf(&out, "  %s\n", cs.String(eval.Error).Faint())
+			if eval.PolicySetName != "" {
+				fmt.Fprintf(&out, "\n%s Policy set 1: %s\n",
+					cs.String(symbolArrow).Bold(),
+					cs.String(eval.PolicySetName).Bold())
+			}
+			continue
+		}
+
+		// Compute overall result.
+		overallResult := "PASSED"
+		overallColor := cs.Green()
+		hasAdvisoryFail := false
+		hasMandatoryFail := false
+		for _, oc := range eval.Outcomes {
+			if oc.Status == "failed" {
+				if oc.EnforcementLevel == "advisory" {
+					hasAdvisoryFail = true
+				} else {
+					hasMandatoryFail = true
+				}
+			}
+		}
+		if hasMandatoryFail {
+			overallResult = "FAILED"
+			overallColor = cs.Red()
+		} else if hasAdvisoryFail {
+			overallResult = "PASSED (with advisory)"
+			overallColor = cs.Green()
+		}
+
+		fmt.Fprintf(&out, "%s %s %s\n",
+			cs.String(symbolArrow+symbolArrow).Bold(),
+			cs.String("Overall Result:").Bold(),
+			cs.String(overallResult).Color(overallColor).Bold())
+		if hasMandatoryFail {
+			fmt.Fprintf(&out, "  %s\n", cs.String("This result means that one or more OPA policies failed").Faint())
+		} else if hasAdvisoryFail {
+			fmt.Fprintf(&out, "  %s\n", cs.String("This result means that all OPA policies passed and the protected behavior is allowed").Faint())
+		}
+		fmt.Fprintf(&out, "%d policies evaluated\n", len(eval.Outcomes))
+
+		if eval.PolicySetName != "" {
+			fmt.Fprintf(&out, "\n%s Policy set %d: %s (%d)\n",
+				cs.String(symbolArrow).Bold(),
+				i+1,
+				cs.String(eval.PolicySetName).Bold(),
+				len(eval.Outcomes))
+		}
+
+		for _, oc := range eval.Outcomes {
+			icon := policyIcon(cs, oc.Status, oc.EnforcementLevel)
+			label := policyStatusLabel(oc.Status, oc.EnforcementLevel)
+			fmt.Fprintf(&out, "  %s Policy name: %s\n", cs.String(symbolDownArrow).Bold(), cs.String(oc.PolicyName).Bold())
+			fmt.Fprintf(&out, "     | %s %s\n", icon, label)
+			if oc.Description != "" {
+				fmt.Fprintf(&out, "     | %s\n", cs.String(oc.Description).Faint())
+			} else {
+				fmt.Fprintf(&out, "     | %s\n", cs.String("No description available").Faint())
+			}
+			for _, line := range oc.Output {
+				fmt.Fprintf(&out, "     | %s\n", line)
+			}
+		}
+	}
+
+	return out.String()
+}
+
+func (d *summaryDisplayer) formatPolicyEvaluationsMarkdown() string {
+	var out strings.Builder
+
+	out.WriteString("## Policy Evaluations\n\n")
+
+	for i, eval := range d.summary.PolicyEvaluations {
+		kind := policyKindLabel(eval.PolicyKind)
+		fmt.Fprintf(&out, "### %s Policy Evaluation\n\n", kind)
+
+		if eval.Error != "" {
+			fmt.Fprintf(&out, "**Overall Result: ERRORED**\n\n")
+			fmt.Fprintf(&out, "%s\n\n", eval.Error)
+			if eval.PolicySetName != "" {
+				fmt.Fprintf(&out, "**Policy set:** %s\n\n", eval.PolicySetName)
+			}
+			continue
+		}
+
+		// Compute overall result.
+		overallResult := "PASSED"
+		hasAdvisoryFail := false
+		hasMandatoryFail := false
+		for _, oc := range eval.Outcomes {
+			if oc.Status == "failed" {
+				if oc.EnforcementLevel == "advisory" {
+					hasAdvisoryFail = true
+				} else {
+					hasMandatoryFail = true
+				}
+			}
+		}
+		if hasMandatoryFail {
+			overallResult = "FAILED"
+		} else if hasAdvisoryFail {
+			overallResult = "PASSED (with advisory)"
+		}
+
+		fmt.Fprintf(&out, "**Overall Result: %s**\n\n", overallResult)
+		fmt.Fprintf(&out, "%d policies evaluated\n\n", len(eval.Outcomes))
+
+		if eval.PolicySetName != "" {
+			fmt.Fprintf(&out, "**Policy set %d:** %s (%d)\n\n", i+1, eval.PolicySetName, len(eval.Outcomes))
+		}
+
+		for _, oc := range eval.Outcomes {
+			label := policyStatusLabel(oc.Status, oc.EnforcementLevel)
+			desc := oc.Description
+			if desc == "" {
+				desc = "No description available"
+			}
+			fmt.Fprintf(&out, "- **%s** — %s\n", oc.PolicyName, label)
+			fmt.Fprintf(&out, "  %s\n", desc)
+			for _, line := range oc.Output {
+				fmt.Fprintf(&out, "  - %s\n", line)
+			}
+		}
+		out.WriteString("\n")
+	}
+
+	return out.String()
+}
+
+// --- Task results ---
+
+func (d *summaryDisplayer) formatTaskResults(f format.Format) string {
+	switch f {
+	case format.Markdown:
+		return d.formatTaskResultsMarkdown()
+	default:
+		return d.formatTaskResultsPretty()
+	}
+}
+
+func (d *summaryDisplayer) formatTaskResultsPretty() string {
+	cs := d.io.ColorScheme()
+	var out strings.Builder
+
+	// Count passed and failed.
+	passed, failed := 0, 0
+	var mandatoryFailed []string
+	for _, tr := range d.summary.TaskResults {
+		if tr.Status == "passed" {
+			passed++
+		} else {
+			failed++
+			if tr.EnforcementLevel != "advisory" {
+				mandatoryFailed = append(mandatoryFailed, tr.TaskName)
+			}
+		}
+	}
+
+	// Summary line.
+	fmt.Fprintf(&out, "All tasks completed! %d passed, %d failed\n", passed, failed)
+
+	// Per-task output.
+	for _, tr := range d.summary.TaskResults {
+		out.WriteString("\n")
+		status := taskStatusLabel(cs, tr.Status, tr.EnforcementLevel)
+		fmt.Fprintf(&out, "  %s %s   %s\n", cs.String(tr.TaskName).Bold(), symbolDash, status)
+		if tr.Message != "" {
+			fmt.Fprintf(&out, "  %s\n", cs.String(tr.Message).Faint())
+		}
+		if tr.URL != "" {
+			fmt.Fprintf(&out, "  %s\n", cs.String("Details: "+tr.URL).Faint())
+		}
+	}
+
+	// Error footer for mandatory failures.
+	if len(mandatoryFailed) > 0 {
+		out.WriteString("\n")
+		if len(mandatoryFailed) == 1 {
+			fmt.Fprintf(&out, "%s %s\n",
+				cs.String("Error:").Color(cs.Red()),
+				cs.String(fmt.Sprintf("the run failed because the run task, %s, is required to succeed", mandatoryFailed[0])).Bold())
+		} else {
+			fmt.Fprintf(&out, "%s %s\n",
+				cs.String("Error:").Color(cs.Red()),
+				cs.String(fmt.Sprintf("the run failed because %d mandatory tasks are required to succeed", len(mandatoryFailed))).Bold())
+		}
+	}
+
+	// Overall result.
+	out.WriteString("\n")
+	overallLabel := "Passed"
+	overallColor := cs.Green()
+	if len(mandatoryFailed) > 0 {
+		overallLabel = "Failed"
+		overallColor = cs.Red()
+	} else if failed > 0 {
+		overallLabel = "Passed with advisory failures"
+	}
+	fmt.Fprintf(&out, "%s %s\n",
+		cs.String("Overall Result:").Bold(),
+		cs.String(overallLabel).Color(overallColor).Bold())
+
+	return out.String()
+}
+
+func (d *summaryDisplayer) formatTaskResultsMarkdown() string {
+	var out strings.Builder
+
+	// Count passed and failed.
+	passed, failed := 0, 0
+	var mandatoryFailed []string
+	for _, tr := range d.summary.TaskResults {
+		if tr.Status == "passed" {
+			passed++
+		} else {
+			failed++
+			if tr.EnforcementLevel != "advisory" {
+				mandatoryFailed = append(mandatoryFailed, tr.TaskName)
+			}
+		}
+	}
+
+	fmt.Fprintf(&out, "## Run Tasks\n\n")
+	fmt.Fprintf(&out, "All tasks completed! %d passed, %d failed\n\n", passed, failed)
+
+	for _, tr := range d.summary.TaskResults {
+		label := "Passed"
+		if tr.Status == "failed" {
+			label = fmt.Sprintf("Failed (%s)", tr.EnforcementLevel)
+		}
+		fmt.Fprintf(&out, "- **%s** — %s\n", tr.TaskName, label)
+		if tr.Message != "" {
+			fmt.Fprintf(&out, "  %s\n", tr.Message)
+		}
+		if tr.URL != "" {
+			fmt.Fprintf(&out, "  Details: %s\n", tr.URL)
+		}
+	}
+
+	if len(mandatoryFailed) > 0 {
+		out.WriteString("\n")
+		if len(mandatoryFailed) == 1 {
+			fmt.Fprintf(&out, "**Error:** the run failed because the run task, %s, is required to succeed\n", mandatoryFailed[0])
+		} else {
+			fmt.Fprintf(&out, "**Error:** the run failed because %d mandatory tasks are required to succeed\n", len(mandatoryFailed))
+		}
+	}
+
+	overallLabel := "Passed"
+	if len(mandatoryFailed) > 0 {
+		overallLabel = "Failed"
+	} else if failed > 0 {
+		overallLabel = "Passed with advisory failures"
+	}
+	fmt.Fprintf(&out, "\n**Overall Result: %s**\n", overallLabel)
+
 	return out.String()
 }
 
