@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/go-homedir"
 )
 
+// AgentSpec defines the necessary information to install a skill for a coding agent.
 type AgentSpec struct {
 	Name            string
 	DisplayName     string
@@ -27,9 +28,12 @@ func detectHomeDirPath(dir string) bool {
 	return err == nil
 }
 
+// TFCTLSkillPath is the path to the embedded SKILL.md file within the binary.
 const TFCTLSkillPath = "tfctl/SKILL.md"
 
 var agents map[string]AgentSpec
+
+// AgentNames is a list of the names of all supported agents.
 var AgentNames []string
 
 func init() {
@@ -146,19 +150,14 @@ func registerAgents() map[string]AgentSpec {
 	}
 }
 
-func ListAgents() []string {
-	var list []string
-	for _, agent := range agents {
-		list = append(list, agent.Name)
-	}
-	return list
-}
-
+// GetAgent returns the AgentSpec for a given agent name, along with a boolean indicating whether
+// the agent was found.
 func GetAgent(name string) (AgentSpec, bool) {
 	agent, ok := agents[name]
 	return agent, ok
 }
 
+// DetectAgent returns a list of AgentSpecs for agents detected on the current system.
 func DetectAgent() []AgentSpec {
 	var detected []AgentSpec
 	for _, agent := range agents {
@@ -170,6 +169,8 @@ func DetectAgent() []AgentSpec {
 	return detected
 }
 
+// InstallSkill installs the tfctl skill for the agent, either to the project directory or the
+// global config directory based on the value of the global parameter.
 func (a AgentSpec) InstallSkill(global bool) error {
 	file, err := FS.Open(TFCTLSkillPath)
 	if err != nil {

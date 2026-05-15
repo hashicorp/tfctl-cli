@@ -31,11 +31,11 @@ func NewCmdHarnessContext(ctx *cmd.Context) *cmd.Command {
 
 	cmd := &cmd.Command{
 		Name:      "context",
-		ShortHelp: "Print coding agent context for tfctl.",
+		ShortHelp: "Print coding agent context for tfctl, suitable for AGENTS.md.",
 		LongHelp: heredoc.New(ctx.IO, heredoc.WithPreserveNewlines()).Mustf(`
-		The {{ template "mdCodeOrBold" "%s harness context" }} command prints coding agent context for tfctl. This context is used to provide information to coding agents which makes them more effective at using {{ Bold "tfctl" }}.
+		The {{ template "mdCodeOrBold" "%s harness context" }} command prints coding agent context for tfctl. This context can be used as part of AGENTS.md or other documentation which makes coding agents more effective at using {{ Bold "tfctl" }}.
 		`, config.Name),
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, _ []string) error {
 			return runContext(&contextOpts)
 		},
 	}
@@ -99,7 +99,7 @@ func (d *markdownDisplayer) Payload() any {
 	}
 }
 
-func (d *markdownDisplayer) StringPayload(f format.Format) string {
+func (d *markdownDisplayer) StringPayload(_ format.Format) string {
 	if !d.IO.IsOutputTTY() {
 		return d.Markdown
 	}

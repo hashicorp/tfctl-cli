@@ -72,7 +72,7 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 				},
 			},
 		},
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			installOpts.AgentName = args[0]
 
 			if ctx.IsDryRun() {
