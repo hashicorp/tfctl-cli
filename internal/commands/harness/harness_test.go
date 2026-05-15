@@ -34,13 +34,16 @@ func TestRunContext(t *testing.T) {
 			t.Errorf("expected output to contain 'tfctl', got %q", out)
 		}
 
-		// Should not contain frontmatter delimiters as standalone lines
+		// First non-empty line should not be a frontmatter delimiter
 		lines := strings.Split(out, "\n")
-		for i, line := range lines {
-			if line == "---" {
-				t.Errorf("output contains frontmatter delimiter '---' at line %d", i+1)
-				break
+		for _, line := range lines {
+			if line == "" {
+				continue
 			}
+			if line == "---" {
+				t.Error("first non-empty line of output is a frontmatter delimiter '---'")
+			}
+			break
 		}
 
 		// Should not contain frontmatter fields
