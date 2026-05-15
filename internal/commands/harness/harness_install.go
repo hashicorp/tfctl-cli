@@ -32,6 +32,8 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 		Output:  ctx.Output,
 	}
 
+	listAgentsSentence := fmt.Sprintf("%s, or %s", strings.Join(skills.AgentNames[:len(skills.AgentNames)-1], ", "), skills.AgentNames[len(skills.AgentNames)-1])
+
 	cmd := &cmd.Command{
 		Name:      "install",
 		ShortHelp: "Install coding agent skills for tfctl.",
@@ -41,7 +43,7 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 		Alternatively, you can use npx skills to install the tfctl skill for most other agents:
 
 		{{ Color "green" "$ npx skills add hashicorp/tfctl-cli --skill 'tfctl'" }}
-		`, config.Name, strings.Join(skills.ListAgents(), ", ")),
+		`, config.Name, listAgentsSentence),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Install in the project directory for opencode and many other agents:",
@@ -56,7 +58,7 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "AGENT",
-					Documentation: heredoc.New(ctx.IO).Mustf(`The agent to install the skill for. Valid options are {{ template "mdCodeOrBold" "%s" }}`, strings.Join(skills.ListAgents(), ", ")),
+					Documentation: heredoc.New(ctx.IO).Mustf(`The agent to install the skill for. Valid options are {{ template "mdCodeOrBold" "%s" }}`, listAgentsSentence),
 				},
 			},
 		},
@@ -87,7 +89,7 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 func runInstall(opts *InstallOpts) error {
 	agent, ok := skills.GetAgent(opts.AgentName)
 	if !ok {
-		return fmt.Errorf("invalid agent %q, valid options are: %s", opts.AgentName, strings.Join(skills.ListAgents(), ", "))
+		return fmt.Errorf("invalid agent name %q", opts.AgentName)
 	}
 
 	if opts.DryRun {

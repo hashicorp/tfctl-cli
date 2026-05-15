@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"slices"
 
 	"github.com/mitchellh/go-homedir"
 )
@@ -29,9 +30,19 @@ func detectHomeDirPath(dir string) bool {
 const TFCTLSkillPath = "tfctl/SKILL.md"
 
 var agents map[string]AgentSpec
+var AgentNames []string
 
 func init() {
 	agents = registerAgents()
+
+	AgentNames = make([]string, len(agents))
+	i := 0
+	for k := range agents {
+		AgentNames[i] = k
+		i++
+	}
+
+	slices.Sort(AgentNames)
 }
 
 func registerAgents() map[string]AgentSpec {
@@ -118,6 +129,18 @@ func registerAgents() map[string]AgentSpec {
 			},
 			Detect: func() bool {
 				return detectHomeDirPath(".config/opencode")
+			},
+		},
+		"pi": {
+			Name:        "pi",
+			DisplayName: "Pi CLI",
+			SkillsDir:   ".agents/skills",
+			GlobalSkillsDir: func() string {
+				path, _ := homedir.Expand("~/.pi/skills")
+				return path
+			},
+			Detect: func() bool {
+				return detectHomeDirPath(".pi")
 			},
 		},
 	}
