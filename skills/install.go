@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"slices"
 
 	"github.com/mitchellh/go-homedir"
@@ -78,7 +78,7 @@ func registerAgents() map[string]AgentSpec {
 			DisplayName: "Claude Code",
 			SkillsDir:   ".claude/skills",
 			GlobalSkillsDir: func() string {
-				return path.Join(claudeDir, "skills")
+				return filepath.Join(claudeDir, "skills")
 			},
 			Detect: func() bool {
 				_, err := os.Stat(claudeDir)
@@ -90,7 +90,7 @@ func registerAgents() map[string]AgentSpec {
 			DisplayName: "OpenAI Codex",
 			SkillsDir:   ".codex/skills",
 			GlobalSkillsDir: func() string {
-				return path.Join(codexDir, "skills")
+				return filepath.Join(codexDir, "skills")
 			},
 			Detect: func() bool {
 				_, err := os.Stat(codexDir)
@@ -181,7 +181,7 @@ func (a AgentSpec) InstallSkill(global bool) error {
 		targetDir = a.GlobalSkillsDir()
 	}
 
-	targetDir = path.Join(targetDir, "tfctl")
+	targetDir = filepath.Join(targetDir, "tfctl")
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("failed to create target directory %q: %w", targetDir, err)

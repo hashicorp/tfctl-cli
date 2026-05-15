@@ -2,7 +2,6 @@ package harness
 
 import (
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -110,7 +109,7 @@ func TestRunInstall(t *testing.T) {
 			DisplayName: "Test Agent",
 			SkillsDir:   ".testagent/skills",
 			GlobalSkillsDir: func() string {
-				return path.Join(tmpDir, "global", "testagent", "skills")
+				return filepath.Join(tmpDir, "global", "testagent", "skills")
 			},
 		}
 
@@ -152,7 +151,7 @@ func TestRunInstall(t *testing.T) {
 			DisplayName: "Test Agent",
 			SkillsDir:   ".testagent/skills",
 			GlobalSkillsDir: func() string {
-				return path.Join(tmpDir, "global", "testagent", "skills")
+				return filepath.Join(tmpDir, "global", "testagent", "skills")
 			},
 		}
 
@@ -176,7 +175,7 @@ func TestRunInstall(t *testing.T) {
 		if !strings.Contains(errOut, "global directory") {
 			t.Errorf("expected 'global directory' in output, got %q", errOut)
 		}
-		if !strings.Contains(errOut, path.Join(tmpDir, "global", "testagent", "skills")) {
+		if !strings.Contains(errOut, filepath.Join(tmpDir, "global", "testagent", "skills")) {
 			t.Errorf("expected global skills dir in output, got %q", errOut)
 		}
 	})
