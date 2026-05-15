@@ -78,8 +78,7 @@ func registerAgents() map[string]AgentSpec {
 			DisplayName: "Claude Code",
 			SkillsDir:   ".claude/skills",
 			GlobalSkillsDir: func() string {
-				path, _ := homedir.Expand("~/.claude/skills")
-				return path
+				return path.Join(claudeDir, "skills")
 			},
 			Detect: func() bool {
 				_, err := os.Stat(claudeDir)
@@ -91,8 +90,7 @@ func registerAgents() map[string]AgentSpec {
 			DisplayName: "OpenAI Codex",
 			SkillsDir:   ".codex/skills",
 			GlobalSkillsDir: func() string {
-				path, _ := homedir.Expand("~/.codex/skills")
-				return path
+				return path.Join(codexDir, "skills")
 			},
 			Detect: func() bool {
 				_, err := os.Stat(codexDir)
@@ -182,6 +180,8 @@ func (a AgentSpec) InstallSkill(global bool) error {
 	if global {
 		targetDir = a.GlobalSkillsDir()
 	}
+
+	fmt.Printf("TaRGET DIR = %q", targetDir)
 
 	targetDir = path.Join(targetDir, "tfctl")
 
