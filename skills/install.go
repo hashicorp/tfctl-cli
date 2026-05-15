@@ -138,7 +138,7 @@ func registerAgents() map[string]AgentSpec {
 			DisplayName: "Pi CLI",
 			SkillsDir:   ".agents/skills",
 			GlobalSkillsDir: func() string {
-				path, _ := homedir.Expand("~/.pi/skills")
+				path, _ := homedir.Expand("~/.pi/agent/skills")
 				return path
 			},
 			Detect: func() bool {
@@ -180,8 +180,6 @@ func (a AgentSpec) InstallSkill(global bool) error {
 	if global {
 		targetDir = a.GlobalSkillsDir()
 	}
-
-	fmt.Printf("TaRGET DIR = %q", targetDir)
 
 	targetDir = path.Join(targetDir, "tfctl")
 

@@ -16,12 +16,12 @@ import (
 
 // InstallOpts defines the options for the `harness install` command.
 type InstallOpts struct {
-	IO        iostreams.IOStreams
-	Profile   *profile.Profile
-	Output    *format.Outputter
-	AgentName string
-	Global    bool
-	DryRun    bool
+	IO      iostreams.IOStreams
+	Profile *profile.Profile
+	Output  *format.Outputter
+	Agent   *skills.AgentSpec
+	Global  bool
+	DryRun  bool
 }
 
 // NewCmdHarnessInstall creates the `harness install` command.
@@ -73,7 +73,12 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
-			installOpts.AgentName = args[0]
+			agent, ok := skills.GetAgent(args[0])
+			if !ok {
+				return fmt.Errorf("invalid agent name %q", args[0])
+			}
+
+			installOpts.Agent = &agent
 
 			if ctx.IsDryRun() {
 				installOpts.DryRun = true
@@ -87,10 +92,7 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 }
 
 func runInstall(opts *InstallOpts) error {
-	agent, ok := skills.GetAgent(opts.AgentName)
-	if !ok {
-		return fmt.Errorf("invalid agent name %q", opts.AgentName)
-	}
+	agent := opts.Agent
 
 	if opts.DryRun {
 		if opts.Global {
@@ -108,7 +110,7 @@ func runInstall(opts *InstallOpts) error {
 
 	err := agent.InstallSkill(opts.Global)
 	if err != nil {
-		return fmt.Errorf("failed to install skill for agent %q: %w", opts.AgentName, err)
+		return fmt.Errorf("failed to install skill for agent %q: %w", agent.Name, err)
 	}
 	fmt.Fprintf(opts.IO.Err(), "%s Successfully installed %s for %s %s\n", opts.IO.ColorScheme().SuccessIcon(), skills.TFCTLSkillPath, agent.DisplayName, predicate)
 	return nil
