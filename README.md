@@ -10,6 +10,8 @@ If you have a go environment, clone the repo and run `make go/install`. Binary r
 
 **Install Shell Completion**
 
+Shell completion greatly assists with command, argument, and API path completion and is highly recommended.
+
 ```bash
 $ tfctl --autocomplete-install
 ```
@@ -19,8 +21,8 @@ $ tfctl --autocomplete-install
 tfctl ships with an agent skill that gives AI coding agents full access to HCP Terraform. You can install it using tfctl:
 
 ```bash
-# Install with tfctl
-$ tfctl harness install AGENT [--global]
+# Install with tfctl. AGENT can be: copilot, opencode, bob, claude, codex, or gemini
+$ tfctl harness install AGENT --global
 
 # Or with npx skills
 $ npx skills add hashicorp/tfctl-cli --skill 'tfctl'

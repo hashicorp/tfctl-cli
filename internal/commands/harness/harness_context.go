@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"charm.land/glamour/v2"
 	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -105,10 +104,6 @@ func (d *markdownDisplayer) StringPayload(f format.Format) string {
 		return d.Markdown
 	}
 
-	out, err := glamour.Render(d.Markdown, "dark")
-	if err != nil {
-		return d.Markdown
-	}
-
-	return out
+	// TODO: Decorate markdown for terminal output.
+	return d.Markdown
 }
