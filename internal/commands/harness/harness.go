@@ -1,0 +1,27 @@
+// Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
+
+// Package harness implements the `harness` command group.
+package harness
+
+import (
+	"github.com/hashicorp/tfctl-cli/internal/config"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+)
+
+// NewCmdHarness creates the `harness` command.
+func NewCmdHarness(ctx *cmd.Context) *cmd.Command {
+	cmd := &cmd.Command{
+		Name:      "harness",
+		ShortHelp: "Install coding agent skills and see agent context.",
+		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		The {{ template "mdCodeOrBold" "%s harness" }} command group lets you install coding agent skills and see printed coding agent context.
+		`, config.Name),
+	}
+
+	cmd.AddChild(NewCmdHarnessContext(ctx))
+	cmd.AddChild(NewCmdHarnessInstall(ctx))
+
+	return cmd
+}
