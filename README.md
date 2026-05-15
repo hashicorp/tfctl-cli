@@ -16,10 +16,14 @@ $ tfctl --autocomplete-install
 
 ### AI Agent Skill
 
-tfctl ships with an agent skill that gives AI coding agents full access to HCP Terraform. Install it with:
+tfctl ships with an agent skill that gives AI coding agents full access to HCP Terraform. You can install it using tfctl:
 
-```
-npx skills add hashicorp/tfctl-cli --skill 'tfctl'
+```bash
+# Install with tfctl
+$ tfctl harness install AGENT [--global]
+
+# Or with npx skills
+$ npx skills add hashicorp/tfctl-cli --skill 'tfctl'
 ```
 
 This adds the skill to your project so that compatible agents (OpenCode, Claude Code, etc.) can use tfctl on your behalf.
