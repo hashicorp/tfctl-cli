@@ -76,7 +76,7 @@ func realMain() int {
 
 	// Get the HCP Root command
 	tfctlCmd := root.NewCmdRoot(cCtx)
-	cmdMap := cmd.ToCommandMap(tfctlCmd)
+	cmdMap := cmd.ToCommandMap(tfctlCmd, cCtx)
 
 	c := cli.CLI{
 		Version:                    config.Version,
@@ -147,11 +147,6 @@ func loadProfile(_ context.Context) (*profile.Profile, error) {
 	p, err := loadActiveProfile()
 	if err != nil {
 		return nil, err
-	}
-
-	// Save the profile.
-	if err := p.Write(); err != nil {
-		return nil, fmt.Errorf("failed to save default profile: %w", err)
 	}
 
 	return p, nil

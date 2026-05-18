@@ -62,7 +62,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status my-workspace --organization my-org`, config.Name),
 			},
 		},
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			if len(args) != 1 {
 				return cmd.ErrDisplayUsage
 			}
@@ -78,7 +78,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				}
 			}
 
-			apiClient, err := ctx.NewAPIClient()
+			apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
@@ -98,10 +98,15 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				}
 			}
 
+			logger := c.Logger(ctx)
+			logger.Debug("resolving run", "id", id, "type", resourceType, "organization", org)
+
 			runID, err := resolver.RunOrCurrentRun(ctx.ShutdownCtx, org, resourceType, id)
 			if err != nil {
 				return err
 			}
+
+			logger.Debug("fetching run summary", "run_id", runID)
 
 			summary, err := client.NewRunSummary(ctx.ShutdownCtx, apiClient.TFE.API, runID)
 			if err != nil {

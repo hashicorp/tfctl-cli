@@ -13,7 +13,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/hashicorp/go-hclog"
 	tfe "github.com/hashicorp/go-tfe"
 	abs "github.com/microsoft/kiota-abstractions-go"
 )
@@ -197,4 +199,37 @@ func SummarizeAPIErrors(body []byte) string {
 		return payload.Message
 	}
 	return payload.Error
+}
+
+// SetLogger wraps the HTTP transport to log all requests and responses
+// at the debug level.
+func (c *Client) SetLogger(logger hclog.Logger) {
+	if logger == nil {
+		return
+	}
+
+	c.Adapter.Client.Transport = &loggingTransport{
+		inner:  c.Adapter.Client.Transport,
+		logger: logger,
+	}
+}
+
+// loggingTransport wraps an http.RoundTripper to log every request and response.
+type loggingTransport struct {
+	inner  http.RoundTripper
+	logger hclog.Logger
+}
+
+func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	startTime := time.Now()
+	t.logger.Debug("HTTP request", "method", req.Method, "url", req.URL.String())
+	resp, err := t.inner.RoundTrip(req)
+	duration := time.Since(startTime)
+
+	if resp != nil {
+		t.logger.Debug("HTTP response", "status", resp.Status, "content-type", resp.Header.Get("content-type"), "duration_ms", duration.Milliseconds())
+	} else if err != nil {
+		t.logger.Debug("HTTP request error", "error", err)
+	}
+	return resp, err
 }

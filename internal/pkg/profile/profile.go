@@ -24,6 +24,21 @@ const (
 	// ActiveProfileFileName is the file name of the active profile stored in
 	// the ConfigDir.
 	ActiveProfileFileName = "active_profile.hcl"
+
+	// VerbosityTrace is the trace verbosity level, which logs all messages including very detailed tracing messages.
+	VerbosityTrace = "trace"
+
+	// VerbosityDebug is the debug verbosity level, which logs debugging messages and above.
+	VerbosityDebug = "debug"
+
+	// VerbosityInfo is the info verbosity level, which logs informational messages and above.
+	VerbosityInfo = "info"
+
+	// VerbosityWarn is the warning verbosity level, which logs warning messages and above.
+	VerbosityWarn = "warn"
+
+	// VerbosityError is the error verbosity level, which only logs error messages.
+	VerbosityError = "error"
 )
 
 var (
@@ -77,6 +92,10 @@ type Profile struct {
 	// Token is the API token to use for API requests. If not set, the CLI will look for the token in the environment or terraform credentials.
 	Token string `hcl:"token,optional" json:",omitempty"`
 
+	// tokenFromEnv is the token extracted from the environment. This is not written to disk and is only used to allow GetToken
+	// to return a token from the environment if one is not set on the profile.
+	tokenFromEnv string
+
 	// dir is the directory the profile should write to.
 	dir string
 }
@@ -85,7 +104,7 @@ type Profile struct {
 func (p *Profile) Predict(args complete.Args) []string {
 	properties := map[string][]string{
 		"no_color":  {"true", "false"},
-		"verbosity": {"trace", "debug", "info", "warn", "error"},
+		"verbosity": {VerbosityTrace, VerbosityDebug, VerbosityInfo, VerbosityWarn, VerbosityError},
 		"quiet":     {"true", "false"},
 	}
 
@@ -115,7 +134,7 @@ func (p *Profile) Validate() error {
 		err = multierror.Append(err, ErrInvalidProfileName)
 	}
 
-	allowedVerbosities := []string{"trace", "debug", "info", "warn", "error"}
+	allowedVerbosities := []string{VerbosityTrace, VerbosityDebug, VerbosityInfo, VerbosityWarn, VerbosityError}
 	if f := p.GetVerbosity(); f != "" && !slices.Contains(allowedVerbosities, f) {
 		err = multierror.Append(err, fmt.Errorf("invalid verbosity %q. Must be one of: %q", f, allowedVerbosities))
 	}
@@ -215,6 +234,33 @@ func (p *Profile) GetVerbosity() string {
 	}
 
 	return *p.Verbosity
+}
+
+// GetToken returns the token set on the profile, or the token extracted from the environment
+// if one is available.
+func (p *Profile) GetToken() string {
+	if p == nil {
+		return ""
+	}
+
+	if p.Token != "" {
+		return p.Token
+	}
+
+	return p.tokenFromEnv
+}
+
+// GetHostname returns the set hostname or the default hostname if it has not been configured.
+func (p *Profile) GetHostname() string {
+	if p == nil {
+		return ""
+	}
+
+	if p.Hostname == "" {
+		return DefaultHostname
+	}
+
+	return p.Hostname
 }
 
 // SetOrg sets the Organization.

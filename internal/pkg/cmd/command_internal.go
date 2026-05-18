@@ -28,7 +28,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/ld"
 )
 
-func (c *Command) errorToExitCode(_ []string, err error) int {
+func (c *Command) errorToExitCode(_ []string, cCtx *Context, err error) int {
 	io := c.io
 	cs := io.ColorScheme()
 
@@ -45,10 +45,10 @@ func (c *Command) errorToExitCode(_ []string, err error) int {
 	} else if errors.Is(err, ErrUnderlyingError) {
 		return 6
 	} else if errors.Is(err, tfe.ErrNotFound) {
-		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), notFoundErrorHelp(io))
+		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), notFoundErrorHelp(io, cCtx.Profile.GetHostname()))
 		return 2
 	} else if errors.Is(err, tfe.ErrUnauthorized) {
-		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), authErrorHelp(io))
+		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), authErrorHelp(io, cCtx.Profile.GetHostname()))
 		return 3
 	} else if errors.As(err, &netErr) {
 		fmt.Fprintf(io.Err(), "%s Network error: %s\n", cs.ErrorLabel(), netErr)
@@ -78,7 +78,7 @@ func (c *Command) errorToExitCode(_ []string, err error) int {
 }
 
 // Run runs the given command.
-func (c *Command) Run(args []string) int {
+func (c *Command) Run(args []string, cCtx *Context) int {
 	// Get the colorscheme
 	io := c.getIO()
 	cs := io.ColorScheme()
@@ -152,28 +152,28 @@ func (c *Command) Run(args []string) int {
 
 	// Run the command
 	if err := c.RunF(c, parsedArgs); err != nil {
-		return c.errorToExitCode(args, err)
+		return c.errorToExitCode(args, cCtx, err)
 	}
 
 	return 0
 }
 
-func notFoundErrorHelp(io iostreams.IOStreams) string {
+func notFoundErrorHelp(io iostreams.IOStreams, hostname string) string {
 	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
-		Resource not found or you are unauthorized to this action. Check your account permissions.
+		Resource not found on {{ Bold "%s" }} or you are unauthorized to this action. Check your account permissions.
 
 		  {{ Bold "$ %s auth status" }}
-	`, config.Name)
+	`, hostname, config.Name)
 }
 
 // authErrorHelp returns a help message for recovering from authentication errors.
-func authErrorHelp(io iostreams.IOStreams) string {
+func authErrorHelp(io iostreams.IOStreams, hostname string) string {
 	// Render the help message to logout, login, and re-run the command.
 	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
-		Unauthorized request. The token in your active profile may not be valid. To update the token in your profile, please run:
+		Unauthorized request to {{ Bold "%s" }}. The token in your active profile may not be valid. To update the token in your profile, please run:
 
 		  {{ Bold "$ %s auth login" }}
-	`, config.Name)
+	`, hostname, config.Name)
 }
 
 // helpEntry is used to structure help output with titles.

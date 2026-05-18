@@ -35,6 +35,9 @@ const (
 	// TerraformCredentialsPath is the path to the terraform credentials file that we will check for
 	// tokens if they're not set in the profiler.
 	TerraformCredentialsPath = "~/.terraform.d/credentials.tfrc.json"
+
+	// DefaultHostname is the default hostname to use if one is not set in the profile or environment variable.
+	DefaultHostname = "app.terraform.io"
 )
 
 var (
@@ -201,20 +204,23 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 
 	// If there's no token set, check the credentials file and environment variables.
 	if c.Token == "" {
-		c.Token, err = tokenFromCredentials(c.Hostname)
+		credsToken, err := tokenFromCredentials(c.Hostname)
 		if err != nil {
 			return nil, err
 		}
+		c.tokenFromEnv = credsToken
 	}
 
 	if c.Token == "" {
 		if envToken := os.Getenv(profileTokenEnvVar(c.Name)); envToken != "" {
-			c.Token = envToken
+			c.tokenFromEnv = envToken
 		}
 	}
 
 	if c.Token == "" {
-		c.Token = os.Getenv(legacyTokenEnvVar(c.Hostname))
+		if envToken := os.Getenv(legacyTokenEnvVar(c.Hostname)); envToken != "" {
+			c.tokenFromEnv = envToken
+		}
 	}
 
 	c.dir = l.profilesDir
@@ -280,7 +286,7 @@ func (l *Loader) DefaultProfile() *Profile {
 		profile.Organization = org
 	}
 
-	hostname := "app.terraform.io"
+	hostname := DefaultHostname
 	if envHostname, ok := os.LookupEnv(envVarHostname); ok && envHostname != "" {
 		hostname = envHostname
 	}

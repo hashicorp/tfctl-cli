@@ -9,11 +9,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func TestToCommandMap(t *testing.T) {
 	r := require.New(t)
 	t.Parallel()
+
+	cCtx := &Context{
+		IO: iostreams.Test(),
+	}
 
 	// Create a command tree
 	root := &Command{
@@ -53,7 +59,7 @@ func TestToCommandMap(t *testing.T) {
 	c2.AddChild(c2n2)
 
 	// Build the command map
-	m := ToCommandMap(root)
+	m := ToCommandMap(root, cCtx)
 
 	// Expected values
 	expectedCommands := []string{

@@ -18,7 +18,8 @@ var _ cli.CommandHelpTemplate = &CompatibleCommand{}
 // CompatibleCommand is a compatibility layer for interopability with the `cli`
 // package.
 type CompatibleCommand struct {
-	c *Command
+	c    *Command
+	cCtx *Context
 }
 
 // HelpTemplate implements cli.CommandHelpTemplate.
@@ -48,22 +49,22 @@ func (cc *CompatibleCommand) Synopsis() string {
 
 // Run implements cli.Command.
 func (cc *CompatibleCommand) Run(args []string) int {
-	return cc.c.Run(args)
+	return cc.c.Run(args, cc.cCtx)
 }
 
 // ToCommandMap converts a Command and its children to a hashicorp/cli command
 // factory map. The passed Command should be the
 // root command.
-func ToCommandMap(c *Command) map[string]cli.CommandFactory {
+func ToCommandMap(c *Command, cCtx *Context) map[string]cli.CommandFactory {
 	m := make(map[string]cli.CommandFactory)
 	for _, child := range c.children {
-		toCommandMap("", child, m)
+		toCommandMap("", child, cCtx, m)
 	}
 
 	return m
 }
 
-func toCommandMap(parent string, c *Command, m map[string]cli.CommandFactory) {
+func toCommandMap(parent string, c *Command, cCtx *Context, m map[string]cli.CommandFactory) {
 	// allNames is the commands name and all aliases.
 	allNames := map[string]struct{}{c.Name: {}}
 	for _, a := range c.Aliases {
@@ -78,12 +79,13 @@ func toCommandMap(parent string, c *Command, m map[string]cli.CommandFactory) {
 
 		m[path] = func() (cli.Command, error) {
 			return &CompatibleCommand{
-				c: c,
+				c:    c,
+				cCtx: cCtx,
 			}, nil
 		}
 
 		for _, child := range c.children {
-			toCommandMap(path, child, m)
+			toCommandMap(path, child, cCtx, m)
 		}
 	}
 }

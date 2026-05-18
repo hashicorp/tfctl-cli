@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -33,6 +34,7 @@ func TestGet(t *testing.T) {
 	for k, v := range expect {
 		opts := &GetOpts{
 			IO:       io,
+			Logger:   hclog.NewNullLogger(),
 			Profile:  p,
 			Property: k,
 			Output:   format.New(io),
@@ -45,6 +47,7 @@ func TestGet(t *testing.T) {
 	// Get an unset property
 	opts := &GetOpts{
 		IO:       io,
+		Logger:   hclog.NewNullLogger(),
 		Profile:  p,
 		Property: "verbosity",
 		Output:   format.New(io),
@@ -69,6 +72,7 @@ func TestGet_JSONOutput(t *testing.T) {
 	for k, v := range expect {
 		opts := &GetOpts{
 			IO:       io,
+			Logger:   hclog.NewNullLogger(),
 			Profile:  p,
 			Property: k,
 			Output:   format.New(io),

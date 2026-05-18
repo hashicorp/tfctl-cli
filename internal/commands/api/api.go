@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
 	tfe "github.com/hashicorp/go-tfe"
@@ -43,10 +44,10 @@ const (
 type Opts struct {
 	IO           iostreams.IOStreams
 	Output       *format.Outputter
+	Logger       hclog.Logger
 	ShutdownCtx  context.Context
 	Client       *client.Client
 	Quiet        bool
-	Debug        bool
 	DryRun       bool
 	Headers      []string
 	URL          *url.URL
@@ -220,14 +221,15 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 }}'`, config.Name),
 			},
 		},
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			if len(args) < 1 {
 				return cmd.ErrDisplayUsage
 			}
 
 			path := args[0]
 
-			apiClient, err := ctx.NewAPIClient()
+			logger := c.Logger(ctx)
+			apiClient, err := ctx.NewAPIClient(logger)
 			if err != nil {
 				return fmt.Errorf("failed to create API client: %w", err)
 			}
@@ -248,8 +250,8 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			opts.URL = resolvedURL
 			opts.Client = apiClient
+			opts.Logger = logger
 
-			opts.Debug = ctx.Profile.GetVerbosity() == "debug" || ctx.Profile.GetVerbosity() == "trace"
 			opts.Quiet = ctx.Profile.IsQuiet()
 			opts.DryRun = ctx.IsDryRun()
 
@@ -391,6 +393,7 @@ func runAPI(opts *Opts) error {
 	}
 
 	method := inferMethod(opts.Method, len(opts.Attributes) > 0, opts.InputRequest != "")
+
 	requestHeaders, err := parseHeaders(opts.Headers)
 	if err != nil {
 		return err
@@ -443,14 +446,8 @@ func runAPI(opts *Opts) error {
 		return err
 	}
 
-	verbose := false
-	if opts.Debug {
-		logRequestResponse(opts.IO.Err(), method, opts.URL, requestHeaders, response)
-		verbose = true
-	}
-
 	if opts.All && response.StatusCode >= 200 && response.StatusCode < 300 {
-		response, err = paginateResponse(opts.ShutdownCtx, opts.Client, response, requestHeaders, verbose, opts.IO.Err())
+		response, err = paginateResponse(opts.ShutdownCtx, opts.Client, response, requestHeaders)
 		if err != nil {
 			return err
 		}
@@ -602,9 +599,10 @@ func splitPair(item string, sep rune) (string, string, error) {
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
 }
 
-func paginateResponse(ctx context.Context, apiClient *client.Client, initial *client.Response, headers http.Header, verbose bool, stderr io.Writer) (*client.Response, error) {
+func paginateResponse(ctx context.Context, apiClient *client.Client, initial *client.Response, headers http.Header) (*client.Response, error) {
 	combined, nextURL, err := parsePaginationPayload(initial.Body)
 	if err != nil || nextURL == nil {
+
 		return initial, err
 	}
 
@@ -616,9 +614,6 @@ func paginateResponse(ctx context.Context, apiClient *client.Client, initial *cl
 		})
 		if reqErr != nil {
 			return nil, reqErr
-		}
-		if verbose {
-			logRequestResponse(stderr, http.MethodGet, nextURL, headers, resp)
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			return resp, nil
@@ -687,24 +682,6 @@ func mergePaginatedBody(body []byte, combined []any) ([]byte, error) {
 		links["next"] = nil
 	}
 	return json.Marshal(payload)
-}
-
-func logRequestResponse(w io.Writer, method string, u *url.URL, reqHeaders http.Header, response *client.Response) {
-	fmt.Fprintf(w, "> %s %s\n", method, u.String())
-	writeHeaders(w, reqHeaders)
-	fmt.Fprintf(w, "< %s\n", response.Status)
-	writeHeaders(w, response.Headers)
-}
-
-func writeHeaders(w io.Writer, headers http.Header) {
-	keys := make([]string, 0, len(headers))
-	for key := range headers {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		fmt.Fprintf(w, "%s: %s\n", key, strings.Join(headers.Values(key), ", "))
-	}
 }
 
 func isMutationMethod(method string) bool {

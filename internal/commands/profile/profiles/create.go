@@ -6,6 +6,7 @@ package profiles
 import (
 	"fmt"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
 	"github.com/hashicorp/tfctl-cli/internal/config"
@@ -57,14 +58,15 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 					Name:         "hostname",
 					DisplayValue: "HOSTNAME",
 					Description:  "HCP Terraform / Terraform Enterprise hostname.",
-					Value:        flagvalue.Simple("", &opts.Hostname),
-					Autocomplete: complete.PredictSet("app.eu.terraform.io"),
+					Value:        flagvalue.Simple(profile.DefaultHostname, &opts.Hostname),
+					Autocomplete: complete.PredictSet("app.eu.terraform.io", "app.terraform.io"),
 				},
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			opts.Name = args[0]
+			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
 			l, err := profile.NewLoader()
 			if err != nil {
@@ -80,7 +82,8 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 
 // CreateOpts defines the options for the `profile profiles create` command.
 type CreateOpts struct {
-	IO iostreams.IOStreams
+	IO     iostreams.IOStreams
+	Logger hclog.Logger
 
 	Profiles   *profile.Loader
 	Name       string
@@ -90,6 +93,8 @@ type CreateOpts struct {
 }
 
 func createRun(opts *CreateOpts) error {
+	opts.Logger.Debug("creating profile", "name", opts.Name, "hostname", opts.Hostname)
+
 	// Get the existing profiles
 	profiles, err := opts.Profiles.ListProfiles()
 	if err != nil {
@@ -116,7 +121,7 @@ func createRun(opts *CreateOpts) error {
 
 	if opts.DryRun {
 		cs := opts.IO.ColorScheme()
-		fmt.Fprintf(opts.IO.Err(), "%s would create profile %q\n", cs.DryRunLabel(), opts.Name)
+		fmt.Fprintf(opts.IO.Err(), "%s would create profile %q for %s\n", cs.DryRunLabel(), opts.Name, p.GetHostname())
 		if !opts.NoActivate {
 			fmt.Fprintf(opts.IO.Err(), "%s would activate profile %q\n", cs.DryRunLabel(), opts.Name)
 		}
@@ -129,7 +134,8 @@ func createRun(opts *CreateOpts) error {
 	}
 
 	cs := opts.IO.ColorScheme()
-	fmt.Fprintf(opts.IO.Err(), "%s Profile %q created.\n", cs.SuccessIcon(), p.Name)
+	fmt.Fprintln(opts.IO.Err(), heredoc.New(opts.IO).Mustf(`%s Profile %q created for {{ Bold "%s" }}.
+`, cs.SuccessIcon(), p.Name, p.GetHostname()))
 
 	if !opts.NoActivate {
 		// Update the active profile.
@@ -148,9 +154,9 @@ func createRun(opts *CreateOpts) error {
 
 	fmt.Fprintln(opts.IO.Err())
 	fmt.Fprintln(opts.IO.Err(), heredoc.New(opts.IO).Mustf(`
-		To initialize the newly created profile, run:
+		To authenticate the newly created profile, run:
 
-		  {{ Bold "$ %s profile init" }}
+		  {{ Bold "$ %s auth login" }}
 		`, config.Name))
 	fmt.Fprintln(opts.IO.Err())
 

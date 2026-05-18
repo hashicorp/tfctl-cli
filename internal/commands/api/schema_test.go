@@ -53,9 +53,10 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 		loadSchemaOperationsForSchemaCommand = originalLoader
 	})
 
-	command := newCmdAPISchemaSearch(testCommandContext(io))
+	cCtx := testCommandContext(io)
+	command := newCmdAPISchemaSearch(cCtx)
 	command.SetIO(io)
-	r.Equal(0, command.Run([]string{"cancel", "run"}))
+	r.Equal(0, command.Run([]string{"cancel", "run"}, cCtx))
 
 	output := io.Output.String()
 	r.Contains(output, "getRun")
@@ -76,9 +77,10 @@ func TestCmdAPISchemaGetRun(t *testing.T) {
 		loadSchemaOperationsForSchemaCommand = originalLoader
 	})
 
-	command := newCmdAPISchemaGet(testCommandContext(io))
+	cCtx := testCommandContext(io)
+	command := newCmdAPISchemaGet(cCtx)
 	command.SetIO(io)
-	r.Equal(0, command.Run([]string{"getWorkspace"}))
+	r.Equal(0, command.Run([]string{"getWorkspace"}, cCtx))
 
 	output := io.Output.String()
 	r.Contains(output, `"operationId":"getWorkspace"`)
@@ -90,6 +92,7 @@ func TestCmdAPISchemaGetByPath(t *testing.T) {
 	r := require.New(t)
 
 	io := iostreams.Test()
+	cCtx := testCommandContext(io)
 	originalLoader := loadSchemaOperationsForSchemaCommand
 	loadSchemaOperationsForSchemaCommand = func(ctx *cmd.Context) (openapi.Schema, error) {
 		return openapi.NewFromData(embeddedOpenAPISpec)
@@ -98,9 +101,9 @@ func TestCmdAPISchemaGetByPath(t *testing.T) {
 		loadSchemaOperationsForSchemaCommand = originalLoader
 	})
 
-	command := newCmdAPISchemaGet(testCommandContext(io))
+	command := newCmdAPISchemaGet(cCtx)
 	command.SetIO(io)
-	r.Equal(0, command.Run([]string{"/workspaces/{workspace_id}/vars"}))
+	r.Equal(0, command.Run([]string{"/workspaces/{workspace_id}/vars"}, cCtx))
 
 	output := io.Output.String()
 	r.Contains(output, `"listWorkspaceVars"`)
@@ -120,9 +123,10 @@ func TestCmdAPISchemaGetByPathNotFound(t *testing.T) {
 		loadSchemaOperationsForSchemaCommand = originalLoader
 	})
 
-	command := newCmdAPISchemaGet(testCommandContext(io))
+	cCtx := testCommandContext(io)
+	command := newCmdAPISchemaGet(cCtx)
 	command.SetIO(io)
-	r.Equal(1, command.Run([]string{"/nonexistent"}))
+	r.Equal(1, command.Run([]string{"/nonexistent"}, cCtx))
 }
 
 func testCommandContext(io *iostreams.Testing) *cmd.Context {

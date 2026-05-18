@@ -6,6 +6,8 @@ package profiles
 import (
 	"fmt"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -57,13 +59,14 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 				},
 			},
 		},
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
 			}
 			opts.Profiles = l
 			opts.Names = args
+			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
 			return deleteRun(opts)
 		},
@@ -75,6 +78,7 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 // DeleteOpts defines the options for the `profile profiles delete` command.
 type DeleteOpts struct {
 	IO       iostreams.IOStreams
+	Logger   hclog.Logger
 	Profiles *profile.Loader
 
 	Names  []string
@@ -82,6 +86,8 @@ type DeleteOpts struct {
 }
 
 func deleteRun(opts *DeleteOpts) error {
+	opts.Logger.Debug("deleting profiles", "names", opts.Names)
+
 	// Get the active profile
 	active, err := opts.Profiles.GetActiveProfile()
 	if err != nil {

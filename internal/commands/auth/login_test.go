@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -47,6 +48,9 @@ func stubBrowser(t *testing.T) {
 // runLogin mimics the RunF flow by creating a cmd.Context and calling loginRun.
 func runLogin(t *testing.T, opts *LoginOpts) error {
 	t.Helper()
+	if opts.Logger == nil {
+		opts.Logger = hclog.NewNullLogger()
+	}
 	cmdCtx := &cmd.Context{
 		IO:      opts.IO,
 		Profile: opts.Profile,

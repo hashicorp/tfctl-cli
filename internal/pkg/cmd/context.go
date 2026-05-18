@@ -81,6 +81,23 @@ func (ctx *Context) IsDryRun() bool {
 	return ctx.GetGlobalFlags().dryRun
 }
 
+// ResolveLogLevel returns the resolved verbosity level, with the --debug
+// flag taking precedence over the profile setting.
+func (ctx *Context) ResolveLogLevel() hclog.Level {
+	if !ctx.flags.parsed {
+		return hclog.Warn
+	}
+
+	switch {
+	case ctx.GetGlobalFlags().debug >= 2:
+		return hclog.Trace
+	case ctx.GetGlobalFlags().debug == 1:
+		return hclog.Debug
+	default:
+		return hclog.LevelFromString(ctx.Profile.GetVerbosity())
+	}
+}
+
 // ConfigureRootCommand should be only called on the root command. It configures
 // global flags and ensures that the context is configured based on any flags
 // set during a command invocation.
@@ -165,11 +182,6 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 
 	// Setup the pre-run command
 	cmd.PersistentPreRun = func(c *Command, args []string) error {
-		// Setup the HTTP logger. We retrieve the commands logger so the API
-		// logger is named with the subcommand.
-		// ctx.HCP.SetLogger(newAPILogger(c.Logger()))
-		// ctx.HCP.Debug = true
-
 		if err := ctx.applyGlobalFlags(c); err != nil {
 			return err
 		}
@@ -186,7 +198,7 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 }
 
 // applyGlobalFlags applies the global flags.
-func (ctx *Context) applyGlobalFlags(c *Command) error {
+func (ctx *Context) applyGlobalFlags(_ *Command) error {
 	// Mark that we have parsed flags
 	ctx.flags.parsed = true
 
@@ -203,26 +215,6 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 		}
 
 		*ctx.Profile = *p
-	}
-
-	// Set the verbosity if the flag is set.
-	verbosity := ctx.Profile.GetVerbosity()
-	switch ctx.flags.debug {
-	case 0:
-		// nothing
-	case 1:
-		verbosity = "debug"
-	default:
-		verbosity = "trace"
-	}
-
-	if verbosity != "" {
-		l := hclog.LevelFromString(verbosity)
-		if l == hclog.NoLevel {
-			return fmt.Errorf("invalid log level: %q", verbosity)
-		}
-
-		c.Logger().SetLevel(l)
 	}
 
 	// Set the output format if the flag is set.
@@ -270,17 +262,20 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 }
 
 // NewAPIClient returns a new API Client configured using the context Profile.
-func (ctx *Context) NewAPIClient() (*client.Client, error) {
-	address := ctx.Profile.Hostname
+// When debug output is enabled and a non-nil logger is provided, the client's
+// HTTP transport is wrapped to log requests and responses.
+func (ctx *Context) NewAPIClient(logger hclog.Logger) (*client.Client, error) {
+	address := ctx.Profile.GetHostname()
 	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
 		address = "https://" + address
 	}
-	apiClient, err := client.New(address, ctx.Profile.Token, http.Header{
+	apiClient, err := client.New(address, ctx.Profile.GetToken(), http.Header{
 		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", config.Name, config.Version)},
 	})
 	if err != nil {
 		return nil, err
 	}
+	apiClient.SetLogger(logger)
 	return apiClient, nil
 }
 
@@ -304,8 +299,12 @@ func isAuthenticated(ctx *Context, c *Command, args []string) error {
 		return nil
 	}
 
-	if ctx.Profile.Token == "" {
+	if ctx.Profile.GetToken() == "" {
 		return authHelp(c.io)
+	}
+
+	if ctx.Profile.Token == "" {
+		c.Logger(ctx).Debug("Token missing from profile; using token configured by environment")
 	}
 
 	return nil
