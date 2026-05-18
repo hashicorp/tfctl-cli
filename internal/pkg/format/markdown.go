@@ -26,9 +26,6 @@ func (o *Outputter) outputMarkdown(d Displayer) error {
 		headers[i] = f.Name
 	}
 
-	// Create the table outputter
-	tbl := table.MarkdownTable{}
-
 	// Get the payload
 	var p any
 	if tp, ok := d.(TemplatedPayload); ok {
@@ -36,6 +33,9 @@ func (o *Outputter) outputMarkdown(d Displayer) error {
 	} else {
 		p = d.Payload()
 	}
+
+	// Create the table outputter
+	tbl := table.MarkdownTable{}
 
 	// Build the rows
 	var rows [][]interface{}
@@ -60,7 +60,7 @@ func (o *Outputter) outputMarkdown(d Displayer) error {
 		// it to the table.
 		tbl.AddRow("Field", "Value")
 		for _, f := range fields {
-			row, err := renderNameValue(p, f.Name, fields)
+			row, err := renderNameValue(rv.Interface(), f.Name, fields)
 			if err != nil {
 				return err
 			}
@@ -80,7 +80,7 @@ func (o *Outputter) outputMarkdown(d Displayer) error {
 	return nil
 }
 
-// renderRow renders each field by executing the text/template given the
+// renderNameValue renders each field by executing the text/template given the
 // payload.
 func renderNameValue(p any, name string, fields []Field) ([]interface{}, error) {
 	renderedFields := make([]interface{}, 2)

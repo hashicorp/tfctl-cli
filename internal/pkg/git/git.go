@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -103,7 +103,7 @@ func splitPath(p string) (string, string, error) {
 		return "", "", fmt.Errorf("unsupported repository path %q", p)
 	}
 	repo := parts[len(parts)-1]
-	owner := path.Join(parts[:len(parts)-1]...)
+	owner := filepath.Join(parts[:len(parts)-1]...)
 	return owner, repo, nil
 }
 

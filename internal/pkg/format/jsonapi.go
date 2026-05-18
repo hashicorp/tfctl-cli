@@ -46,12 +46,33 @@ var typeColumns = map[string][]string{
 	"task-stages":                 {"status", "stage", "task-result-count"},
 	"varsets":                     {"name", "description", "global", "priority"},
 	"vars":                        {"key", "value", "category", "hcl", "sensitive"},
-	"workspaces":                  {"name", "description", "execution-mode", "locked", "resource-count"},
+	"workspaces":                  {"name", "description", "project", "execution-mode", "locked", "resource-count"},
 }
 
 var excludeColumns = map[string][]string{
 	"workspaces":    {"actions"},
 	"organizations": {"id"},
+}
+
+// acronyms are capitalized in field names, e.g. "VCS Repo.Repository HTTP URL" instead of "Vcs Repo.Repository Http Url".
+var acronyms = map[string]string{
+	"api":   "API",
+	"cidr":  "CIDR",
+	"http":  "HTTP",
+	"https": "HTTPS",
+	"id":    "ID",
+	"ids":   "IDs",
+	"ip":    "IP",
+	"kpis":  "KPIs",
+	"oauth": "OAuth",
+	"rum":   "RUM",
+	"saml":  "SAML",
+	"scim":  "SCIM",
+	"ssh":   "SSH",
+	"sso":   "SSO",
+	"ttl":   "TTL",
+	"url":   "URL",
+	"vcs":   "VCS",
 }
 
 // JSONAPIDisplayer prepares responses within a JSON:API data envelope to be formatted.
@@ -87,17 +108,13 @@ func (d JSONAPIDisplayer) TemplatedPayload() any {
 
 // FieldTemplates implements the Displayer interface.
 func (d JSONAPIDisplayer) FieldTemplates() []Field {
-	rows := d.payload.([]map[string]any)
-
-	var cols = make([]string, 0, 16)
+	var cols []string
 	if d.DefaultFormat() == Table {
+		rows := d.payload.([]map[string]any)
 		cols = collectColumns(rows, typeColumns[d.resourceType], excludeColumns[d.resourceType])
-	} else if len(rows) > 0 {
-		cols = orderedFields(rows[0], typeColumns[d.resourceType])
-	}
-
-	if slices.Contains(excludeColumns[d.resourceType], "id") && len(cols) > 0 && cols[0] == "id" {
-		cols = cols[1:]
+	} else {
+		rows := d.payload.(map[string]any)
+		cols = orderedFields(rows, typeColumns[d.resourceType])
 	}
 
 	result := make([]Field, len(cols))
@@ -107,18 +124,26 @@ func (d JSONAPIDisplayer) FieldTemplates() []Field {
 		if att == "external-id" {
 			name = "id"
 		}
-		result[i] = NewField(kebabToCapital(name), fmt.Sprintf(`{{ index . "%s" }}`, att))
+		result[i] = NewField(kebabToLabel(name), fmt.Sprintf(`{{ index . "%s" }}`, att))
 	}
 
 	return result
 }
 
-func kebabToCapital(input string) string {
-	caser := cases.Title(language.English)
+func kebabToLabel(input string) string {
+	caser := cases.Title(language.AmericanEnglish)
 	parts := strings.Split(input, ".")
 	for i, part := range parts {
-		spaced := strings.ReplaceAll(part, "-", " ")
-		parts[i] = caser.String(spaced)
+		spacedParts := strings.Split(part, "-")
+		for j, spacedPart := range spacedParts {
+			if acronym, ok := acronyms[spacedPart]; ok {
+				spacedParts[j] = acronym
+			} else {
+				spacedParts[j] = caser.String(spacedPart)
+			}
+		}
+
+		parts[i] = strings.Join(spacedParts, " ")
 	}
 	return strings.Join(parts, ".")
 }
@@ -127,25 +152,31 @@ func kebabToCapital(input string) string {
 func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 	resourceType := ""
 	collection := true
-	var payload map[string]any
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	var rawPayload map[string]any
+	if err := json.Unmarshal(raw, &rawPayload); err != nil {
 		return nil, ErrNotJSONAPI
 	}
 
-	data, ok := payload["data"]
+	data, ok := rawPayload["data"]
 	if !ok {
 		return nil, ErrNotJSONAPI
 	}
 
-	var rows []map[string]any
+	var payload any
 	switch typed := data.(type) {
 	case []any:
-		for _, item := range typed {
+		payload = make([]map[string]any, len(typed))
+		for i, item := range typed {
 			row, ok := resourceAsMap(item)
 			if !ok {
 				return nil, ErrNotJSONAPI
 			}
-			rows = append(rows, row)
+			if resourceType == "" && row["type"] != nil {
+				if rt, ok := row["type"].(string); ok {
+					resourceType = rt
+				}
+			}
+			payload.([]map[string]any)[i] = row
 		}
 	case map[string]any:
 		collection = false
@@ -153,40 +184,22 @@ func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 		if !ok {
 			return nil, ErrNotJSONAPI
 		}
-		rows = append(rows, row)
+		payload = row
+		if row["type"] != nil {
+			if rt, ok := row["type"].(string); ok {
+				resourceType = rt
+			}
+		}
 	default:
 		return nil, ErrNotJSONAPI
 	}
 
-	if len(rows) > 0 {
-		resourceType = stringValue(rows[0]["type"])
-	}
-
 	return &JSONAPIDisplayer{
-		payload:      rows,
-		rawPayload:   payload,
+		payload:      payload,
+		rawPayload:   rawPayload,
 		resourceType: resourceType,
 		collection:   collection,
 	}, nil
-}
-
-func stringValue(value any) string {
-	switch v := value.(type) {
-	case nil:
-		return "null"
-	case string:
-		return v
-	case bool, float64, int, int64:
-		return fmt.Sprint(v)
-	case json.Number:
-		return v.String()
-	default:
-		encoded, err := json.Marshal(v)
-		if err != nil {
-			return fmt.Sprint(v)
-		}
-		return string(encoded)
-	}
 }
 
 func resourceAsMap(item any) (map[string]any, bool) {
@@ -211,6 +224,25 @@ func resourceAsMap(item any) (map[string]any, bool) {
 	if !ok {
 		return nil, false
 	}
+
+	// Look for one-to-one relationships and pull the ID up to the top level of the row for display.
+	rels, ok := obj["relationships"]
+	if ok {
+		for rel, relData := range rels.(map[string]any) {
+			relObj, ok := relData.(map[string]any)
+			if !ok {
+				continue
+			}
+			data, ok := relObj["data"]
+			if !ok {
+				continue
+			}
+			if oneToOne, isOneToOne := data.(map[string]any); isOneToOne {
+				attrMap[rel] = oneToOne["id"]
+			}
+		}
+	}
+
 	for key, value := range attrMap {
 		row[key] = value
 	}

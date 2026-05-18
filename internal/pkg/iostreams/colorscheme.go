@@ -10,13 +10,14 @@ import (
 const (
 	// Each constant defines the color code for the given color. A # prefix
 	// indicates RGB colors, and a number indicates ANSI colors.
-	black  = "0"
-	white  = "7"
-	red    = "#E52228"
-	green  = "#008A22"
-	orange = "#BB5A00"
-	yellow = "#FFD814"
-	gray   = "#C2C5CB"
+	black      = "0"
+	white      = "7"
+	red        = "#E52228"
+	green      = "#008A22"
+	orange     = "#BB5A00"
+	yellow     = "#FFD814"
+	gray       = "#C2C5CB"
+	lightgreen = "#73DACA"
 )
 
 // Emphasis is used to style text.
@@ -232,6 +233,13 @@ func (cs *ColorScheme) Yellow() Color {
 func (cs *ColorScheme) Gray() Color {
 	return Color{
 		color: cs.profile.Color(gray),
+	}
+}
+
+// LightGreen is a light green color.
+func (cs *ColorScheme) LightGreen() Color {
+	return Color{
+		color: cs.profile.Color(lightgreen),
 	}
 }
 
