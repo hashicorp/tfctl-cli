@@ -7,9 +7,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
 func TestToCommandMap(t *testing.T) {

@@ -684,17 +684,6 @@ func mergePaginatedBody(body []byte, combined []any) ([]byte, error) {
 	return json.Marshal(payload)
 }
 
-func writeHeaders(w io.Writer, headers http.Header) {
-	keys := make([]string, 0, len(headers))
-	for key := range headers {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		fmt.Fprintf(w, "%s: %s\n", key, strings.Join(headers.Values(key), ", "))
-	}
-}
-
 func isMutationMethod(method string) bool {
 	switch strings.ToUpper(method) {
 	case http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete:

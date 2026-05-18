@@ -36,6 +36,7 @@ const (
 	// tokens if they're not set in the profiler.
 	TerraformCredentialsPath = "~/.terraform.d/credentials.tfrc.json"
 
+	// DefaultHostname is the default hostname to use if one is not set in the profile or environment variable.
 	DefaultHostname = "app.terraform.io"
 )
 
