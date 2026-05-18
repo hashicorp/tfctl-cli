@@ -47,7 +47,7 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(c *cmd.Command, args []string) error {
 			opts.Name = args[0]
-			opts.Logger = c.Logger()
+			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
 			l, err := profile.NewLoader()
 			if err != nil {

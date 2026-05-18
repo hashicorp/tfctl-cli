@@ -128,7 +128,10 @@ func TestCore_Getters(t *testing.T) {
 	// Instantiate a non-empty profile
 	v := true
 	p := &Profile{
-		NoColor: &v,
+		NoColor:      &v,
+		tokenFromEnv: "token-from-env",
 	}
 	r.Equal(v, *p.NoColor)
+	r.Equal(DefaultHostname, p.GetHostname())
+	r.Equal("token-from-env", p.GetToken())
 }

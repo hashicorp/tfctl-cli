@@ -69,7 +69,7 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 				IO:      ctx.IO,
 				Profile: ctx.Profile,
 				Output:  ctx.Output,
-				Logger:  c.Logger(),
+				Logger:  c.Logger(ctx),
 			}
 
 			opts.Property = args[0]

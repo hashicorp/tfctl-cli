@@ -44,8 +44,8 @@ func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
 		},
 		NoAuthRequired: true,
 		RunF: func(c *cmd.Command, _ []string) error {
-			if ctx.Profile.Token != "" {
-				apiClient, err := ctx.NewAPIClient(c.Logger())
+			if ctx.Profile.GetToken() != "" {
+				apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
 				if err != nil {
 					return fmt.Errorf("failed to create API client: %w", err)
 				}
@@ -77,13 +77,10 @@ type StatusResult struct {
 }
 
 func runStatus(opts *StatusOpts) error {
-	hostname := opts.Profile.Hostname
-	if hostname == "" {
-		hostname = defaultHostname
-	}
+	hostname := opts.Profile.GetHostname()
 
 	// No token configured at all.
-	if opts.Profile.Token == "" {
+	if opts.Profile.GetToken() == "" {
 		return displayUnauthorized(opts, hostname)
 	}
 

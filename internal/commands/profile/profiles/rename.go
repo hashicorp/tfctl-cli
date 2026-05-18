@@ -61,7 +61,7 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(c *cmd.Command, args []string) error {
 			opts.ExistingName = args[0]
-			opts.Logger = c.Logger()
+			opts.Logger = c.Logger(ctx)
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err

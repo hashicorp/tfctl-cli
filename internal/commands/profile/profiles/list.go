@@ -43,7 +43,7 @@ func NewCmdList(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 			opts.Profiles = l
-			opts.Logger = c.Logger()
+			opts.Logger = c.Logger(ctx)
 			return listRun(opts)
 		},
 	}

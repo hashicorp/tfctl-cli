@@ -8,7 +8,10 @@ import "testing"
 // TestProfile returns a profile appropriate for use during testing. If
 // interacting with more than one profile, prefer using TestLoader.
 func TestProfile(t *testing.T) *Profile { //nolint:paralleltest
-	return TestLoader(t).DefaultProfile()
+	defaultProfile := TestLoader(t).DefaultProfile()
+	defaultProfile.Hostname = "app.test.terraform.io"
+
+	return defaultProfile
 }
 
 // TestLoader returns a Loader suitable for testing. All profiles that are

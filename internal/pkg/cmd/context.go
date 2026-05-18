@@ -81,26 +81,20 @@ func (ctx *Context) IsDryRun() bool {
 	return ctx.GetGlobalFlags().dryRun
 }
 
-// IsDebug returns true when debug output is enabled via --debug flag or profile verbosity.
-// Returns false if flags have not been parsed yet.
-func (ctx *Context) IsDebug() bool {
-	if !ctx.flags.parsed {
-		return false
-	}
-	v := ctx.EffectiveVerbosity()
-	return v == profile.VerbosityDebug || v == profile.VerbosityTrace
-}
-
-// EffectiveVerbosity returns the resolved verbosity level, with the --debug
+// ResolveLogLevel returns the resolved verbosity level, with the --debug
 // flag taking precedence over the profile setting.
-func (ctx *Context) EffectiveVerbosity() string {
+func (ctx *Context) ResolveLogLevel() hclog.Level {
+	if !ctx.flags.parsed {
+		return hclog.Warn
+	}
+
 	switch {
 	case ctx.GetGlobalFlags().debug >= 2:
-		return profile.VerbosityTrace
+		return hclog.Trace
 	case ctx.GetGlobalFlags().debug == 1:
-		return profile.VerbosityDebug
+		return hclog.Debug
 	default:
-		return ctx.Profile.GetVerbosity()
+		return hclog.LevelFromString(ctx.Profile.GetVerbosity())
 	}
 }
 
@@ -204,7 +198,7 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 }
 
 // applyGlobalFlags applies the global flags.
-func (ctx *Context) applyGlobalFlags(c *Command) error {
+func (ctx *Context) applyGlobalFlags(_ *Command) error {
 	// Mark that we have parsed flags
 	ctx.flags.parsed = true
 
@@ -221,26 +215,6 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 		}
 
 		*ctx.Profile = *p
-	}
-
-	// Set the verbosity if the flag is set.
-	verbosity := ctx.Profile.GetVerbosity()
-	switch ctx.flags.debug {
-	case 0:
-		// nothing
-	case 1:
-		verbosity = profile.VerbosityDebug
-	default:
-		verbosity = profile.VerbosityTrace
-	}
-
-	if verbosity != "" {
-		l := hclog.LevelFromString(verbosity)
-		if l == hclog.NoLevel {
-			return fmt.Errorf("invalid log level: %q", verbosity)
-		}
-
-		c.Logger().SetLevel(l)
 	}
 
 	// Set the output format if the flag is set.
@@ -291,19 +265,17 @@ func (ctx *Context) applyGlobalFlags(c *Command) error {
 // When debug output is enabled and a non-nil logger is provided, the client's
 // HTTP transport is wrapped to log requests and responses.
 func (ctx *Context) NewAPIClient(logger hclog.Logger) (*client.Client, error) {
-	address := ctx.Profile.Hostname
+	address := ctx.Profile.GetHostname()
 	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
 		address = "https://" + address
 	}
-	apiClient, err := client.New(address, ctx.Profile.Token, http.Header{
+	apiClient, err := client.New(address, ctx.Profile.GetToken(), http.Header{
 		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", config.Name, config.Version)},
 	})
 	if err != nil {
 		return nil, err
 	}
-	if logger != nil && ctx.IsDebug() {
-		apiClient.SetLogger(logger)
-	}
+	apiClient.SetLogger(logger)
 	return apiClient, nil
 }
 
@@ -327,8 +299,12 @@ func isAuthenticated(ctx *Context, c *Command, args []string) error {
 		return nil
 	}
 
-	if ctx.Profile.Token == "" {
+	if ctx.Profile.GetToken() == "" {
 		return authHelp(c.io)
+	}
+
+	if ctx.Profile.Token == "" {
+		c.Logger(ctx).Debug("Token missing from profile; using token configured by environment")
 	}
 
 	return nil

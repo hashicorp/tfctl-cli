@@ -126,7 +126,7 @@ func TestPositionalArgs_validateFunc(t *testing.T) {
 
 			io := iostreams.Test()
 			command := argValidationCommand(io, c.ValidateF)
-			code := command.Run(c.Args)
+			code := command.Run(c.Args, &Context{IO: io})
 			if c.Error == "" {
 				r.Zero(code, io.Error.String())
 				return
@@ -253,7 +253,7 @@ func TestCommand_ArgsValidation(t *testing.T) {
 
 			io := iostreams.Test()
 			command := argValidationCommand(io, c.ValidateF)
-			code := command.Run(c.Args)
+			code := command.Run(c.Args, &Context{IO: io})
 			if c.Error == "" {
 				r.Zero(code, io.Error.String())
 				return

@@ -121,7 +121,7 @@ func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 			startOpts.Workspace = args[0]
 			startOpts.DryRun = ctx.IsDryRun()
 
-			apiClient, err := ctx.NewAPIClient(c.Logger())
+			apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
@@ -180,7 +180,7 @@ func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 {{ Bold "$ %s run status %s" }}
 
 or by visiting {{ Bold "https://%s/app/%s/workspaces/%s/runs/%s" }}
-`, cs.SuccessIcon(), newRunID, config.Name, newRunID, opts.Profile.Hostname, *organizationName, *ws.GetAttributes().GetName(), newRunID))
+`, cs.SuccessIcon(), newRunID, config.Name, newRunID, opts.Profile.GetHostname(), *organizationName, *ws.GetAttributes().GetName(), newRunID))
 	fmt.Fprintln(io.Err())
 	return nil
 }

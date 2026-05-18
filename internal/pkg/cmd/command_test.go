@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/go-tfe"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 func TestCommand_PersistentPrerun(t *testing.T) {
@@ -23,6 +24,9 @@ func TestCommand_PersistentPrerun(t *testing.T) {
 
 	// Create the command tree
 	io := iostreams.Test()
+	cCtx := &Context{
+		IO: io,
+	}
 	root := &Command{
 		Name: "root",
 		io:   io,
@@ -57,8 +61,8 @@ func TestCommand_PersistentPrerun(t *testing.T) {
 	}
 
 	// Run the grandchild and the child
-	r.Zero(grandchild.Run(nil))
-	r.Zero(child.Run(nil))
+	r.Zero(grandchild.Run(nil, cCtx))
+	r.Zero(child.Run(nil, cCtx))
 
 	// Expect the prerun commmands were called
 	r.Equal(2, rootPreRunCount)
@@ -71,6 +75,9 @@ func TestCommand_Flags(t *testing.T) {
 
 	// Create the command tree
 	io := iostreams.Test()
+	cCtx := &Context{
+		IO: io,
+	}
 	root := &Command{
 		Name: "root",
 		io:   io,
@@ -90,7 +97,7 @@ func TestCommand_Flags(t *testing.T) {
 	root.AddChild(child)
 	childFlag := child.allFlags().String("child-flag", "", "testing")
 
-	r.Zero(child.Run([]string{"--root-flag=root-set", "--child-flag=child-set"}))
+	r.Zero(child.Run([]string{"--root-flag=root-set", "--child-flag=child-set"}, cCtx))
 	r.Equal(2, seenFlags)
 	r.Equal("root-set", *rootFlag)
 	r.Equal("child-set", *childFlag)
@@ -102,19 +109,27 @@ func TestCommand_Logger(t *testing.T) {
 
 	// Create the command tree
 	io := iostreams.Test()
+	cCtx := &Context{
+		IO: io,
+	}
 	root := &Command{
 		Name: "root",
 		io:   io,
 	}
+
+	ctx := &Context{
+		IO: io,
+	}
+
 	child := &Command{
 		Name: "child",
 		RunF: func(c *Command, args []string) error {
-			c.Logger().Error("hello, world!")
+			c.Logger(ctx).Error("hello, world!")
 			return nil
 		},
 	}
 	root.AddChild(child)
-	r.Zero(child.Run([]string{}))
+	r.Zero(child.Run([]string{}, cCtx))
 	r.Contains(io.Error.String(), "tfctl.child: hello, world!")
 }
 
@@ -124,6 +139,9 @@ func TestCommand_ExitCode(t *testing.T) {
 
 	// Create the command tree
 	io := iostreams.Test()
+	cCtx := &Context{
+		IO: io,
+	}
 	code := 42
 	err := fmt.Errorf("bad bad bad")
 	root := &Command{
@@ -133,7 +151,7 @@ func TestCommand_ExitCode(t *testing.T) {
 			return NewExitError(code, err)
 		},
 	}
-	r.Equal(code, root.Run([]string{}))
+	r.Equal(code, root.Run([]string{}, cCtx))
 	r.Contains(io.Error.String(), err.Error())
 }
 
@@ -149,7 +167,7 @@ func TestCommand_GlobalExitCode(t *testing.T) {
 	}{
 		{err: ErrDisplayHelp, expected: cli.RunResultHelp},
 		{err: ErrDisplayUsage, expected: 1},
-		{err: tfe.ErrNotFound, expected: 2, errContains: "Resource not found or you are unauthorized to this action"},
+		{err: tfe.ErrNotFound, expected: 2, errContains: "Resource not found on app.test.terraform.io or you are unauthorized to this action"},
 		{err: tfe.ErrUnauthorized, expected: 3, errContains: "tfctl auth login"},
 		{err: opErr, expected: 4, errContains: "network error"},
 		{err: tfe.ErrInternalServer, expected: 5, errContains: "Internal Server Error"},
@@ -162,6 +180,10 @@ func TestCommand_GlobalExitCode(t *testing.T) {
 
 			// Create the command tree
 			io := iostreams.Test()
+			cCtx := &Context{
+				IO:      io,
+				Profile: profile.TestProfile(t),
+			}
 			root := &Command{
 				Name: "root",
 				io:   io,
@@ -169,7 +191,7 @@ func TestCommand_GlobalExitCode(t *testing.T) {
 					return tt.err
 				},
 			}
-			r.Equal(tt.expected, root.Run([]string{}))
+			r.Equal(tt.expected, root.Run([]string{}, cCtx))
 			if tt.errContains != "" {
 				r.Contains(io.Error.String(), tt.errContains)
 			}

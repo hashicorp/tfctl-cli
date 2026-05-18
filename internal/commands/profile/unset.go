@@ -55,7 +55,7 @@ func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(c *cmd.Command, args []string) error {
 			opts.Property = args[0]
-			opts.Logger = c.Logger()
+			opts.Logger = c.Logger(ctx)
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err

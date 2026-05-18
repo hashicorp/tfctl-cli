@@ -56,7 +56,7 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 				IO:      ctx.IO,
 				Output:  ctx.Output,
 				Profile: ctx.Profile,
-				Logger:  c.Logger(),
+				Logger:  c.Logger(ctx),
 			}
 
 			opts.Property = args[0]

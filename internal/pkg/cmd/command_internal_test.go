@@ -16,7 +16,7 @@ func TestAuthErrorHelp(t *testing.T) {
 	r := require.New(t)
 	io := iostreams.Test()
 
-	helpText := authErrorHelp(io)
+	helpText := authErrorHelp(io, "app.test.terraform.io")
 	r.Contains(helpText, "Unauthorized request")
 	r.Contains(helpText, "auth login")
 }

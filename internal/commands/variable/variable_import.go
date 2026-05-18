@@ -145,13 +145,13 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				return errors.New("could not resolve target workspace; set --organization and --workspace or run inside a repository with terraform cloud configuration") // this should be impossible to hit due to the previous block, but we'll check again before API calls just in case
 			}
 
-			apiClient, err := ctx.NewAPIClient(c.Logger())
+			apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
 			opts.Client = apiClient
-			opts.Logger = c.Logger()
+			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
 
 			return runVariableImport(opts)

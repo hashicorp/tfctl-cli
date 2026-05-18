@@ -92,6 +92,10 @@ type Profile struct {
 	// Token is the API token to use for API requests. If not set, the CLI will look for the token in the environment or terraform credentials.
 	Token string `hcl:"token,optional" json:",omitempty"`
 
+	// tokenFromEnv is the token extracted from the environment. This is not written to disk and is only used to allow GetToken
+	// to return a token from the environment if one is not set on the profile.
+	tokenFromEnv string
+
 	// dir is the directory the profile should write to.
 	dir string
 }
@@ -230,6 +234,33 @@ func (p *Profile) GetVerbosity() string {
 	}
 
 	return *p.Verbosity
+}
+
+// GetToken returns the token set on the profile, or the token extracted from the environment
+// if one is available.
+func (p *Profile) GetToken() string {
+	if p == nil {
+		return ""
+	}
+
+	if p.Token != "" {
+		return p.Token
+	}
+
+	return p.tokenFromEnv
+}
+
+// GetHostname returns the set hostname or the default hostname if it has not been configured.
+func (p *Profile) GetHostname() string {
+	if p == nil {
+		return ""
+	}
+
+	if p.Hostname == "" {
+		return DefaultHostname
+	}
+
+	return p.Hostname
 }
 
 // SetOrg sets the Organization.

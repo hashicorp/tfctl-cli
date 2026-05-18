@@ -78,7 +78,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				}
 			}
 
-			apiClient, err := ctx.NewAPIClient(c.Logger())
+			apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
@@ -98,7 +98,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				}
 			}
 
-			logger := c.Logger()
+			logger := c.Logger(ctx)
 			logger.Debug("resolving run", "id", id, "type", resourceType, "organization", org)
 
 			runID, err := resolver.RunOrCurrentRun(ctx.ShutdownCtx, org, resourceType, id)

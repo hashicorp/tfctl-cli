@@ -273,28 +273,30 @@ func (c *Command) SetIO(io iostreams.IOStreams) {
 }
 
 // Logger returns a logger named according to the command.
-func (c *Command) Logger() hclog.Logger {
+func (c *Command) Logger(ctx *Context) hclog.Logger {
 	if c.logger != nil {
 		return c.logger
 	}
 
 	if c.parent != nil {
-		pl := c.parent.Logger()
+		pl := c.parent.Logger(ctx)
 		c.logger = pl.Named(c.Name)
 		return c.logger
 	}
 
 	// Create the logger
-	io := c.getIO()
+	io := ctx.IO
+
 	logOpt := &hclog.LoggerOptions{
 		Name:       config.Name,
-		Level:      hclog.Warn,
+		Level:      ctx.ResolveLogLevel(),
 		Output:     io.Err(),
 		TimeFn:     time.Now,
 		TimeFormat: "15:04:05.000",
-		Color:      hclog.ColorOff,
+		Color:      hclog.ColorOff, // Enabled later, maybe
 	}
-	if io.ColorEnabled() {
+
+	if io.ColorEnabled() && io.IsErrorTTY() {
 		logOpt.Color = hclog.ForceColor
 		logOpt.ColorHeaderAndFields = true
 	}

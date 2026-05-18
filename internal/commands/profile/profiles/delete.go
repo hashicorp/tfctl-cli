@@ -66,7 +66,7 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 			}
 			opts.Profiles = l
 			opts.Names = args
-			opts.Logger = c.Logger()
+			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
 			return deleteRun(opts)
 		},

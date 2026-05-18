@@ -25,9 +25,6 @@ import (
 )
 
 const (
-	// defaultHostname is the default HCP Terraform hostname.
-	defaultHostname = "app.terraform.io"
-
 	// tokenPagePath is the path to the token creation page.
 	tokenPagePath = "/app/settings/tokens?source=" + config.Name + "-login"
 )
@@ -78,7 +75,7 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 		},
 		NoAuthRequired: true,
 		RunF: func(c *cmd.Command, _ []string) error {
-			opts.Logger = c.Logger()
+			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
 			return loginRun(ctx, opts)
 		},
@@ -101,10 +98,7 @@ type LoginOpts struct {
 }
 
 func loginRun(cmdCtx *cmd.Context, opts *LoginOpts) error {
-	hostname := opts.Profile.Hostname
-	if hostname == "" {
-		hostname = defaultHostname
-	}
+	hostname := opts.Profile.GetHostname()
 
 	opts.Logger.Debug("starting login process", "hostname", hostname, "token_from_stdin", opts.Token)
 

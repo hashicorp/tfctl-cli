@@ -32,7 +32,7 @@ func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
 				IO:      ctx.IO,
 				Output:  ctx.Output,
 				Profile: profileNoToken,
-				Logger:  c.Logger(),
+				Logger:  c.Logger(ctx),
 			})
 		},
 		NoAuthRequired: true,

@@ -365,31 +365,6 @@ func TestMergePaginatedBody_UpdatesMeta(t *testing.T) {
 	require.Nil(t, links["next"])
 }
 
-func TestRunAPI_DebugLogsRequestAndResponse(t *testing.T) {
-	t.Parallel()
-
-	server, _ := newAPITestServer(map[string]http.HandlerFunc{
-		"GET /api/v2/workspaces": func(w http.ResponseWriter, r *http.Request) {
-			writeJSONAPIResponse(w, http.StatusOK, map[string]any{
-				"data": []any{map[string]any{"id": "ws-1", "type": "workspaces", "attributes": map[string]any{"name": "alpha"}}},
-			})
-		},
-	})
-	defer server.Close()
-
-	io := iostreams.Test()
-	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
-		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
-		opts.Debug = true
-		opts.Headers = []string{"X-Debug: yes"}
-	}))
-	require.NoError(t, err)
-
-	require.Contains(t, io.Error.String(), "> GET ")
-	require.Contains(t, io.Error.String(), "X-Debug: yes")
-	require.Contains(t, io.Error.String(), "< 200 OK")
-}
-
 func TestRunAPI_QuietSuppressesOutput(t *testing.T) {
 	t.Parallel()
 

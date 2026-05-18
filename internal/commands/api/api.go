@@ -48,7 +48,6 @@ type Opts struct {
 	ShutdownCtx  context.Context
 	Client       *client.Client
 	Quiet        bool
-	Debug        bool
 	DryRun       bool
 	Headers      []string
 	URL          *url.URL
@@ -229,7 +228,8 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			path := args[0]
 
-			apiClient, err := ctx.NewAPIClient(c.Logger())
+			logger := c.Logger(ctx)
+			apiClient, err := ctx.NewAPIClient(logger)
 			if err != nil {
 				return fmt.Errorf("failed to create API client: %w", err)
 			}
@@ -250,9 +250,8 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			opts.URL = resolvedURL
 			opts.Client = apiClient
-			opts.Logger = c.Logger()
+			opts.Logger = logger
 
-			opts.Debug = ctx.IsDebug()
 			opts.Quiet = ctx.Profile.IsQuiet()
 			opts.DryRun = ctx.IsDryRun()
 
@@ -394,7 +393,6 @@ func runAPI(opts *Opts) error {
 	}
 
 	method := inferMethod(opts.Method, len(opts.Attributes) > 0, opts.InputRequest != "")
-	opts.Logger.Debug("resolved request", "method", method, "url", opts.URL.String())
 
 	requestHeaders, err := parseHeaders(opts.Headers)
 	if err != nil {
@@ -448,15 +446,8 @@ func runAPI(opts *Opts) error {
 		return err
 	}
 
-	verbose := false
-	if opts.Debug {
-		logRequestResponse(opts.IO.Err(), method, opts.URL, requestHeaders, response)
-		verbose = true
-	}
-
 	if opts.All && response.StatusCode >= 200 && response.StatusCode < 300 {
-		opts.Logger.Debug("paginating response", "url", opts.URL.String())
-		response, err = paginateResponse(opts.ShutdownCtx, opts.Client, response, requestHeaders, verbose, opts.IO.Err())
+		response, err = paginateResponse(opts.ShutdownCtx, opts.Client, response, requestHeaders)
 		if err != nil {
 			return err
 		}
@@ -608,9 +599,10 @@ func splitPair(item string, sep rune) (string, string, error) {
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
 }
 
-func paginateResponse(ctx context.Context, apiClient *client.Client, initial *client.Response, headers http.Header, verbose bool, stderr io.Writer) (*client.Response, error) {
+func paginateResponse(ctx context.Context, apiClient *client.Client, initial *client.Response, headers http.Header) (*client.Response, error) {
 	combined, nextURL, err := parsePaginationPayload(initial.Body)
 	if err != nil || nextURL == nil {
+
 		return initial, err
 	}
 
@@ -622,9 +614,6 @@ func paginateResponse(ctx context.Context, apiClient *client.Client, initial *cl
 		})
 		if reqErr != nil {
 			return nil, reqErr
-		}
-		if verbose {
-			logRequestResponse(stderr, http.MethodGet, nextURL, headers, resp)
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			return resp, nil
@@ -693,13 +682,6 @@ func mergePaginatedBody(body []byte, combined []any) ([]byte, error) {
 		links["next"] = nil
 	}
 	return json.Marshal(payload)
-}
-
-func logRequestResponse(w io.Writer, method string, u *url.URL, reqHeaders http.Header, response *client.Response) {
-	fmt.Fprintf(w, "> %s %s\n", method, u.String())
-	writeHeaders(w, reqHeaders)
-	fmt.Fprintf(w, "< %s\n", response.Status)
-	writeHeaders(w, response.Headers)
 }
 
 func writeHeaders(w io.Writer, headers http.Header) {
