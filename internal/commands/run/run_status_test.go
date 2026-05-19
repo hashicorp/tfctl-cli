@@ -69,9 +69,12 @@ func TestStringPayload_PolicyCheckLog(t *testing.T) {
 	t.Run("pretty", func(t *testing.T) {
 		d := &summaryDisplayer{summary: &client.RunSummary{
 			Status: "errored", Phase: "policy_check", PolicyCheckLog: log,
+			PolicyCheckScope: "organization", PolicyCheckStatus: "hard_failed",
 		}, io: io}
 		result := d.StringPayload(format.Pretty)
-		assert.Equal(t, log, result)
+		assert.Contains(t, result, "Organization Policy Check:")
+		assert.Contains(t, result, log)
+		assert.Contains(t, result, "hard failed")
 	})
 
 	t.Run("markdown strips ANSI", func(t *testing.T) {

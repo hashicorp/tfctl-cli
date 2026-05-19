@@ -25,6 +25,8 @@ type RunSummary struct {
 	Diagnostics       []Diagnostic       `json:"diagnostics,omitempty"`
 	RawLog            string             `json:"raw_log,omitempty"`
 	PolicyCheckLog    string             `json:"policy_check_log,omitempty"`
+	PolicyCheckScope  string             `json:"policy_check_scope,omitempty"`  // "organization" or "workspace"
+	PolicyCheckStatus string             `json:"policy_check_status,omitempty"` // "hard_failed", "soft_failed", "errored"
 	PolicyEvaluations []PolicyEvalResult `json:"policy_evaluations,omitempty"`
 	TaskResults       []TaskResult       `json:"task_results,omitempty"`
 }
@@ -262,6 +264,11 @@ func populatePolicyCheckSummary(ctx context.Context, c *Client, runID string, re
 
 		// Found a failed policy check — fetch its output log.
 		result.Phase = "policy_check"
+		result.PolicyCheckStatus = (*status).String()
+
+		if scope := pc.GetAttributes().GetScope(); scope != nil {
+			result.PolicyCheckScope = *scope
+		}
 
 		pcID := pc.GetId()
 		if pcID == nil {

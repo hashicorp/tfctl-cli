@@ -171,9 +171,9 @@ func (d *summaryDisplayer) StringPayload(f format.Format) string {
 	}
 	if d.summary.PolicyCheckLog != "" {
 		if f == format.Markdown {
-			return stripANSI(d.summary.PolicyCheckLog)
+			return d.formatPolicyCheckLogMarkdown()
 		}
-		return d.summary.PolicyCheckLog
+		return d.formatPolicyCheckLogPretty()
 	}
 	if len(d.summary.PolicyEvaluations) > 0 {
 		return d.formatPolicyEvaluations(f)
@@ -291,6 +291,70 @@ func (d *summaryDisplayer) formatDiagnosticsMarkdown() string {
 			fmt.Fprintf(&out, "\n%s\n", diag.Detail)
 		}
 	}
+	return out.String()
+}
+
+// --- Policy check log (legacy Sentinel) ---
+
+func policyScopeLabel(scope string) string {
+	switch scope {
+	case "organization":
+		return "Organization Policy Check"
+	case "workspace":
+		return "Workspace Policy Check"
+	default:
+		if scope != "" {
+			return fmt.Sprintf("Policy Check (%s)", scope)
+		}
+		return "Policy Check"
+	}
+}
+
+func (d *summaryDisplayer) formatPolicyCheckLogPretty() string {
+	cs := d.io.ColorScheme()
+	var out strings.Builder
+
+	out.WriteString("------------------------------------------------------------------------\n")
+	header := policyScopeLabel(d.summary.PolicyCheckScope)
+	out.WriteString(cs.String(header + ":").Bold().String())
+	out.WriteString("\n\n")
+	out.WriteString(d.summary.PolicyCheckLog)
+
+	// Add status footer.
+	switch d.summary.PolicyCheckStatus {
+	case "hard_failed":
+		out.WriteString("\n")
+		out.WriteString(cs.String(header + " hard failed.").Color(cs.Red()).String())
+		out.WriteString("\n")
+	case "soft_failed":
+		out.WriteString("\n")
+		out.WriteString(cs.String(header + " soft failed.").Color(cs.Orange()).String())
+		out.WriteString("\n")
+	case "errored":
+		out.WriteString("\n")
+		out.WriteString(cs.String(header + " errored.").Color(cs.Red()).String())
+		out.WriteString("\n")
+	}
+
+	return out.String()
+}
+
+func (d *summaryDisplayer) formatPolicyCheckLogMarkdown() string {
+	var out strings.Builder
+
+	header := policyScopeLabel(d.summary.PolicyCheckScope)
+	fmt.Fprintf(&out, "## %s\n\n", header)
+	fmt.Fprintf(&out, "```\n%s\n```\n", stripANSI(d.summary.PolicyCheckLog))
+
+	switch d.summary.PolicyCheckStatus {
+	case "hard_failed":
+		fmt.Fprintf(&out, "\n**%s hard failed.**\n", header)
+	case "soft_failed":
+		fmt.Fprintf(&out, "\n**%s soft failed.**\n", header)
+	case "errored":
+		fmt.Fprintf(&out, "\n**%s errored.**\n", header)
+	}
+
 	return out.String()
 }
 
