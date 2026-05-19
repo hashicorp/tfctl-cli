@@ -128,7 +128,7 @@ func (c *Client) FetchAPIRedirect(ctx context.Context, path string) (io.ReadClos
 		return nil, err
 	}
 
-	return c.Adapter.FollowAPIRedirect(ctx, resp)
+	return c.TFE.FollowAPIRedirect(ctx, resp)
 }
 
 // RawRequest sends a low-level request and returns the raw response.

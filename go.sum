@@ -115,6 +115,8 @@ github.com/hashicorp/go-multierror v1.1.1 h1:H5DkEtf6CXdFp0N0Em5UCwQpXMWke8IA0+l
 github.com/hashicorp/go-multierror v1.1.1/go.mod h1:iw975J/qwKPdAO1clOe2L8331t/9/fmwbPZ6JB6eMoM=
 github.com/hashicorp/go-tfe v1.78.1-0.20260423211818-e37f9ff614bd h1:hsSXxFs5tzC9sl8ZXv8X4KDiKuJIPa5FFj2w3klNKMM=
 github.com/hashicorp/go-tfe v1.78.1-0.20260423211818-e37f9ff614bd/go.mod h1:NCc9n8HN05g6Bu5v0a3JhkOoWN42DF/Jk0nDQSaZwFI=
+github.com/hashicorp/go-tfe v1.78.1-0.20260519200641-b61389e1721f h1:El/aJLd9gh+OMzgD6YqhfDSr0tUw96hCGWtp7QmMJYg=
+github.com/hashicorp/go-tfe v1.78.1-0.20260519200641-b61389e1721f/go.mod h1:NCc9n8HN05g6Bu5v0a3JhkOoWN42DF/Jk0nDQSaZwFI=
 github.com/hashicorp/go-version v1.9.0 h1:CeOIz6k+LoN3qX9Z0tyQrPtiB1DFYRPfCIBtaXPSCnA=
 github.com/hashicorp/go-version v1.9.0/go.mod h1:fltr4n8CU8Ke44wwGCBoEymUuxUHl09ZGVZPK5anwXA=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
