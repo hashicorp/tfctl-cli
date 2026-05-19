@@ -268,17 +268,18 @@ func populatePolicyCheckSummary(ctx context.Context, c *Client, runID string, re
 			return fmt.Errorf("policy check has no ID")
 		}
 
-		outputURL, err := ResolveURL(*c.BaseURL, "/policy-checks/"+*pcID+"/output")
-		if err != nil {
-			return fmt.Errorf("resolving policy check output URL: %w", err)
-		}
-
-		resp, err := c.RawRequest(ctx, &Request{Method: "GET", URL: outputURL})
+		body, err := c.FetchAPIRedirect(ctx, "/policy-checks/"+*pcID+"/output")
 		if err != nil {
 			return fmt.Errorf("fetching policy check output for %s: %w", *pcID, err)
 		}
+		defer body.Close()
 
-		result.PolicyCheckLog = string(resp.Body)
+		content, err := io.ReadAll(body)
+		if err != nil {
+			return fmt.Errorf("reading policy check output for %s: %w", *pcID, err)
+		}
+
+		result.PolicyCheckLog = string(content)
 		return nil // Stop after the first failed policy check (they run sequentially).
 	}
 
