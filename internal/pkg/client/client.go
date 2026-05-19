@@ -82,6 +82,55 @@ func New(address, token string, defaultHeaders http.Header) (*Client, error) {
 	}, nil
 }
 
+// FetchAPIRedirect makes an authenticated GET request to the given API path,
+// captures the initial response (which is expected to be a redirect), and hands
+// it to the SDK's FollowAPIRedirect helper which follows all redirects and
+// returns the final response body as a stream. The caller is responsible for
+// closing the returned ReadCloser.
+func (c *Client) FetchAPIRedirect(ctx context.Context, path string) (io.ReadCloser, error) {
+	resolved, err := ResolveURL(*c.BaseURL, path)
+	if err != nil {
+		return nil, fmt.Errorf("resolving URL: %w", err)
+	}
+
+	requestInfo := abs.NewRequestInformation()
+	requestInfo.Method = abs.GET
+	requestInfo.SetUri(*resolved)
+
+	for key, values := range c.DefaultHeaders {
+		for _, value := range values {
+			requestInfo.Headers.Add(key, value)
+		}
+	}
+
+	nativeRequest, err := c.Adapter.ConvertToNativeRequest(ctx, requestInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, ok := nativeRequest.(*http.Request)
+	if !ok {
+		return nil, fmt.Errorf("unexpected native request type %T", nativeRequest)
+	}
+
+	// Use a client that does NOT follow redirects so we can capture the 302.
+	noRedirectClient := *c.Adapter.Client
+	noRedirectClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	resp, err := noRedirectClient.Do(httpReq)
+	if err != nil {
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			return nil, urlErr.Err
+		}
+		return nil, err
+	}
+
+	return c.Adapter.FollowAPIRedirect(ctx, resp)
+}
+
 // RawRequest sends a low-level request and returns the raw response.
 func (c *Client) RawRequest(ctx context.Context, req *Request) (*Response, error) {
 	requestInfo := abs.NewRequestInformation()
