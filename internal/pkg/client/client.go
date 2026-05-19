@@ -136,6 +136,7 @@ func (c *Client) RawRequest(ctx context.Context, req *Request) (*Response, error
 }
 
 // ResolveURL resolves an absolute or base-relative API path against base.
+// Query parameters and fragments in path are preserved.
 func ResolveURL(base url.URL, path string) (*url.URL, error) {
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		return url.Parse(path)
@@ -145,10 +146,23 @@ func ResolveURL(base url.URL, path string) (*url.URL, error) {
 		path = "/" + path
 	}
 
+	parsed, err := url.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+
 	resolved := base
-	resolved.Path = strings.TrimRight(base.Path, "/") + path
-	resolved.RawQuery = ""
-	resolved.Fragment = ""
+	basePath := strings.TrimRight(base.Path, "/")
+	resolved.Path = basePath + parsed.Path
+	resolved.RawPath = "" // clear any base RawPath; re-set below if needed
+	resolved.RawQuery = parsed.RawQuery
+	resolved.Fragment = parsed.Fragment
+
+	// Preserve RawPath so percent-encoded separators (e.g. %2F) are not
+	// decoded into literal slashes, which would alter the path hierarchy.
+	if parsed.RawPath != "" {
+		resolved.RawPath = basePath + parsed.RawPath
+	}
 
 	return &resolved, nil
 }
