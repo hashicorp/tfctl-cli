@@ -4,6 +4,11 @@
 package client
 
 import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -144,5 +149,79 @@ func TestParseDiagnostics_RealConsoleLog(t *testing.T) {
 	diags := ParseDiagnostics(log)
 	if diags != nil {
 		t.Fatalf("expected nil diagnostics for console-mode log, got %d", len(diags))
+	}
+}
+
+func TestFetchAPIRedirect(t *testing.T) {
+	t.Parallel()
+
+	const wantBody = "redirect target content"
+
+	// Target server that serves the final content.
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, wantBody)
+	}))
+	t.Cleanup(target.Close)
+
+	// API server that returns a 302 redirect to the target.
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v2/policy-checks/polchk-1/output" {
+			http.Redirect(w, r, target.URL+"/log.txt", http.StatusFound)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(api.Close)
+
+	c, err := New(api.URL, "test-token", nil)
+	if err != nil {
+		t.Fatalf("creating client: %v", err)
+	}
+
+	rc, err := c.FetchAPIRedirect(context.Background(), "/policy-checks/polchk-1/output")
+	if err != nil {
+		t.Fatalf("FetchAPIRedirect: %v", err)
+	}
+	defer rc.Close()
+
+	body, err := io.ReadAll(rc)
+	if err != nil {
+		t.Fatalf("reading body: %v", err)
+	}
+	if string(body) != wantBody {
+		t.Errorf("got %q, want %q", string(body), wantBody)
+	}
+}
+
+func TestFetchAPIRedirect_DirectResponse(t *testing.T) {
+	t.Parallel()
+
+	const wantBody = "direct content"
+
+	// API server that returns 200 directly (no redirect).
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, wantBody)
+	}))
+	t.Cleanup(api.Close)
+
+	c, err := New(api.URL, "test-token", nil)
+	if err != nil {
+		t.Fatalf("creating client: %v", err)
+	}
+
+	// FollowAPIRedirect treats 200 as success and returns the body directly.
+	rc, err := c.FetchAPIRedirect(context.Background(), "/policy-checks/polchk-1/output")
+	if err != nil {
+		t.Fatalf("FetchAPIRedirect: %v", err)
+	}
+	defer rc.Close()
+
+	body, err := io.ReadAll(rc)
+	if err != nil {
+		t.Fatalf("reading body: %v", err)
+	}
+	if string(body) != wantBody {
+		t.Errorf("got %q, want %q", string(body), wantBody)
 	}
 }

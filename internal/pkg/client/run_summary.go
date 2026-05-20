@@ -358,7 +358,17 @@ func populateTaskStageSummary(ctx context.Context, c *Client, runID string, resu
 				if peID == "" {
 					continue
 				}
-				evals, err := fetchPolicySetOutcomes(ctx, c, peID)
+
+				// Fetch the policy evaluation to get its kind.
+				policyKind := ""
+				peResp, err := c.TFE.API.PolicyEvaluations().ByPolicy_evaluation_id(peID).Get(ctx, nil)
+				if err == nil && peResp.GetData() != nil && peResp.GetData().GetAttributes() != nil {
+					if k := peResp.GetData().GetAttributes().GetPolicyKind(); k != nil {
+						policyKind = k.String()
+					}
+				}
+
+				evals, err := fetchPolicySetOutcomes(ctx, c, peID, policyKind)
 				if err != nil {
 					return err
 				}
@@ -391,8 +401,9 @@ func populateTaskStageSummary(ctx context.Context, c *Client, runID string, resu
 }
 
 // fetchPolicySetOutcomes fetches policy set outcomes for a policy evaluation
-// and converts them to PolicyEvalResult structs.
-func fetchPolicySetOutcomes(ctx context.Context, c *Client, peID string) ([]PolicyEvalResult, error) {
+// and converts them to PolicyEvalResult structs. policyKind is set on each
+// result since the outcomes endpoint does not return it.
+func fetchPolicySetOutcomes(ctx context.Context, c *Client, peID, policyKind string) ([]PolicyEvalResult, error) {
 	resp, err := c.TFE.API.PolicyEvaluations().ByPolicy_evaluation_id(peID).PolicySetOutcomes().Get(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetching policy set outcomes for %s: %w", peID, err)
@@ -405,7 +416,7 @@ func fetchPolicySetOutcomes(ctx context.Context, c *Client, peID string) ([]Poli
 			continue
 		}
 
-		eval := PolicyEvalResult{}
+		eval := PolicyEvalResult{PolicyKind: policyKind}
 		if name := attrs.GetPolicySetName(); name != nil {
 			eval.PolicySetName = *name
 		}

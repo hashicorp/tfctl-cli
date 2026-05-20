@@ -310,6 +310,15 @@ func policyScopeLabel(scope string) string {
 	}
 }
 
+// cleanPolicyCheckLog cleans up the Sentinel runner's policy set header line
+// when the policy set name is empty (non-VCS policy sets produce
+// "<empty policy set name>" as the name).
+var policySetHeaderRe = regexp.MustCompile(`(?m)^=+ Results for policy set: <empty policy set name> =+\n`)
+
+func cleanPolicyCheckLog(log string) string {
+	return policySetHeaderRe.ReplaceAllString(log, "")
+}
+
 func (d *summaryDisplayer) formatPolicyCheckLogPretty() string {
 	cs := d.io.ColorScheme()
 	var out strings.Builder
@@ -318,7 +327,7 @@ func (d *summaryDisplayer) formatPolicyCheckLogPretty() string {
 	header := policyScopeLabel(d.summary.PolicyCheckScope)
 	out.WriteString(cs.String(header + ":").Bold().String())
 	out.WriteString("\n\n")
-	out.WriteString(d.summary.PolicyCheckLog)
+	out.WriteString(cleanPolicyCheckLog(d.summary.PolicyCheckLog))
 
 	// Add status footer.
 	switch d.summary.PolicyCheckStatus {
@@ -344,7 +353,7 @@ func (d *summaryDisplayer) formatPolicyCheckLogMarkdown() string {
 
 	header := policyScopeLabel(d.summary.PolicyCheckScope)
 	fmt.Fprintf(&out, "## %s\n\n", header)
-	fmt.Fprintf(&out, "```\n%s\n```\n", stripANSI(d.summary.PolicyCheckLog))
+	fmt.Fprintf(&out, "```\n%s\n```\n", stripANSI(cleanPolicyCheckLog(d.summary.PolicyCheckLog)))
 
 	switch d.summary.PolicyCheckStatus {
 	case "hard_failed":
@@ -413,7 +422,7 @@ func taskStatusLabel(cs *iostreams.ColorScheme, status, enforcementLevel string)
 	case "failed":
 		label := "Failed"
 		if enforcementLevel != "" {
-			label += " (" + strings.ToTitle(enforcementLevel[:1]) + enforcementLevel[1:] + ")"
+			label += " (" + strings.ToUpper(enforcementLevel[:1]) + enforcementLevel[1:] + ")"
 		}
 		return cs.String(label).Color(cs.Red())
 	default:
@@ -440,9 +449,7 @@ func (d *summaryDisplayer) formatPolicyEvaluationsPretty() string {
 	out.WriteString("\n")
 
 	for i, eval := range d.summary.PolicyEvaluations {
-		if i > 0 || true {
-			out.WriteString("\n")
-		}
+		out.WriteString("\n")
 		kind := policyKindLabel(eval.PolicyKind)
 		out.WriteString(cs.String(kind + " Policy Evaluation").Bold().String())
 		out.WriteString("\n")
@@ -509,8 +516,6 @@ func (d *summaryDisplayer) formatPolicyEvaluationsPretty() string {
 			fmt.Fprintf(&out, "     | %s %s\n", icon, label)
 			if oc.Description != "" {
 				fmt.Fprintf(&out, "     | %s\n", cs.String(oc.Description).Faint())
-			} else {
-				fmt.Fprintf(&out, "     | %s\n", cs.String("No description available").Faint())
 			}
 			for _, line := range oc.Output {
 				fmt.Fprintf(&out, "     | %s\n", line)
@@ -567,12 +572,10 @@ func (d *summaryDisplayer) formatPolicyEvaluationsMarkdown() string {
 
 		for _, oc := range eval.Outcomes {
 			label := policyStatusLabel(oc.Status, oc.EnforcementLevel)
-			desc := oc.Description
-			if desc == "" {
-				desc = "No description available"
-			}
 			fmt.Fprintf(&out, "- **%s** — %s\n", oc.PolicyName, label)
-			fmt.Fprintf(&out, "  %s\n", desc)
+			if oc.Description != "" {
+				fmt.Fprintf(&out, "  %s\n", oc.Description)
+			}
 			for _, line := range oc.Output {
 				fmt.Fprintf(&out, "  - %s\n", line)
 			}
