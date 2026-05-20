@@ -119,7 +119,7 @@ func (c *Client) FetchAPIRedirect(ctx context.Context, path string) (io.ReadClos
 		return http.ErrUseLastResponse
 	}
 
-	resp, err := noRedirectClient.Do(httpReq)
+	resp, err := noRedirectClient.Do(httpReq) //nolint:bodyclose // body ownership transfers to FollowAPIRedirect
 	if err != nil {
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) {

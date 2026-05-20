@@ -555,12 +555,12 @@ func TestNewRunSummary_ErroredTaskStageRunTask(t *testing.T) {
 				"data": map[string]any{
 					"id": "taskrs-1", "type": "task-results",
 					"attributes": map[string]any{
-						"task-name":                      "security-scan",
-						"status":                         "failed",
-						"message":                        "Security vulnerabilities found",
-						"url":                            "https://example.com/scan/123",
+						"task-name":                        "security-scan",
+						"status":                           "failed",
+						"message":                          "Security vulnerabilities found",
+						"url":                              "https://example.com/scan/123",
 						"workspace-task-enforcement-level": "mandatory",
-						"stage":                          "post_plan",
+						"stage":                            "post_plan",
 					},
 				},
 			})

@@ -33,7 +33,7 @@ type RunSummary struct {
 
 // PolicyEvalResult holds the outcome of a policy evaluation (OPA/Sentinel via task stages).
 type PolicyEvalResult struct {
-	PolicyKind    string          `json:"policy_kind"`     // "opa" or "sentinel"
+	PolicyKind    string          `json:"policy_kind"` // "opa" or "sentinel"
 	Status        string          `json:"status"`
 	PolicySetName string          `json:"policy_set_name"`
 	Outcomes      []PolicyOutcome `json:"outcomes,omitempty"`
@@ -264,7 +264,7 @@ func populatePolicyCheckSummary(ctx context.Context, c *Client, runID string, re
 
 		// Found a failed policy check — fetch its output log.
 		result.Phase = "policy_check"
-		result.PolicyCheckStatus = (*status).String()
+		result.PolicyCheckStatus = status.String()
 
 		if scope := pc.GetAttributes().GetScope(); scope != nil {
 			result.PolicyCheckScope = *scope
@@ -295,9 +295,9 @@ func populatePolicyCheckSummary(ctx context.Context, c *Client, runID string, re
 
 // stageOrder defines the lifecycle order for task stages.
 var stageOrder = map[string]int{
-	"pre_plan":  0,
-	"post_plan": 1,
-	"pre_apply": 2,
+	"pre_plan":   0,
+	"post_plan":  1,
+	"pre_apply":  2,
 	"post_apply": 3,
 }
 
