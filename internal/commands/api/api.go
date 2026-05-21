@@ -459,7 +459,18 @@ func runAPI(opts *Opts) error {
 		defer response.Body.Close()
 	}
 
-	if opts.Quiet || response.StatusCode == http.StatusNoContent {
+	if opts.Quiet {
+		opts.Logger.Debug("Quiet mode enabled or no content to display, rendering skipped")
+		return nil
+	}
+
+	if response.StatusCode == http.StatusNoContent {
+		opts.Logger.Debug("No Content response, nothing to display")
+		return nil
+	}
+
+	if response.ContentLength == 0 {
+		opts.Logger.Debug("Empty response body, nothing to display")
 		return nil
 	}
 
