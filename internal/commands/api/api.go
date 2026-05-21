@@ -251,7 +251,6 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			opts.URL = resolvedURL
 			opts.Client = apiClient
 			opts.Logger = logger
-
 			opts.Quiet = ctx.Profile.IsQuiet()
 			opts.DryRun = ctx.IsDryRun()
 
@@ -436,13 +435,19 @@ func runAPI(opts *Opts) error {
 	}
 
 	// Make the request
-	response, err := opts.Client.RawRequest(opts.ShutdownCtx, &client.Request{
+	response, err := opts.Client.Do(opts.ShutdownCtx, &client.Request{
 		Method:  method,
 		URL:     opts.URL,
 		Headers: requestHeaders,
 		Body:    body,
 	})
+
+	if response != nil && response.Body != nil {
+		defer response.Body.Close()
+	}
+
 	if err != nil {
+		// Non-success response codes are already decoded by the client
 		return err
 	}
 
@@ -451,29 +456,26 @@ func runAPI(opts *Opts) error {
 		if err != nil {
 			return err
 		}
+		defer response.Body.Close()
 	}
 
-	if response.Headers.Get("Content-Type") != "" && strings.Contains(response.Headers.Get("Content-Type"), "text/html") {
-		return errors.New("an HTML response was received, likely an error page")
-	}
-
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		message := client.SummarizeAPIErrors(response.Body)
-		if message == "" {
-			message = string(bytes.TrimSpace(response.Body))
-		}
-		if message != "" {
-			return fmt.Errorf("%s: %s", response.Status, message)
-		}
-		return errors.New(response.Status)
-	}
-
-	if opts.Quiet || len(bytes.TrimSpace(response.Body)) == 0 {
+	if opts.Quiet || response.StatusCode == http.StatusNoContent {
 		return nil
 	}
 
+	if response.Header.Get("Content-Type") != "application/vnd.api+json" {
+		opts.Logger.Debug("Response body was not application/vnd.api+json, rendering raw body")
+		_, _ = io.Copy(opts.IO.Out(), response.Body)
+		return nil
+	}
+
+	body, err = io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	// Render the result
-	disp, err := format.NewJSONAPIDisplayer(response.Body)
+	disp, err := format.NewJSONAPIDisplayer(body)
 	if err != nil {
 		return err
 	}
@@ -599,19 +601,27 @@ func splitPair(item string, sep rune) (string, string, error) {
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
 }
 
-func paginateResponse(ctx context.Context, apiClient *client.Client, initial *client.Response, headers http.Header) (*client.Response, error) {
-	combined, nextURL, err := parsePaginationPayload(initial.Body)
+func paginateResponse(ctx context.Context, apiClient *client.Client, initial *http.Response, headers http.Header) (*http.Response, error) {
+	initialBody, err := io.ReadAll(initial.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	combined, nextURL, err := parsePaginationPayload(initialBody)
 	if err != nil || nextURL == nil {
 
 		return initial, err
 	}
 
 	for len(combined) < MaxPaginateRecords && nextURL != nil {
-		resp, reqErr := apiClient.RawRequest(ctx, &client.Request{
+		resp, reqErr := apiClient.Do(ctx, &client.Request{
 			Method:  http.MethodGet,
 			URL:     nextURL,
 			Headers: headers,
 		})
+		if resp != nil && resp.Body != nil {
+			defer resp.Body.Close()
+		}
 		if reqErr != nil {
 			return nil, reqErr
 		}
@@ -619,7 +629,12 @@ func paginateResponse(ctx context.Context, apiClient *client.Client, initial *cl
 			return resp, nil
 		}
 
-		pageData, pageNext, pageErr := parsePaginationPayload(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+
+		pageData, pageNext, pageErr := parsePaginationPayload(body)
 		if pageErr != nil {
 			return nil, pageErr
 		}
@@ -631,11 +646,11 @@ func paginateResponse(ctx context.Context, apiClient *client.Client, initial *cl
 		initial = resp
 	}
 
-	merged, err := mergePaginatedBody(initial.Body, combined)
+	merged, err := mergePaginatedBody(initialBody, combined)
 	if err != nil {
 		return nil, err
 	}
-	initial.Body = merged
+	initial.Body = io.NopCloser(bytes.NewReader(merged))
 	return initial, nil
 }
 

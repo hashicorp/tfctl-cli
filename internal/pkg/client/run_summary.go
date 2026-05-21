@@ -275,15 +275,9 @@ func populatePolicyCheckSummary(ctx context.Context, c *Client, runID string, re
 			return fmt.Errorf("policy check has no ID")
 		}
 
-		body, err := c.FetchAPIRedirect(ctx, "/policy-checks/"+*pcID+"/output")
+		content, err := c.TFE.API.PolicyChecks().ById(*pcID).Output().Get(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("fetching policy check output for %s: %w", *pcID, err)
-		}
-		defer body.Close()
-
-		content, err := io.ReadAll(body)
-		if err != nil {
-			return fmt.Errorf("reading policy check output for %s: %w", *pcID, err)
 		}
 
 		result.PolicyCheckLog = string(content)
