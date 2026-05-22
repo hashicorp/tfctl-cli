@@ -89,7 +89,10 @@ type JSONAPIDisplayer struct {
 // Check interface at compile time.
 var _ Displayer = JSONAPIDisplayer{}
 
-var attributeNameRegex = regexp.MustCompile(`^[a-zA-Z]+([._-][a-zA-Z0-9]+)*$`)
+// Any attribute keys that contain characters other than letters, numbers, hyphens, underscores,
+// and periods are skipped for display. Usually indicates user content in embedded
+// objects attributes.
+var reAttributeNameDisallow = regexp.MustCompile(`[^-_.a-zA-Z0-9]`)
 
 // DefaultFormat implements the Displayer interface.
 func (d JSONAPIDisplayer) DefaultFormat() Format {
@@ -126,13 +129,14 @@ func (d JSONAPIDisplayer) FieldTemplates() []Field {
 
 	for _, att := range cols {
 		name := att
+		// Nasty special case for organizations
 		if att == "external-id" {
 			name = "id"
 		}
 
 		// Skip attributes that contain keys that don't look like API attributes. Certain output values
 		// may be user data, such as the object value of a state version output.
-		if !attributeNameRegex.MatchString(att) {
+		if att == sentinelResourceType || reAttributeNameDisallow.MatchString(att) {
 			continue
 		}
 

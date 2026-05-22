@@ -212,7 +212,6 @@ Tags.1:                               production
 Tags.2:                               us-east
 Triple Nested.Level1.Level2.Key:      hello
 Triple Nested.Level1.Level2.Value:    world
-Type:                                 users
 `,
 		},
 		{
@@ -243,7 +242,6 @@ Type:                                 users
 | Tags.2                               | us-east                                                                     |
 | Triple Nested.Level1.Level2.Key      | hello                                                                       |
 | Triple Nested.Level1.Level2.Value    | world                                                                       |
-| Type                                 | users                                                                       |
 
 `,
 		},
