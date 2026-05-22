@@ -573,6 +573,7 @@ func TestRunAPI_ErrorResponseHTML(t *testing.T) {
 
 	server, _ := newAPITestServer(map[string]http.HandlerFunc{
 		"GET /api/v2/workspaces": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(404)
 			w.Header().Set("Content-Type", "text/html")
 			_, _ = io.WriteString(w, "<html>Not found</html>")
 		},
@@ -583,7 +584,7 @@ func TestRunAPI_ErrorResponseHTML(t *testing.T) {
 	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 	}))
-	require.EqualError(t, err, "an HTML response was received, likely an error page")
+	require.EqualError(t, err, "404 Not Found")
 }
 
 func TestRunAPI_PaginateReturnsErrorResponseFromLaterPage(t *testing.T) {

@@ -16,13 +16,16 @@ func NewCmdRun(ctx *cmd.Context) *cmd.Command {
 		Name:      "run",
 		ShortHelp: "Inspect and manage runs.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
-		The {{ template "mdCodeOrBold" "%s run" }} command group lets you inspect and manage
+		The {{ template "mdCodeOrBold" "%s run" }} command group lets you diagnose and start
 		Terraform runs in HCP Terraform and Terraform Enterprise.
 		`, config.Name),
 	}
 
 	cmd.AddChild(NewCmdRunStatus(ctx))
 	cmd.AddChild(NewCmdRunStart(ctx))
+
+	// Hidden commands:
+	cmd.AddChild(NewCmdRunStatusSample(ctx))
 
 	return cmd
 }

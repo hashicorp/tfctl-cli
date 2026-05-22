@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -44,18 +43,6 @@ type Request struct {
 	Body []byte
 }
 
-// Response contains the result of a raw HTTP request.
-type Response struct {
-	// StatusCode is the numeric HTTP status code.
-	StatusCode int
-	// Status is the full HTTP status line.
-	Status string
-	// Headers are the response headers.
-	Headers http.Header
-	// Body is the raw response body.
-	Body []byte
-}
-
 // New constructs a configured API client from an API address and token.
 func New(address, token string, defaultHeaders http.Header) (*Client, error) {
 	tfeClient, err := tfe.NewClient(&tfe.Config{
@@ -82,8 +69,9 @@ func New(address, token string, defaultHeaders http.Header) (*Client, error) {
 	}, nil
 }
 
-// RawRequest sends a low-level request and returns the raw response.
-func (c *Client) RawRequest(ctx context.Context, req *Request) (*Response, error) {
+// Do sends a low-level request and returns the response. It is the callers responsibility to close
+// the response body.
+func (c *Client) Do(ctx context.Context, req *Request) (*http.Response, error) {
 	requestInfo := abs.NewRequestInformation()
 	requestInfo.Method = httpMethod(strings.ToUpper(req.Method))
 	requestInfo.SetUri(*req.URL)
@@ -120,19 +108,8 @@ func (c *Client) RawRequest(ctx context.Context, req *Request) (*Response, error
 		}
 		return nil, err
 	}
-	defer httpResp.Body.Close()
 
-	body, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Response{
-		StatusCode: httpResp.StatusCode,
-		Status:     httpResp.Status,
-		Headers:    httpResp.Header.Clone(),
-		Body:       body,
-	}, nil
+	return httpResp, nil
 }
 
 // ResolveURL resolves an absolute or base-relative API path against base.
@@ -241,7 +218,7 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	duration := time.Since(startTime)
 
 	if resp != nil {
-		t.logger.Debug("HTTP response", "status", resp.Status, "content-type", resp.Header.Get("content-type"), "duration_ms", duration.Milliseconds())
+		t.logger.Debug("HTTP response", "status", resp.Status, "content-type", resp.Header.Get("content-type"), "content-length", resp.ContentLength, "duration_ms", duration.Milliseconds())
 	} else if err != nil {
 		t.logger.Debug("HTTP request error", "error", err)
 	}

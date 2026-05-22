@@ -84,6 +84,10 @@ type Command struct {
 	//  \____\___/|_| |_|_| |_|\__, |
 	//                         |___/
 
+	// Hidden hides the command from help output and command listings while
+	// still allowing it to be invoked directly.
+	Hidden bool
+
 	// NoAuthRequired allows a command to indicate that authentication is not
 	// required to be invoked.
 	NoAuthRequired bool

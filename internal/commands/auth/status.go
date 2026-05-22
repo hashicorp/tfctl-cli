@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -174,11 +175,17 @@ func fetchTokenExpiration(ctx context.Context, apiClient *client.Client, path st
 	tokenURL.RawQuery = ""
 	tokenURL.Fragment = ""
 
-	resp, err := apiClient.RawRequest(ctx, &client.Request{
+	resp, err := apiClient.Do(ctx, &client.Request{
 		Method: "GET",
 		URL:    &tokenURL,
 	})
 	if err != nil || resp.StatusCode != 200 {
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
 		return nil
 	}
 
@@ -189,7 +196,7 @@ func fetchTokenExpiration(ctx context.Context, apiClient *client.Client, path st
 			} `json:"attributes"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		return nil
 	}
 

@@ -4,6 +4,10 @@
 package client
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -144,5 +148,51 @@ func TestParseDiagnostics_RealConsoleLog(t *testing.T) {
 	diags := ParseDiagnostics(log)
 	if diags != nil {
 		t.Fatalf("expected nil diagnostics for console-mode log, got %d", len(diags))
+	}
+}
+
+func Test_PopulatePolicyCheckSummary(t *testing.T) {
+	t.Parallel()
+
+	const wantBody = "redirect target content"
+
+	// Target server that serves the final content.
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("target Received request for %s\n", r.URL.Path)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		fmt.Fprint(w, wantBody)
+	}))
+	t.Cleanup(target.Close)
+
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v2/runs/run-1/policy-checks" {
+			w.Header().Set("Content-Type", "application/vnd.api+json")
+			fmt.Fprint(w, `{"data":[{"id":"polchk-1","attributes":{"status":"hard_failed"}}]}`)
+			return
+		}
+		if r.URL.Path == "/api/v2/policy-checks/polchk-1/output" {
+			t.Logf("api Received request for %s\n", r.URL.Path)
+			http.Redirect(w, r, target.URL+"/log.txt", http.StatusFound)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(api.Close)
+
+	c, err := New(api.URL, "test-token", nil)
+	if err != nil {
+		t.Fatalf("creating client: %v", err)
+	}
+
+	result := &RunSummary{}
+
+	ctx := context.Background()
+	err = populatePolicyCheckSummary(ctx, c, "run-1", result)
+	if err != nil {
+		t.Fatalf("populatePolicyCheckSummary: %v", err)
+	}
+
+	if result.PolicyCheckLog != wantBody {
+		t.Errorf("got %q, want %q", result.PolicyCheckLog, wantBody)
 	}
 }

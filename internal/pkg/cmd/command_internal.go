@@ -236,7 +236,7 @@ func (c *Command) help() string {
 		// Determine the minimum padding
 		maxLength := 0
 		for _, c := range c.children {
-			if (group && c.RunF != nil) || (!group && c.RunF == nil) {
+			if c.Hidden || (group && c.RunF != nil) || (!group && c.RunF == nil) {
 				continue
 			}
 
@@ -246,7 +246,7 @@ func (c *Command) help() string {
 		namePadding := maxLength + 2
 		var names []string
 		for _, c := range c.children {
-			if (group && c.RunF != nil) || (!group && c.RunF == nil) {
+			if c.Hidden || (group && c.RunF != nil) || (!group && c.RunF == nil) {
 				continue
 			}
 
@@ -460,12 +460,18 @@ func (c *Command) usageHelp() string {
 		// Determine the minimum padding
 		maxLength := 0
 		for _, c := range c.children {
+			if c.Hidden {
+				continue
+			}
 			maxLength = max(maxLength, len(c.Name))
 		}
 
 		namePadding := maxLength + 2
 		var names []string
 		for _, c := range c.children {
+			if c.Hidden {
+				continue
+			}
 			names = append(names, rpad(c.Name+":", namePadding)+c.ShortHelp)
 		}
 
