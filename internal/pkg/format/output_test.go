@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
@@ -190,6 +192,7 @@ func TestWithJSONAPIResource(t *testing.T) {
 		{
 			format: format.Pretty,
 			expected: `ID:                                   user-V3R563qtJNcExAkN
+Resource:                             users
 Auth Method:                          tfc
 Authenticated Resource:               user-V3R563qtJNcExAkN
 Avatar URL:                           https://www.gravatar.com/avatar/9babb00091b97b9ce9538c45807fd35f?s=100&d=mm
@@ -212,7 +215,6 @@ Tags.1:                               production
 Tags.2:                               us-east
 Triple Nested.Level1.Level2.Key:      hello
 Triple Nested.Level1.Level2.Value:    world
-Type:                                 users
 `,
 		},
 		{
@@ -221,6 +223,7 @@ Type:                                 users
 | Field                                | Value                                                                       |
 | ------------------------------------ | --------------------------------------------------------------------------- |
 | ID                                   | user-V3R563qtJNcExAkN                                                       |
+| Resource                             | users                                                                       |
 | Auth Method                          | tfc                                                                         |
 | Authenticated Resource               | user-V3R563qtJNcExAkN                                                       |
 | Avatar URL                           | https://www.gravatar.com/avatar/9babb00091b97b9ce9538c45807fd35f?s=100&d=mm |
@@ -243,13 +246,12 @@ Type:                                 users
 | Tags.2                               | us-east                                                                     |
 | Triple Nested.Level1.Level2.Key      | hello                                                                       |
 | Triple Nested.Level1.Level2.Value    | world                                                                       |
-| Type                                 | users                                                                       |
 
 `,
 		},
 	}
 
-	disp, err := format.NewJSONAPIDisplayer([]byte(j))
+	disp, err := format.NewJSONAPIDisplayer([]byte(j), hclog.Default())
 	r.NoError(err)
 
 	for _, c := range cases {

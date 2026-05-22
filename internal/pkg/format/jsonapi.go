@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -50,8 +52,9 @@ var typeColumns = map[string][]string{
 }
 
 var excludeColumns = map[string][]string{
-	"workspaces":    {"actions"},
-	"organizations": {"id"},
+	"workspaces":            {"actions"},
+	"organizations":         {"id"},
+	"state-version-outputs": {"detailed-type"},
 }
 
 // acronyms are capitalized in field names, e.g. "VCS Repo.Repository HTTP URL" instead of "Vcs Repo.Repository Http Url".
@@ -75,16 +78,24 @@ var acronyms = map[string]string{
 	"vcs":   "VCS",
 }
 
+const sentinelResourceType = "__JSONAPI_RESOURCE_TYPE__"
+
 // JSONAPIDisplayer prepares responses within a JSON:API data envelope to be formatted.
 type JSONAPIDisplayer struct {
 	payload      any
 	rawPayload   any
 	resourceType string
 	collection   bool
+	logger       hclog.Logger
 }
 
 // Check interface at compile time.
 var _ Displayer = JSONAPIDisplayer{}
+
+// Any attribute keys that contain characters other than letters, numbers, hyphens, underscores,
+// and periods are skipped for display. Usually indicates user content in embedded
+// objects attributes.
+var reAttributeNameDisallow = regexp.MustCompile(`[^-_.a-zA-Z0-9]`)
 
 // DefaultFormat implements the Displayer interface.
 func (d JSONAPIDisplayer) DefaultFormat() Format {
@@ -114,17 +125,31 @@ func (d JSONAPIDisplayer) FieldTemplates() []Field {
 		cols = collectColumns(rows, typeColumns[d.resourceType], excludeColumns[d.resourceType])
 	} else {
 		rows := d.payload.(map[string]any)
-		cols = orderedFields(rows, typeColumns[d.resourceType])
+		cols = orderedFields(rows, typeColumns[d.resourceType], excludeColumns[d.resourceType])
 	}
 
-	result := make([]Field, len(cols))
+	result := make([]Field, 0, len(cols))
 
-	for i, att := range cols {
+	for _, att := range cols {
 		name := att
+		// Nasty special case for organizations
 		if att == "external-id" {
 			name = "id"
 		}
-		result[i] = NewField(kebabToLabel(name), fmt.Sprintf(`{{ index . "%s" }}`, att))
+
+		// Skip attributes that contain keys that don't look like API attributes. Certain output values
+		// may be user data, such as the object value of a state version output.
+		if name == sentinelResourceType {
+			if d.DefaultFormat() != Table {
+				result = append(result, NewField("Resource", fmt.Sprintf(`{{ index . "%s" }}`, sentinelResourceType)))
+			}
+			continue
+		} else if reAttributeNameDisallow.MatchString(name) {
+			d.logger.Debug("Skipping attribute for display due to invalid characters", "attribute", att)
+			continue
+		}
+
+		result = append(result, NewField(kebabToLabel(name), fmt.Sprintf(`{{ index . "%s" }}`, att)))
 	}
 
 	return result
@@ -149,7 +174,7 @@ func kebabToLabel(input string) string {
 }
 
 // NewJSONAPIDisplayer creates a new displayer based on the contents of a JSON:API response body.
-func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
+func NewJSONAPIDisplayer(raw []byte, logger hclog.Logger) (*JSONAPIDisplayer, error) {
 	resourceType := ""
 	collection := true
 	var rawPayload map[string]any
@@ -171,8 +196,8 @@ func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 			if !ok {
 				return nil, ErrNotJSONAPI
 			}
-			if resourceType == "" && row["type"] != nil {
-				if rt, ok := row["type"].(string); ok {
+			if resourceType == "" && row[sentinelResourceType] != nil {
+				if rt, ok := row[sentinelResourceType].(string); ok {
 					resourceType = rt
 				}
 			}
@@ -185,8 +210,8 @@ func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 			return nil, ErrNotJSONAPI
 		}
 		payload = row
-		if row["type"] != nil {
-			if rt, ok := row["type"].(string); ok {
+		if row[sentinelResourceType] != nil {
+			if rt, ok := row[sentinelResourceType].(string); ok {
 				resourceType = rt
 			}
 		}
@@ -199,6 +224,7 @@ func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 		rawPayload:   rawPayload,
 		resourceType: resourceType,
 		collection:   collection,
+		logger:       logger,
 	}, nil
 }
 
@@ -213,7 +239,7 @@ func resourceAsMap(item any) (map[string]any, bool) {
 		row["id"] = id
 	}
 	if kind, ok := obj["type"]; ok {
-		row["type"] = kind
+		row[sentinelResourceType] = kind
 	}
 
 	attrs, ok := obj["attributes"]
@@ -281,13 +307,18 @@ func flattenRow(row map[string]any) {
 	}
 }
 
-func orderedFields(row map[string]any, preferred []string) []string {
+func orderedFields(row map[string]any, preferred []string, exclude []string) []string {
 	seen := make(map[string]struct{}, len(row))
 	ordered := make([]string, 0, len(row))
 	if _, ok := row["id"]; ok {
 		ordered = append(ordered, "id")
 		seen["id"] = struct{}{}
 	}
+	if _, ok := row[sentinelResourceType]; ok {
+		ordered = append(ordered, sentinelResourceType)
+		seen[sentinelResourceType] = struct{}{}
+	}
+
 	for _, key := range preferred {
 		if _, ok := row[key]; ok {
 			ordered = append(ordered, key)
@@ -297,28 +328,30 @@ func orderedFields(row map[string]any, preferred []string) []string {
 
 	remaining := make([]string, 0, len(row)-len(ordered))
 	nested := make([]string, 0, len(row))
-	typeTrailer := false
 	for key := range row {
 		if _, ok := seen[key]; ok {
 			continue
 		}
-		if key == "type" {
-			typeTrailer = true
-			continue
-		}
+
+		shouldExclude := slices.ContainsFunc(exclude, func(s string) bool {
+			return s == key || strings.HasPrefix(key, s+".")
+		})
+
 		if isNestedValue(row[key]) || isNestedKey(key) {
-			nested = append(nested, key)
+			if !shouldExclude {
+				nested = append(nested, key)
+			}
 			continue
 		}
-		remaining = append(remaining, key)
+
+		if !shouldExclude {
+			remaining = append(remaining, key)
+		}
 	}
 	sort.Strings(remaining)
 	sort.Strings(nested)
 	ordered = append(ordered, remaining...)
 	ordered = append(ordered, nested...)
-	if typeTrailer {
-		ordered = append(ordered, "type")
-	}
 	return ordered
 }
 
@@ -364,7 +397,14 @@ func collectColumns(rows []map[string]any, preferred []string, exclude []string)
 
 	remaining := make([]string, 0, len(seen))
 	for key := range seen {
-		if exclude == nil || !slices.Contains(exclude, key) {
+		shouldExclude := slices.ContainsFunc(exclude, func(s string) bool {
+			if s == key || strings.HasPrefix(key, s+".") {
+				return true
+			}
+			return false
+		})
+
+		if !shouldExclude {
 			remaining = append(remaining, key)
 		}
 	}

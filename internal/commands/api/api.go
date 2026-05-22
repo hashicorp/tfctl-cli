@@ -474,7 +474,7 @@ func runAPI(opts *Opts) error {
 		return nil
 	}
 
-	if response.Header.Get("Content-Type") != "application/vnd.api+json" {
+	if !strings.HasPrefix(response.Header.Get("Content-Type"), "application/vnd.api+json") {
 		opts.Logger.Debug("Response body was not application/vnd.api+json, rendering raw body")
 		_, _ = io.Copy(opts.IO.Out(), response.Body)
 		return nil
@@ -486,7 +486,7 @@ func runAPI(opts *Opts) error {
 	}
 
 	// Render the result
-	disp, err := format.NewJSONAPIDisplayer(body)
+	disp, err := format.NewJSONAPIDisplayer(body, opts.Logger)
 	if err != nil {
 		return err
 	}
