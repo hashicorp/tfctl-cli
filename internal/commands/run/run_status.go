@@ -199,7 +199,7 @@ func (d *summaryDisplayer) StringPayload(f format.Format) string {
 		return strings.Join(multipleFailures, "\n\n---\n\n")
 	}
 	cs := d.io.ColorScheme()
-	return strings.Join(multipleFailures, cs.String("\n\n――――――――――――――――――――――――――――――――\n\n").Color(cs.Black()).Bold().String())
+	return strings.Join(multipleFailures, cs.String("\n――――――――――――\n\n").Color(cs.Gray()).Faint().String())
 }
 
 var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
@@ -284,6 +284,7 @@ func (d *summaryDisplayer) formatDiagnosticsPretty() string {
 		}
 		out.WriteString(cs.String("╵").Color(color).String())
 	}
+	out.WriteString("\n")
 	return out.String()
 }
 
@@ -344,7 +345,6 @@ func (d *summaryDisplayer) formatPolicyCheckLogPretty() string {
 	cs := d.io.ColorScheme()
 	var out strings.Builder
 
-	out.WriteString("------------------------------------------------------------------------\n")
 	header := policyScopeLabel(d.summary.PolicyCheckScope)
 	out.WriteString(cs.String(header + ":").Bold().String())
 	out.WriteString("\n\n")
@@ -466,7 +466,7 @@ func (d *summaryDisplayer) formatPolicyEvaluationsPretty() string {
 	cs := d.io.ColorScheme()
 	var out strings.Builder
 
-	out.WriteString(cs.String("Policy Evaluations").Bold().String())
+	out.WriteString(cs.String("Policy Evaluations:").Bold().String())
 	out.WriteString("\n")
 
 	for i, eval := range d.summary.PolicyEvaluations {
@@ -550,7 +550,7 @@ func (d *summaryDisplayer) formatPolicyEvaluationsPretty() string {
 func (d *summaryDisplayer) formatPolicyEvaluationsMarkdown() string {
 	var out strings.Builder
 
-	out.WriteString("## Policy Evaluations\n\n")
+	out.WriteString("## Policy Evaluations:\n\n")
 
 	for i, eval := range d.summary.PolicyEvaluations {
 		kind := policyKindLabel(eval.PolicyKind)
@@ -637,7 +637,16 @@ func (d *summaryDisplayer) formatTaskResultsPretty() string {
 	}
 
 	// Summary line.
-	fmt.Fprintf(&out, "All tasks completed! %d passed, %d failed\n", passed, failed)
+	fmt.Fprint(&out, cs.String("All tasks completed:").Color(cs.White()).Bold().String())
+	if passed > 0 {
+		fmt.Fprintf(&out, cs.String(" %d passed").Color(cs.Green()).Bold().String(), passed)
+		fmt.Fprint(&out, cs.String(",").Color(cs.White()).Bold().String())
+	}
+	if failed > 0 {
+		fmt.Fprintf(&out, cs.String(" %d failed").Color(cs.Red()).Blink().String(), failed)
+	}
+
+	out.WriteString("\n")
 
 	// Per-task output.
 	for _, tr := range d.summary.TaskResults {
@@ -701,7 +710,7 @@ func (d *summaryDisplayer) formatTaskResultsMarkdown() string {
 	}
 
 	fmt.Fprintf(&out, "## Run Tasks\n\n")
-	fmt.Fprintf(&out, "All tasks completed! %d passed, %d failed\n\n", passed, failed)
+	fmt.Fprintf(&out, "All tasks completed: %d passed, %d failed\n\n", passed, failed)
 
 	for _, tr := range d.summary.TaskResults {
 		label := "Passed"

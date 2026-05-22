@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -167,7 +168,7 @@ func TestStringPayload_TaskResults(t *testing.T) {
 	t.Run("pretty", func(t *testing.T) {
 		result := d.StringPayload(format.Pretty)
 		for _, want := range []string{
-			"All tasks completed! 1 passed, 1 failed",
+			"All tasks completed: 1 passed, 1 failed",
 			"security-scan " + symbolDash, "Failed (Mandatory)",
 			"Security vulnerabilities found", "Details: https://example.com/scan/123",
 			"cost-estimate " + symbolDash, "Passed",
@@ -180,7 +181,7 @@ func TestStringPayload_TaskResults(t *testing.T) {
 	t.Run("markdown", func(t *testing.T) {
 		result := d.StringPayload(format.Markdown)
 		for _, want := range []string{
-			"All tasks completed! 1 passed, 1 failed",
+			"All tasks completed: 1 passed, 1 failed",
 			"security-scan", "Failed (mandatory)",
 			"Security vulnerabilities found", "Details: https://example.com/scan/123",
 			"cost-estimate", "Passed",
@@ -363,19 +364,19 @@ func TestStringPayload_MultipleFailuresDivider(t *testing.T) {
 
 	t.Run("pretty uses unicode divider between sections", func(t *testing.T) {
 		result := d.StringPayload(format.Pretty)
-		divider := "――――――――――――――――――――――――――――――――"
+		divider := "――――――――――――"
 		assert.Contains(t, result, divider)
 		// All three sections should appear.
 		assert.Contains(t, result, "Reference to undeclared variable")
-		assert.Contains(t, result, "Policy Evaluations")
-		assert.Contains(t, result, "All tasks completed!")
+		assert.Contains(t, result, "Policy Evaluations:")
+		assert.Contains(t, result, "All tasks completed:")
 	})
 
 	t.Run("markdown uses horizontal rule between sections", func(t *testing.T) {
 		result := d.StringPayload(format.Markdown)
 		assert.Contains(t, result, "\n\n---\n\n")
 		assert.Contains(t, result, "Reference to undeclared variable")
-		assert.Contains(t, result, "## Policy Evaluations")
+		assert.Contains(t, result, "## Policy Evaluations:")
 		assert.Contains(t, result, "## Run Tasks")
 	})
 }
@@ -818,4 +819,28 @@ func TestRunOrCurrentRun(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported resource type")
 	})
+}
+
+func TestSampleRunSummary_AllFailureTypes(t *testing.T) {
+	t.Parallel()
+
+	summary := sampleRunSummary()
+
+	// Verify all failure types are populated.
+	assert.NotEmpty(t, summary.Diagnostics)
+	assert.NotEmpty(t, summary.PolicyCheckLog)
+	assert.NotEmpty(t, summary.PolicyEvaluations)
+	assert.NotEmpty(t, summary.TaskResults)
+
+	// Verify the displayer renders without error and includes all sections.
+	io := iostreams.Test()
+	d := &summaryDisplayer{summary: summary, io: io}
+	result := d.StringPayload(format.Pretty)
+	assert.Contains(t, result, "Error:")
+	assert.Contains(t, result, "Organization Policy Check:")
+	assert.Contains(t, result, "Policy Evaluations:")
+	assert.Contains(t, result, "All tasks completed:")
+	// Should have dividers between all four sections.
+	divider := "――――――――――――"
+	assert.GreaterOrEqual(t, strings.Count(result, divider), 3)
 }
