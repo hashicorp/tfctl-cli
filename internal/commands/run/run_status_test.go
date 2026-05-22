@@ -336,6 +336,50 @@ func TestRunStatus_ExitCode(t *testing.T) {
 	}
 }
 
+func TestStringPayload_MultipleFailuresDivider(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	summary := &client.RunSummary{
+		Status: "errored",
+		Phase:  "post_plan",
+		Diagnostics: []client.Diagnostic{
+			{Severity: "error", Summary: "Reference to undeclared variable"},
+		},
+		PolicyEvaluations: []client.PolicyEvalResult{
+			{
+				PolicyKind:    "opa",
+				PolicySetName: "deny-set",
+				Outcomes: []client.PolicyOutcome{
+					{PolicyName: "deny-all", EnforcementLevel: "mandatory", Status: "failed"},
+				},
+			},
+		},
+		TaskResults: []client.TaskResult{
+			{TaskName: "lint", Status: "failed", EnforcementLevel: "mandatory", Stage: "post_plan"},
+		},
+	}
+	d := &summaryDisplayer{summary: summary, io: io}
+
+	t.Run("pretty uses unicode divider between sections", func(t *testing.T) {
+		result := d.StringPayload(format.Pretty)
+		divider := "――――――――――――――――――――――――――――――――"
+		assert.Contains(t, result, divider)
+		// All three sections should appear.
+		assert.Contains(t, result, "Reference to undeclared variable")
+		assert.Contains(t, result, "Policy Evaluations")
+		assert.Contains(t, result, "All tasks completed!")
+	})
+
+	t.Run("markdown uses horizontal rule between sections", func(t *testing.T) {
+		result := d.StringPayload(format.Markdown)
+		assert.Contains(t, result, "\n\n---\n\n")
+		assert.Contains(t, result, "Reference to undeclared variable")
+		assert.Contains(t, result, "## Policy Evaluations")
+		assert.Contains(t, result, "## Run Tasks")
+	})
+}
+
 func strPtr(s string) *string { return &s }
 
 // --- Integration tests for NewRunSummary ---

@@ -42,7 +42,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 		Name:      "status",
 		ShortHelp: "Show the status of a run, printing diagnostics if it failed.",
 		LongHelp: heredoc.New(ctx.IO, heredoc.WithPreserveNewlines()).Mustf(`
-		The {{ template "mdCodeOrBold" "%s run status" }} command inspects an HCP Terraform run and prints its current status. If the run has errored, it fetches the plan or apply log and extracts diagnostic messages.
+		The {{ template "mdCodeOrBold" "%s run status" }} command inspects an HCP Terraform run and prints its current status. If the run has errored, it renders all failures, in the following order: terraform diagnostics, policy failures, and run task failures.
 
 		The ID argument can be:
 		- A run ID ({{ template "mdCodeOrBold" "run-..." }})
@@ -110,6 +110,10 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 	return cmd
 }
 
+// runStatus displays the status of a run, including diagnostics if it failed.
+// Several problems can contribute to a single failed run, and all are displayed in order of
+// severity: terraform diagnostics, policy check failures, policy evaluation failures, and
+// task failures.
 func runStatus(opts *StatusOpts) error {
 	resolver := client.NewResolver(opts.Client, false, false)
 
@@ -166,28 +170,36 @@ func (d *summaryDisplayer) FieldTemplates() []format.Field {
 
 // StringPayload returns pre-formatted output tailored to the given format.
 func (d *summaryDisplayer) StringPayload(f format.Format) string {
+	multipleFailures := make([]string, 0, 1)
+
 	if len(d.summary.Diagnostics) > 0 {
-		return d.formatDiagnostics(f)
+		multipleFailures = append(multipleFailures, d.formatDiagnostics(f))
 	}
 	if d.summary.PolicyCheckLog != "" {
-		if f == format.Markdown {
-			return d.formatPolicyCheckLogMarkdown()
-		}
-		return d.formatPolicyCheckLogPretty()
+		multipleFailures = append(multipleFailures, d.formatPolicyChecks(f))
 	}
 	if len(d.summary.PolicyEvaluations) > 0 {
-		return d.formatPolicyEvaluations(f)
+		multipleFailures = append(multipleFailures, d.formatPolicyEvaluations(f))
 	}
 	if len(d.summary.TaskResults) > 0 {
-		return d.formatTaskResults(f)
+		multipleFailures = append(multipleFailures, d.formatTaskResults(f))
 	}
-	if d.summary.RawLog != "" {
-		if f == format.Markdown {
-			return stripANSI(d.summary.RawLog)
+
+	if len(multipleFailures) == 0 {
+		if d.summary.RawLog != "" {
+			if f == format.Markdown {
+				return stripANSI(d.summary.RawLog)
+			}
+			return d.summary.RawLog
 		}
-		return d.summary.RawLog
+		return d.summary.Message
 	}
-	return d.summary.Message
+
+	if f == format.Markdown {
+		return strings.Join(multipleFailures, "\n\n---\n\n")
+	}
+	cs := d.io.ColorScheme()
+	return strings.Join(multipleFailures, cs.String("\n\n――――――――――――――――――――――――――――――――\n\n").Color(cs.Black()).Bold().String())
 }
 
 var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
@@ -198,6 +210,15 @@ func (d *summaryDisplayer) formatDiagnostics(f format.Format) string {
 		return d.formatDiagnosticsMarkdown()
 	default:
 		return d.formatDiagnosticsPretty()
+	}
+}
+
+func (d *summaryDisplayer) formatPolicyChecks(f format.Format) string {
+	switch f {
+	case format.Markdown:
+		return d.formatPolicyCheckLogMarkdown()
+	default:
+		return d.formatPolicyCheckLogPretty()
 	}
 }
 

@@ -100,7 +100,9 @@ type jsonLog struct {
 }
 
 // NewRunSummary fetches a run and returns a summary of its status. If the run
-// has errored, it fetches the relevant log and extracts diagnostics.
+// has errored, it fetches the relevant log and extracts diagnostics. Additionally,
+// it probes policy checks and run task stages for failures. All failures are surfaced
+// in the RunSummary result.
 func NewRunSummary(ctx context.Context, c *Client, runID string) (*RunSummary, error) {
 	run, err := c.TFE.API.Runs().ById(runID).Get(ctx, nil)
 	if err != nil {

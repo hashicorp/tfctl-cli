@@ -630,21 +630,15 @@ func paginateResponse(ctx context.Context, apiClient *client.Client, initial *ht
 			URL:     nextURL,
 			Headers: headers,
 		})
-		if resp != nil && resp.Body != nil {
-			defer resp.Body.Close()
-		}
 		if reqErr != nil {
 			return nil, reqErr
 		}
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return resp, nil
-		}
 
 		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close() // Close intermediate response bodies immediately
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
-
 		pageData, pageNext, pageErr := parsePaginationPayload(body)
 		if pageErr != nil {
 			return nil, pageErr
