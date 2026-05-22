@@ -1,0 +1,21 @@
+id: list-all-workspaces-with-pagination
+name: List all workspaces with pagination
+description: Tests that the agent uses --all flag and built-in --jq for filtering.
+tags:
+  - api-pattern
+  - pagination
+  - jq
+
+inputs:
+  prompt: |
+    List all workspaces in the 'tfc-demo-au' organization, including ones with
+    terraform version 1.7 or older. Show only the name and terraform version.
+
+expected:
+  output_contains:
+    - "--all"
+    - "--jq"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 3
