@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -75,6 +76,8 @@ var acronyms = map[string]string{
 	"vcs":   "VCS",
 }
 
+const sentinelResourceType = "__JSONAPI_RESOURCE_TYPE__"
+
 // JSONAPIDisplayer prepares responses within a JSON:API data envelope to be formatted.
 type JSONAPIDisplayer struct {
 	payload      any
@@ -85,6 +88,8 @@ type JSONAPIDisplayer struct {
 
 // Check interface at compile time.
 var _ Displayer = JSONAPIDisplayer{}
+
+var attributeNameRegex = regexp.MustCompile(`^[a-zA-Z]+([._-][a-zA-Z0-9]+)*$`)
 
 // DefaultFormat implements the Displayer interface.
 func (d JSONAPIDisplayer) DefaultFormat() Format {
@@ -117,14 +122,21 @@ func (d JSONAPIDisplayer) FieldTemplates() []Field {
 		cols = orderedFields(rows, typeColumns[d.resourceType])
 	}
 
-	result := make([]Field, len(cols))
+	result := make([]Field, 0, len(cols))
 
-	for i, att := range cols {
+	for _, att := range cols {
 		name := att
 		if att == "external-id" {
 			name = "id"
 		}
-		result[i] = NewField(kebabToLabel(name), fmt.Sprintf(`{{ index . "%s" }}`, att))
+
+		// Skip attributes that contain keys that don't look like API attributes. Certain output values
+		// may be user data, such as the object value of a state version output.
+		if !attributeNameRegex.MatchString(att) {
+			continue
+		}
+
+		result = append(result, NewField(kebabToLabel(name), fmt.Sprintf(`{{ index . "%s" }}`, att)))
 	}
 
 	return result
@@ -171,8 +183,8 @@ func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 			if !ok {
 				return nil, ErrNotJSONAPI
 			}
-			if resourceType == "" && row["type"] != nil {
-				if rt, ok := row["type"].(string); ok {
+			if resourceType == "" && row[sentinelResourceType] != nil {
+				if rt, ok := row[sentinelResourceType].(string); ok {
 					resourceType = rt
 				}
 			}
@@ -185,8 +197,8 @@ func NewJSONAPIDisplayer(raw []byte) (*JSONAPIDisplayer, error) {
 			return nil, ErrNotJSONAPI
 		}
 		payload = row
-		if row["type"] != nil {
-			if rt, ok := row["type"].(string); ok {
+		if row[sentinelResourceType] != nil {
+			if rt, ok := row[sentinelResourceType].(string); ok {
 				resourceType = rt
 			}
 		}
@@ -213,7 +225,7 @@ func resourceAsMap(item any) (map[string]any, bool) {
 		row["id"] = id
 	}
 	if kind, ok := obj["type"]; ok {
-		row["type"] = kind
+		row[sentinelResourceType] = kind
 	}
 
 	attrs, ok := obj["attributes"]

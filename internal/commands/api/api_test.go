@@ -58,6 +58,43 @@ func TestRunAPI_DefaultGet(t *testing.T) {
 	require.Empty(t, io.Error.String())
 }
 
+func TestRunAPI_GetContainingQuotes(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"GET /api/v2/thing": func(w http.ResponseWriter, r *http.Request) {
+			writeJSONAPIResponse(w, http.StatusOK, map[string]any{
+				"data": []any{
+					map[string]any{
+						"id":   "th-1",
+						"type": "things",
+						"attributes": map[string]any{
+							"name":  "big-goose",
+							"value": "a value with \"quotes\" and 'single quotes'",
+							"user-data": map[string]any{
+								"providers.provider[\"registry.terraform.io/hashicorp/aws\"].aws_ec2_transit_gateway": "aws",
+							},
+						},
+					},
+				},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := runAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/thing")
+	}))
+	require.NoError(t, err)
+
+	require.Equal(t, "GET", recorder.Last().Method)
+	require.Equal(t, "/api/v2/thing", recorder.Last().Path)
+	require.Equal(t, "application/vnd.api+json", recorder.Last().Headers.Get("Accept"))
+	require.Contains(t, io.Output.String(), "big-goose")
+	require.Empty(t, io.Error.String())
+}
+
 func TestRunAPI_AttributesInferPostAndResourceType(t *testing.T) {
 	t.Parallel()
 
