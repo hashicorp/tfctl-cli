@@ -17,9 +17,8 @@ func NewCmdRunStatusSample(ctx *cmd.Context) *cmd.Command {
 		ShortHelp:      "Display a sample run status with all failure types.",
 		Hidden:         true,
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, args []string) error {
-			summary := sampleRunSummary()
-			d := &summaryDisplayer{summary: summary, io: ctx.IO}
+		RunF: func(_ *cmd.Command, args []string) error {
+			d := &summaryDisplayer{summary: sampleRunSummary(), io: ctx.IO}
 			return ctx.Output.Display(d)
 		},
 	}
