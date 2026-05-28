@@ -34,9 +34,9 @@ jobs:
       - name: Run evals
         working-directory: evals/tfctl-evals
         env:
-          # TODO: provision a fine-grained PAT with "Copilot Requests" permission
-          # and store as a repo secret. Classic PATs (ghp_) won't work.
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+          # Uses the Actions-provided GITHUB_TOKEN if org has Copilot enabled.
+          # Falls back to COPILOT_TOKEN secret if that doesn't work.
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_TOKEN || github.token }}
         run: |
           ARGS="--model ${{ inputs.model }}"
           if [ -n "${{ inputs.tasks }}" ]; then
