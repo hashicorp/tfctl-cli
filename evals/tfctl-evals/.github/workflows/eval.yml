@@ -1,0 +1,55 @@
+name: Skill Evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Model to evaluate against"
+        required: true
+        default: "claude-sonnet-4.6"
+        type: choice
+        options:
+          - claude-sonnet-4.6
+          - claude-opus-4.6
+          - gpt-4.1
+          - gpt-5.2
+      tasks:
+        description: "Task filter glob (blank = all)"
+        required: false
+        type: string
+      tags:
+        description: "Tag filter (blank = all)"
+        required: false
+        type: string
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install waza
+        run: curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash
+
+      - name: Run evals
+        working-directory: evals/tfctl-evals
+        env:
+          # TODO: provision a fine-grained PAT with "Copilot Requests" permission
+          # and store as a repo secret. Classic PATs (ghp_) won't work.
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+        run: |
+          ARGS="--model ${{ inputs.model }}"
+          if [ -n "${{ inputs.tasks }}" ]; then
+            ARGS="$ARGS --task '${{ inputs.tasks }}'"
+          fi
+          if [ -n "${{ inputs.tags }}" ]; then
+            ARGS="$ARGS --tags '${{ inputs.tags }}'"
+          fi
+          eval waza run evals/tfctl/eval.yaml $ARGS -o results.json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results-${{ inputs.model }}
+          path: evals/tfctl-evals/results.json
