@@ -17,3 +17,5 @@ expected:
     - "/vars"
   output_not_contains:
     - "| jq"
+  behavior:
+    max_tool_calls: 5

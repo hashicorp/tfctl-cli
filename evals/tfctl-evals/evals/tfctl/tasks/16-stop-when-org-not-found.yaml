@@ -21,3 +21,5 @@ expected:
     - "does not exist"
     - "exit 2"
     - "enterprise"
+  behavior:
+    max_tool_calls: 3
