@@ -1,0 +1,20 @@
+id: list-notification-configurations
+name: List notification configurations
+description: Tests correct workspace-nested notification-configurations endpoint.
+tags:
+  - api-pattern
+  - endpoint-correctness
+
+inputs:
+  prompt: |
+    What notification configurations are set up for the 'alerts-workspace' in tfc-demo-au?
+    Show destination type and delivery type.
+
+expected:
+  output_contains:
+    - "/notification-configurations"
+    - "-p workspace=alerts-workspace"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 3

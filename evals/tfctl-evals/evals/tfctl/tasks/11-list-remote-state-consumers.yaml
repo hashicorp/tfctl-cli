@@ -1,0 +1,21 @@
+id: list-remote-state-consumers
+name: List remote state consumers for workspace
+description: Tests correct endpoint and -p flag for remote state consumers.
+tags:
+  - api-pattern
+  - endpoint-correctness
+  - relationships
+
+inputs:
+  prompt: |
+    What other workspaces consume the remote state from 'state-provider-ws' in
+    tfc-demo-au? Show their IDs and names.
+
+expected:
+  output_contains:
+    - "/relationships/remote-state-consumers"
+    - "-p workspace=state-provider-ws"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 2

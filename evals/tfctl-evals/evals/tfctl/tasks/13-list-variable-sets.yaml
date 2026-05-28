@@ -1,0 +1,23 @@
+id: list-variable-sets-in-org
+name: List all variable sets in org
+description: Tests correct /organizations/{org}/varsets endpoint with --jq for var counts.
+tags:
+  - api-pattern
+  - jq
+  - varsets
+
+inputs:
+  prompt: |
+    List all variable sets in the 'tfc-demo-au' organization and show how many
+    variables each set contains.
+
+expected:
+  output_contains_any:
+    - "/organizations/tfc-demo-au/varsets"
+    - "/varsets"
+  output_contains:
+    - "--jq"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 2

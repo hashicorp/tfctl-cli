@@ -1,0 +1,24 @@
+id: find-workspace-by-vcs
+name: Find workspace by VCS identifier
+description: Tests single API call with --jq to filter by VCS repo.
+tags:
+  - api-pattern
+  - jq
+  - vcs
+
+inputs:
+  prompt: |
+    Find a workspace in the tfc-demo-au organization by its VCS identifier.
+    We're looking for the workspace connected to 'github.com/mycompany/infra-repo'.
+
+expected:
+  output_contains:
+    - "--jq"
+  output_contains_any:
+    - "vcs-repo"
+    - "vcs_repo"
+    - "identifier"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 3

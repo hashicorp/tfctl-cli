@@ -1,0 +1,23 @@
+id: list-runs-with-status-filter
+name: List runs with status filter
+description: Tests correct /workspaces/{workspace}/runs endpoint with --jq status filter.
+tags:
+  - api-pattern
+  - jq
+  - runs
+
+inputs:
+  prompt: |
+    List all planned but not yet applied runs in the 'data-ops' workspace in tfc-demo-au,
+    showing the run ID, created time, and status.
+
+expected:
+  output_contains:
+    - "/workspaces/"
+    - "/runs"
+    - "-p workspace=data-ops"
+    - "--jq"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 2

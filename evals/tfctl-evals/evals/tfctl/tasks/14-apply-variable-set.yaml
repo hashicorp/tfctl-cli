@@ -1,0 +1,22 @@
+id: apply-variable-set-to-workspace
+name: Apply variable set to workspace
+description: Tests correct endpoint and POST body format for varset application.
+tags:
+  - api-pattern
+  - mutation
+  - varsets
+
+inputs:
+  prompt: |
+    Apply the 'security-vars' variable set to the 'web-prod' workspace in tfc-demo-au.
+    Show the API call needed.
+
+expected:
+  output_contains:
+    - "/relationships/varsets"
+    - "-p workspace=web-prod"
+  output_contains_any:
+    - "\"type\":\"varsets\""
+    - "\"type\": \"varsets\""
+  output_not_contains:
+    - "| jq"

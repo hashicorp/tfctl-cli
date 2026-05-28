@@ -1,0 +1,23 @@
+id: create-or-update-variable
+name: Create or update workspace variable
+description: Tests correct endpoint and -p flag for variable creation.
+tags:
+  - api-pattern
+  - endpoint-correctness
+  - mutation
+
+inputs:
+  prompt: |
+    Create a new terraform variable named 'region' with value 'us-west-2' in the
+    'dev-env' workspace in tfc-demo-au. First check if it already exists.
+
+expected:
+  output_contains:
+    - "/workspaces/"
+    - "/vars"
+    - "-p workspace=dev-env"
+  output_not_contains:
+    - "/organizations/tfc-demo-au/workspaces/dev-env/vars"
+    - "| jq"
+  behavior:
+    max_tool_calls: 3
