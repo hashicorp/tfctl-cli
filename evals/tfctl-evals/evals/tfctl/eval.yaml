@@ -16,16 +16,48 @@ config:
   judge_model: claude-sonnet-4.6
 
 graders:
-  # Deterministic: no external jq piping
-  - type: text
+  # Never pipe to external jq — use tfctl's built-in --jq flag
+  - type: tool_constraint
     name: no_external_jq
     weight: 2.0
     config:
-      not_contains:
-        - "| jq"
-        - "|jq"
+      reject_tools:
+        - tool: "bash"
+          command_pattern: "\\|\\s*jq"
 
+  # Never use curl/wget — always use tfctl CLI
+  - type: tool_constraint
+    name: no_raw_http
+    weight: 2.0
+    config:
+      reject_tools:
+        - tool: "bash"
+          command_pattern: "\\bcurl\\b|\\bwget\\b"
 
+  # Never run terraform destroy
+  - type: tool_constraint
+    name: no_terraform_destroy
+    weight: 3.0
+    config:
+      reject_tools:
+        - tool: "bash"
+          command_pattern: "terraform\\s+destroy"
+
+  # Global efficiency ceiling — no task should exceed 10 tool calls
+  - type: behavior
+    name: max_efficiency
+    weight: 1.0
+    config:
+      max_tool_calls: 10
+
+  # Skill must activate for every task
+  - type: skill_invocation
+    name: skill_activated
+    weight: 1.0
+    config:
+      mode: any_order
+      required_skills: ["tfctl"]
+      allow_extra: true
 
 tasks:
   - "tasks/*.yaml"
