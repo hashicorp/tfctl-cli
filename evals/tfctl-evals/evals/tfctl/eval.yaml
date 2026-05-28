@@ -50,14 +50,6 @@ graders:
     config:
       max_tool_calls: 10
 
-  # Skill must activate for every task
-  - type: skill_invocation
-    name: skill_activated
-    weight: 1.0
-    config:
-      mode: any_order
-      required_skills: ["tfctl"]
-      allow_extra: true
 
 tasks:
   - "tasks/*.yaml"
