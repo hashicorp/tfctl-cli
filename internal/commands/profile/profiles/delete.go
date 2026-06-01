@@ -8,11 +8,11 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdDelete returns the `profile profiles delete` command for deleting configuration profiles.
@@ -30,22 +30,22 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 
 		To delete the current active profile, first run {{ template "mdCodeOrBold" "%s profile profiles activate" }}
 		to active a different profile.
-		`, config.Name, config.Name),
+		`, version.Name, version.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Delete a profile:",
-				Command:  fmt.Sprintf("$ %s profile profiles delete my-profile", config.Name),
+				Command:  fmt.Sprintf("$ %s profile profiles delete my-profile", version.Name),
 			},
 			{
 				Preamble: "Delete multiple profiles:",
-				Command:  fmt.Sprintf("$ %s profile profiles delete my-profile-1 my-profile-2 my-profile-3", config.Name),
+				Command:  fmt.Sprintf("$ %s profile profiles delete my-profile-1 my-profile-2 my-profile-3", version.Name),
 			},
 			{
 				Preamble: "Delete the active profile:",
 				Command: heredoc.New(ctx.IO).Mustf(`
 				$ %s profile profiles active my-other-profile
 				$ %s profile profiles delete my-profile
-				`, config.Name, config.Name),
+				`, version.Name, version.Name),
 			},
 		},
 		NoAuthRequired: true,
@@ -110,7 +110,7 @@ func deleteRun(opts *DeleteOpts) error {
 	for _, toDelete := range opts.Names {
 		if toDelete == active.Name {
 			return fmt.Errorf("profile %q is the active profile and may not be deleted. Use %s to change the active configuration",
-				toDelete, cs.String(fmt.Sprintf("%s profile profiles activate", config.Name)).Bold())
+				toDelete, cs.String(fmt.Sprintf("%s profile profiles activate", version.Name)).Bold())
 		}
 		if _, ok := existing[toDelete]; !ok {
 			return fmt.Errorf("profile %q does not exist", toDelete)

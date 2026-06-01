@@ -22,10 +22,10 @@ import (
 	"github.com/posener/complete"
 	"github.com/spf13/pflag"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/ld"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 func (c *Command) errorToExitCode(_ []string, cCtx *Context, err error) int {
@@ -163,7 +163,7 @@ func notFoundErrorHelp(io iostreams.IOStreams, hostname string) string {
 		Resource not found on {{ Bold "%s" }} or you are unauthorized to this action. Check your account permissions.
 
 		  {{ Bold "$ %s auth status" }}
-	`, hostname, config.Name)
+	`, hostname, version.Name)
 }
 
 // authErrorHelp returns a help message for recovering from authentication errors.
@@ -173,7 +173,7 @@ func authErrorHelp(io iostreams.IOStreams, hostname string) string {
 		Unauthorized request to {{ Bold "%s" }}. The token in your active profile may not be valid. To update the token in your profile, please run:
 
 		  {{ Bold "$ %s auth login" }}
-	`, hostname, config.Name)
+	`, hostname, version.Name)
 }
 
 // helpEntry is used to structure help output with titles.
@@ -372,7 +372,7 @@ func (c *Command) flagsHelpEntry() []helpEntry {
 		}
 	}
 
-	globalFlagUsages := flagsetUsageShort(c.globalFlags(), fmt.Sprintf("For more global flag details, run $ %s --help", config.Name))
+	globalFlagUsages := flagsetUsageShort(c.globalFlags(), fmt.Sprintf("For more global flag details, run $ %s --help", version.Name))
 	if globalFlagUsages != "" {
 		helpEntries = append(helpEntries, helpEntry{"GLOBAL FLAGS", globalFlagUsages})
 	}
@@ -503,7 +503,7 @@ func (c *Command) usageHelp() string {
 	global := c.globalFlags()
 	if global.HasFlags() {
 		fmt.Fprintln(&buf, "Global Flags:")
-		fmt.Fprint(&buf, indent.String(flagsetUsageShort(global, fmt.Sprintf("For more global flag details, run $ %s --help", config.Name)), 2))
+		fmt.Fprint(&buf, indent.String(flagsetUsageShort(global, fmt.Sprintf("For more global flag details, run $ %s --help", version.Name)), 2))
 	}
 
 	return buf.String()
@@ -772,8 +772,8 @@ func (c *Command) hasAvailableFlags() bool {
 // splitRequiredFlags returns two flagset, one that contains the required flags
 // and the other that contains optional flags.
 func splitRequiredFlags(flagset *pflag.FlagSet) (required, optional *pflag.FlagSet) {
-	required = pflag.NewFlagSet(config.Name, pflag.ContinueOnError)
-	optional = pflag.NewFlagSet(config.Name, pflag.ContinueOnError)
+	required = pflag.NewFlagSet(version.Name, pflag.ContinueOnError)
+	optional = pflag.NewFlagSet(version.Name, pflag.ContinueOnError)
 	flagset.VisitAll(func(f *pflag.Flag) {
 		if _, ok := f.Annotations[flagAnnotationRequired]; ok {
 			required.AddFlag(f)

@@ -9,11 +9,11 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdActivate returns the `profile profiles activate` command for activating a configuration profile.
@@ -26,13 +26,13 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 		ShortHelp: "Activates an existing profile.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles activate" }} command activates an existing profile.
-		`, config.Name),
+		`, version.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: heredoc.New(ctx.IO).Must(`
 				To active profile {{ template "mdCodeOrBold" "my-profile" }}, run:
 				`),
-				Command: fmt.Sprintf("$ %s profile profiles activate my-profile", config.Name),
+				Command: fmt.Sprintf("$ %s profile profiles activate my-profile", version.Name),
 			},
 		},
 		Args: cmd.PositionalArguments{

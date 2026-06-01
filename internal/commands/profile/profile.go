@@ -12,18 +12,18 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/profile/profiles"
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/ld"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdProfile returns the `profile` command for managing configuration profiles.
 func NewCmdProfile(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "profile",
-		ShortHelp: fmt.Sprintf("View and edit %s CLI configuration properties.", config.Name),
+		ShortHelp: fmt.Sprintf("View and edit %s CLI configuration properties.", version.Name),
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile" }} command group lets you initialize,
 		set, view and unset properties used by the %s CLI.
@@ -45,7 +45,7 @@ func NewCmdProfile(ctx *cmd.Context) *cmd.Command {
 
 		To run a command using a profile other than the active profile, pass the
 		{{ template "mdCodeOrBold" "--profile" }} flag to the command.
-		`, config.Name, config.Name, config.Name, config.Name, config.Name, config.Name),
+		`, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name),
 	}
 
 	cmd.AddChild(NewCmdDisplay(ctx))

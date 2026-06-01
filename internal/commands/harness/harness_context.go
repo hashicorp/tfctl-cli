@@ -8,13 +8,13 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/skills"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // ContextOpts defines the options for the `harness context` command.
@@ -37,7 +37,7 @@ func NewCmdHarnessContext(ctx *cmd.Context) *cmd.Command {
 		ShortHelp: "Print coding agent context for tfctl, suitable for AGENTS.md.",
 		LongHelp: heredoc.New(ctx.IO, heredoc.WithPreserveNewlines()).Mustf(`
 		The {{ template "mdCodeOrBold" "%s harness context" }} command prints coding agent context for tfctl. This context can be used as part of AGENTS.md or other documentation which makes coding agents more effective at using {{ Bold "tfctl" }}.
-		`, config.Name),
+		`, version.Name),
 		RunF: func(_ *cmd.Command, _ []string) error {
 			return runContext(&contextOpts)
 		},

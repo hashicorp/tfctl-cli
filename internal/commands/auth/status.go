@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdStatus returns the `auth status` command for displaying auth info.
@@ -36,11 +36,11 @@ func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
 		The {{ template "mdCodeOrBold" "%s auth status" }} command displays
 		information about the currently authenticated account and token,
 		including when the token expires if that information is available.
-		`, config.Name),
+		`, version.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Show authentication status:",
-				Command:  fmt.Sprintf("$ %s auth status", config.Name),
+				Command:  fmt.Sprintf("$ %s auth status", version.Name),
 			},
 		},
 		NoAuthRequired: true,

@@ -8,12 +8,12 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdDisplay returns the `profile display` command for displaying the active profile.
@@ -23,7 +23,7 @@ func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
 		ShortHelp: "Display the active profile.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile display" }} command displays the active profile.
-		`, config.Name),
+		`, version.Name),
 		RunF: func(c *cmd.Command, _ []string) error {
 			profileNoToken := ctx.Profile
 			profileNoToken.Token = ""

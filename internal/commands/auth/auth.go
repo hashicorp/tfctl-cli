@@ -5,9 +5,9 @@
 package auth
 
 import (
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdAuth returns the `auth` command for managing authentication.
@@ -18,7 +18,7 @@ func NewCmdAuth(ctx *cmd.Context) *cmd.Command {
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s auth" }} command group lets you
 		authenticate the tfcloud CLI with HCP Terraform or Terraform Enterprise.
-		`, config.Name),
+		`, version.Name),
 	}
 
 	cmd.AddChild(NewCmdLogin(ctx))

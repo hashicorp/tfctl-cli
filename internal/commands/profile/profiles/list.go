@@ -10,12 +10,12 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdList returns the `profile profiles list` command for listing configuration profiles.
@@ -29,11 +29,11 @@ func NewCmdList(ctx *cmd.Context) *cmd.Command {
 		ShortHelp: "List existing configuration profiles.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles list" }} command lists existing configuration profiles.
-		`, config.Name),
+		`, version.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: "To list existing profiles, run:",
-				Command:  fmt.Sprintf("$ %s profile profiles list", config.Name),
+				Command:  fmt.Sprintf("$ %s profile profiles list", version.Name),
 			},
 		},
 		NoAuthRequired: true,

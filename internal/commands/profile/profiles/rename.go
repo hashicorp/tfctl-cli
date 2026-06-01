@@ -10,12 +10,12 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdRename returns the `profile profiles rename` command for renaming a configuration profile.
@@ -28,14 +28,14 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 		ShortHelp: "Rename an existing profile.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles rename" }} command renames an existing profile.
-		`, config.Name),
+		`, version.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: heredoc.New(ctx.IO).Must(`
 				To rename profile {{ template "mdCodeOrBold" "my-profile" }} to
 				{{ template "mdCodeOrBold" "new-profile" }}, run:
 				`),
-				Command: fmt.Sprintf("$ %s profile profiles rename my-profile --new-name=new_profile", config.Name),
+				Command: fmt.Sprintf("$ %s profile profiles rename my-profile --new-name=new_profile", version.Name),
 			},
 		},
 		Args: cmd.PositionalArguments{

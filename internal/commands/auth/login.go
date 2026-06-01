@@ -14,7 +14,6 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
@@ -22,11 +21,12 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 const (
 	// tokenPagePath is the path to the token creation page.
-	tokenPagePath = "/app/settings/tokens?source=" + config.Name + "-login"
+	tokenPagePath = "/app/settings/tokens?source=" + version.Name + "-login"
 )
 
 // NewCmdLogin returns the `auth login` command for authenticating.
@@ -52,15 +52,15 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 		When {{ template "mdCodeOrBold" "--token" }} is not specified, the browser is
 		opened to the token creation page for the configured hostname and the user is
 		prompted to paste the generated token.
-		`, config.Name),
+		`, version.Name),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Login interactively:",
-				Command:  fmt.Sprintf("$ %s auth login", config.Name),
+				Command:  fmt.Sprintf("$ %s auth login", version.Name),
 			},
 			{
 				Preamble: "Login with a token from stdin:",
-				Command:  fmt.Sprintf("$ echo my-token | %s auth login --token", config.Name),
+				Command:  fmt.Sprintf("$ echo my-token | %s auth login --token", version.Name),
 			},
 		},
 		Flags: cmd.Flags{

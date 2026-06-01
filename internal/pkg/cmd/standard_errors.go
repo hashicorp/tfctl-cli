@@ -9,7 +9,7 @@ import (
 
 	"github.com/MakeNowJust/heredoc/v2"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // RequireOrganization requires that the profile has a set organization.
@@ -25,8 +25,8 @@ func RequireOrganization(ctx *Context) error {
 
 	%v`,
 		cs.String("Organization must be configured before running the command.").Color(cs.Orange()),
-		cs.String(fmt.Sprintf("%s config init", config.Name)).Bold(),
-		cs.String(fmt.Sprintf("$ %s config set organization <organization>", config.Name)).Bold(),
+		cs.String(fmt.Sprintf("%s config init", version.Name)).Bold(),
+		cs.String(fmt.Sprintf("$ %s config set organization <organization>", version.Name)).Bold(),
 	)
 
 	return errors.New(help)
@@ -45,8 +45,8 @@ func RequireOrg(ctx *Context) error {
 
 	%v`,
 		cs.String("Organization must be configured before running the command.").Color(cs.Orange()),
-		cs.String(fmt.Sprintf("%s config init", config.Name)).Bold(),
-		cs.String(fmt.Sprintf("$ %s config set organization <organization>", config.Name)).Bold(),
+		cs.String(fmt.Sprintf("%s config init", version.Name)).Bold(),
+		cs.String(fmt.Sprintf("$ %s config set organization <organization>", version.Name)).Bold(),
 	)
 
 	return errors.New(help)

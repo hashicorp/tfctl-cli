@@ -9,9 +9,9 @@ import (
 
 	"github.com/hashicorp/go-tfe/api"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 type variableTargetKind string
@@ -98,7 +98,7 @@ func (t *variableTarget) createVariable(ctx context.Context, variable terraformc
 	case kindWorkspace:
 		_, err = t.apiClient.Workspaces().ByWorkspace_id(t.ID).Vars().Post(ctx, client.NewVar(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
 	default:
-		return fmt.Errorf("unknown variable target kind %s, this is a bug in %s", t.Kind, config.Name)
+		return fmt.Errorf("unknown variable target kind %s, this is a bug in %s", t.Kind, version.Name)
 	}
 
 	return err
@@ -112,7 +112,7 @@ func (t *variableTarget) updateVariable(ctx context.Context, variableID string, 
 	case kindWorkspace:
 		_, err = t.apiClient.Workspaces().ByWorkspace_id(t.ID).Vars().ById(variableID).Patch(ctx, client.NewVar(variable.Key, variable.Value, variable.Category, variable.Sensitive), nil)
 	default:
-		return fmt.Errorf("unknown variable target kind %s, this is a bug in %s", t.Kind, config.Name)
+		return fmt.Errorf("unknown variable target kind %s, this is a bug in %s", t.Kind, version.Name)
 	}
 
 	return err

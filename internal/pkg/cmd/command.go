@@ -13,9 +13,9 @@ import (
 	"github.com/posener/complete"
 	flag "github.com/spf13/pflag"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 var (
@@ -292,7 +292,7 @@ func (c *Command) Logger(ctx *Context) hclog.Logger {
 	io := ctx.IO
 
 	logOpt := &hclog.LoggerOptions{
-		Name:       config.Name,
+		Name:       version.Name,
 		Level:      ctx.ResolveLogLevel(),
 		Output:     io.Err(),
 		TimeFn:     time.Now,

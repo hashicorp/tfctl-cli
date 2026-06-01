@@ -5,9 +5,9 @@
 package run
 
 import (
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdRun creates the `run` command.
@@ -18,7 +18,7 @@ func NewCmdRun(ctx *cmd.Context) *cmd.Command {
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s run" }} command group lets you diagnose and start
 		Terraform runs in HCP Terraform and Terraform Enterprise.
-		`, config.Name),
+		`, version.Name),
 	}
 
 	cmd.AddChild(NewCmdRunStatus(ctx))

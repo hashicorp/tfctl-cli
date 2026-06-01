@@ -12,12 +12,12 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdSet returns the `profile set` command for setting a profile configuration property.
@@ -39,7 +39,7 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 		%s CLI comes with a default profile but supports multiple. To create multiple
 		configurations, use {{ template "mdCodeOrBold" "%s profile profiles create" }},
 		and {{ template "mdCodeOrBold" "%s profile profiles activate" }} to switch between them.
-		`, config.Name, config.Name, config.Name, config.Name, config.Name, config.Name, config.Name, config.Name),
+		`, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name),
 		Args: cmd.PositionalArguments{
 			Autocomplete: ctx.Profile,
 			Args: []cmd.PositionalArgument{
@@ -100,7 +100,7 @@ func setRun(opts *SetOpts) error {
 	// Validate we are not changing the name
 	if opts.Property == "name" {
 		return fmt.Errorf("to update a profile name use %s",
-			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile profiles rename", config.Name)).Bold())
+			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile profiles rename", version.Name)).Bold())
 	}
 
 	// Validate we are setting a valid property
@@ -193,7 +193,7 @@ func setRun(opts *SetOpts) error {
 		fmt.Fprintf(opts.IO.Err(), "\n%s Hostname changed to %q. Organization and token settings have been cleared.\n",
 			opts.IO.ColorScheme().WarningLabel(), opts.Value)
 		fmt.Fprintf(opts.IO.Err(), "Please run %s to reconfigure your organization and token for this hostname.\n\n",
-			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile init", config.Name)).Bold())
+			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile init", version.Name)).Bold())
 	}
 
 	return nil

@@ -8,10 +8,10 @@ import (
 	"github.com/posener/complete"
 	"golang.org/x/exp/maps"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdProfiles returns the `profile profiles` command for managing configuration profiles.
@@ -26,7 +26,7 @@ func NewCmdProfiles(ctx *cmd.Context) *cmd.Command {
 		profiles using {{ template "mdCodeOrBold" "%s profile profiles activate" }}.
 		To run a single command against a profile other than the active profile,
 		run the command with the flag {{ template "mdCodeOrBold" "--profile" }}.
-		`, config.Name, config.Name, config.Name, config.Name),
+		`, version.Name, version.Name, version.Name, version.Name),
 	}
 
 	cmd.AddChild(NewCmdCreate(ctx))

@@ -11,10 +11,10 @@ import (
 	"github.com/muesli/reflow/indent"
 	"golang.org/x/exp/maps"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // availableProperties returns a document section describing all the available
@@ -45,7 +45,7 @@ func addCoreProperties(b *availablePropertiesBuilder) {
 		equivalent of using the global {{ template "mdCodeOrBold" "--debug" }} flag. Supported log levels:
 		{{ template "mdCodeOrBold" "trace" }}, {{ template "mdCodeOrBold" "debug" }},
 		{{ template "mdCodeOrBold" "info" }}, {{ template "mdCodeOrBold" "warn" }}, and
-		{{ template "mdCodeOrBold" "error" }}.`, config.Name)
+		{{ template "mdCodeOrBold" "error" }}.`, version.Name)
 }
 
 type availablePropertiesBuilder struct {

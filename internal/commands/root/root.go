@@ -13,16 +13,16 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/commands/profile"
 	"github.com/hashicorp/tfctl-cli/internal/commands/run"
 	"github.com/hashicorp/tfctl-cli/internal/commands/variable"
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdRoot creates the root command.
 func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
 	c := &cmd.Command{
-		Name:      config.Name,
+		Name:      version.Name,
 		ShortHelp: "Interact with HCP Terraform and Terraform Enterprise.",
-		LongHelp:  fmt.Sprintf("The %s command-line interface (CLI) is a unified tool for managing HCP Terraform and Terraform Enterprise from the command line.", config.Name),
+		LongHelp:  fmt.Sprintf("The %s command-line interface (CLI) is a unified tool for managing HCP Terraform and Terraform Enterprise from the command line.", version.Name),
 	}
 
 	//  _   _  ___ _____ _____

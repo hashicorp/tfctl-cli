@@ -17,12 +17,12 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/net/idna"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 var (
 	// ConfigDir is the directory that contains CLI configuration.
-	ConfigDir = fmt.Sprintf("~/.config/%s/", config.Name)
+	ConfigDir = fmt.Sprintf("~/.config/%s/", version.Name)
 )
 
 const (
@@ -69,7 +69,7 @@ func NewLoader() (*Loader, error) {
 func newLoader(dir string) (*Loader, error) {
 	path, err := homedir.Expand(dir)
 	if err != nil {
-		return nil, fmt.Errorf("error expanding %s config directory path %q: %w", config.Name, dir, err)
+		return nil, fmt.Errorf("error expanding %s config directory path %q: %w", version.Name, dir, err)
 	}
 
 	// Ensure the config directory exists.
@@ -78,10 +78,10 @@ func newLoader(dir string) (*Loader, error) {
 		// If the directory doesn't exist, create it.
 		if errors.Is(err, fs.ErrNotExist) {
 			if err := os.MkdirAll(path, 0766); err != nil {
-				return nil, fmt.Errorf("failed to created %s config directory %q: %w", config.Name, path, err)
+				return nil, fmt.Errorf("failed to created %s config directory %q: %w", version.Name, path, err)
 			}
 		} else {
-			return nil, fmt.Errorf("failed to check if %s config directory exists: %w", config.Name, err)
+			return nil, fmt.Errorf("failed to check if %s config directory exists: %w", version.Name, err)
 		}
 	}
 
@@ -92,10 +92,10 @@ func newLoader(dir string) (*Loader, error) {
 		// If the directory doesn't exist, create it.
 		if errors.Is(err, fs.ErrNotExist) {
 			if err := os.MkdirAll(profilesDir, 0766); err != nil {
-				return nil, fmt.Errorf("failed to created %s profiles directory %q: %w", config.Name, profilesDir, err)
+				return nil, fmt.Errorf("failed to created %s profiles directory %q: %w", version.Name, profilesDir, err)
 			}
 		} else {
-			return nil, fmt.Errorf("failed to check if %s profiles directory exists: %w", config.Name, err)
+			return nil, fmt.Errorf("failed to check if %s profiles directory exists: %w", version.Name, err)
 		}
 	}
 
@@ -348,7 +348,7 @@ type credentialsFile struct {
 func tokenFromCredentials(hostname string) (string, error) {
 	path, err := homedir.Expand(TerraformCredentialsPath)
 	if err != nil {
-		return "", fmt.Errorf("error expanding %s config directory path %q: %w", config.Name, TerraformCredentialsPath, err)
+		return "", fmt.Errorf("error expanding %s config directory path %q: %w", version.Name, TerraformCredentialsPath, err)
 	}
 
 	data, err := os.ReadFile(path)

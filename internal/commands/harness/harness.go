@@ -5,9 +5,9 @@
 package harness
 
 import (
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdHarness creates the `harness` command.
@@ -17,7 +17,7 @@ func NewCmdHarness(ctx *cmd.Context) *cmd.Command {
 		ShortHelp: "Install coding agent skills and see agent context.",
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s harness" }} command group lets you install coding agent skills and see printed coding agent context.
-		`, config.Name),
+		`, version.Name),
 	}
 
 	cmd.AddChild(NewCmdHarnessContext(ctx))

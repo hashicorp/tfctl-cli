@@ -13,24 +13,24 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdGet returns the `profile get` command for getting a CLI configuration property.
 func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "get",
-		ShortHelp: fmt.Sprintf("Get a %s CLI configuration property.", config.Name),
+		ShortHelp: fmt.Sprintf("Get a %s CLI configuration property.", version.Name),
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile get" }} command gets the specified property in your active profile.
 
 		To view all currently set properties, run {{ template "mdCodeOrBold" "%s profile display" }}.
-		`, config.Name, config.Name),
+		`, version.Name, version.Name),
 		Args: cmd.PositionalArguments{
 			Autocomplete: ctx.Profile,
 			Args: []cmd.PositionalArgument{

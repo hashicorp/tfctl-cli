@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -15,6 +14,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/skills"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // InstallOpts defines the options for the `harness install` command.
@@ -46,7 +46,7 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 		Alternatively, you can use npx skills to install the tfctl skill for most other agents:
 
 		{{ Color "green" "$ npx skills add hashicorp/tfctl-cli --skill 'tfctl'" }}
-		`, config.Name, listAgentsSentence),
+		`, version.Name, listAgentsSentence),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Install in the project directory for opencode and many other agents:",

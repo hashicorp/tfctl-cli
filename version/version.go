@@ -1,8 +1,8 @@
 // Copyright IBM Corp. 2026
 
-// Package config contains runtime configuration related code for the CLI, such as
+// Package version contains build time configuration for the CLI, such as
 // version information.
-package config
+package version
 
 import (
 	_ "embed"

@@ -23,7 +23,6 @@ import (
 
 	tfe "github.com/hashicorp/go-tfe"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
@@ -32,6 +31,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 const (
@@ -72,7 +72,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 	oas, oaserr := openapi.SchemaFactory(nil)
 	if oaserr != nil {
-		fmt.Fprintf(ctx.IO.Err(), "%s failed to load embedded openAPI spec, this is always a %s bug", ctx.IO.ColorScheme().ErrorLabel(), config.Name)
+		fmt.Fprintf(ctx.IO.Err(), "%s failed to load embedded openAPI spec, this is always a %s bug", ctx.IO.ColorScheme().ErrorLabel(), version.Name)
 		panic(oaserr)
 	}
 
@@ -89,7 +89,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		Organization resolves automatically from the active profile or local Terraform cloud config.
 		Workspaces, teams, projects, and varsets resolve from name to ID. Values that
 		already look like IDs (ws-, team-, prj-, varset- prefixes) are used directly.
-		`, config.Name),
+		`, version.Name),
 		Args: cmd.PositionalArguments{
 			// Predict paths from the OpenAPI spec for autocompletion.
 			Autocomplete: complete.PredictSet(oas.Paths().Keys()...),
@@ -177,19 +177,19 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "List workspaces in the active profile's organization",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /organizations/{organization}/workspaces`, config.Name),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /organizations/{organization}/workspaces`, version.Name),
 			},
 			{
 				Preamble: "List runs for a workspace by name (resolved to ID)",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud api /workspaces/{workspace}/runs -p workspace=my-workspace`),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /workspaces/{workspace}/runs -p workspace=my-workspace`, version.Name),
 			},
 			{
 				Preamble: "Use a known ID directly (no resolution)",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Must(`$ tfcloud api /workspaces/{workspace}/runs -p workspace=ws-abc123`),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /workspaces/{workspace}/runs -p workspace=ws-abc123`, version.Name),
 			},
 			{
 				Preamble: "Create a project using attributes",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /projects -a name=myproject`, config.Name),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /projects -a name=myproject`, version.Name),
 			},
 			{
 				Preamble: "Add remote state consumer",
@@ -198,7 +198,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		"type":"remote-state-consumers",
 		"id": "ws-glkT5DSQKuY8pAJ"
 	}
-]}'`, config.Name),
+]}'`, version.Name),
 			},
 			{
 				Preamble: "Create a workspace variable using a JSON:API request body",
@@ -218,7 +218,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			}
 		}
 	}
-}}'`, config.Name),
+}}'`, version.Name),
 			},
 		},
 		RunF: func(c *cmd.Command, args []string) error {

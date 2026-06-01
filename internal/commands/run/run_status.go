@@ -11,7 +11,6 @@ import (
 
 	"github.com/mitchellh/go-wordwrap"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
@@ -19,6 +18,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // StatusOpts stores the options parsed from flags for the run status command.
@@ -48,7 +48,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 		- A run ID ({{ template "mdCodeOrBold" "run-..." }})
 		- A workspace ID ({{ template "mdCodeOrBold" "ws-..." }}) to get the latest run
 		- A workspace name to get the latest run (may require {{ template "mdCodeOrBold" "--organization" }})
-		`, config.Name),
+		`, version.Name),
 		Args: cmd.PositionalArguments{
 			Args: []cmd.PositionalArgument{
 				{
@@ -69,11 +69,11 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "Check status of a run by ID",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status run-abc123`, config.Name),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status run-abc123`, version.Name),
 			},
 			{
 				Preamble: "Check the latest run in a workspace by name",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status my-workspace --organization my-org`, config.Name),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status my-workspace --organization my-org`, version.Name),
 			},
 		},
 		RunF: func(c *cmd.Command, args []string) error {

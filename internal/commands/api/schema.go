@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 type schemaOperationsLoader func(ctx *cmd.Context) (openapi.Schema, error)
@@ -35,7 +35,7 @@ func NewCmdAPISchema(ctx *cmd.Context) *cmd.Command {
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s api schema" }} command group lets you search
 		for API operations from the OpenAPI spec and inspect a single operation schema.
-		`, config.Name),
+		`, version.Name),
 	}
 
 	c.AddChild(newCmdAPISchemaSearch(ctx))
@@ -61,7 +61,7 @@ func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
 		},
 		Examples: []cmd.Example{{
 			Preamble: "Search for workspace operations",
-			Command:  fmt.Sprintf("$ %s api schema search workspace", config.Name),
+			Command:  fmt.Sprintf("$ %s api schema search workspace", version.Name),
 		}},
 		RunF: func(_ *cmd.Command, args []string) error {
 			query := strings.Join(args, " ")
@@ -142,11 +142,11 @@ func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "Inspect the getWorkspace operation",
-				Command:  fmt.Sprintf("$ %s api schema get getWorkspace", config.Name),
+				Command:  fmt.Sprintf("$ %s api schema get getWorkspace", version.Name),
 			},
 			{
 				Preamble: "Show all operations on a path",
-				Command:  fmt.Sprintf("$ %s api schema get /organizations/{organization}/workspaces", config.Name),
+				Command:  fmt.Sprintf("$ %s api schema get /organizations/{organization}/workspaces", version.Name),
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {

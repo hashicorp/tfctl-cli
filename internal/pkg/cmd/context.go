@@ -14,12 +14,12 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // Context passes global objects for constructing and invoking a command.
@@ -174,7 +174,7 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		global:        true,
 	}, &Flag{
 		Name:          "version",
-		Description:   fmt.Sprintf("Print the version of %s CLI.", config.Name),
+		Description:   fmt.Sprintf("Print the version of %s CLI.", version.Name),
 		Value:         flagvalue.Simple(false, &ctx.flags.Version),
 		IsBooleanFlag: true,
 		global:        true,
@@ -270,7 +270,7 @@ func (ctx *Context) NewAPIClient(logger hclog.Logger) (*client.Client, error) {
 		address = "https://" + address
 	}
 	apiClient, err := client.New(address, ctx.Profile.GetToken(), http.Header{
-		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", config.Name, config.Version)},
+		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", version.Name, version.Version)},
 	})
 	if err != nil {
 		return nil, err
@@ -314,8 +314,8 @@ func authHelp(io iostreams.IOStreams) error {
 	cs := io.ColorScheme()
 	help := heredoc.Docf(`
 No authentication detected. To get started with %s CLI, please run: %s`,
-		config.Name,
-		cs.String(fmt.Sprintf("%s auth login", config.Name)).Bold().String())
+		version.Name,
+		cs.String(fmt.Sprintf("%s auth login", version.Name)).Bold().String())
 
 	return errors.New(help)
 }

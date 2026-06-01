@@ -17,11 +17,11 @@ import (
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/profile/profiles"
 	"github.com/hashicorp/tfctl-cli/internal/commands/root"
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 func main() {
@@ -79,8 +79,8 @@ func realMain() int {
 	cmdMap := cmd.ToCommandMap(tfctlCmd, cCtx)
 
 	c := cli.CLI{
-		Version:                    config.Version,
-		Name:                       config.Name,
+		Version:                    version.Version,
+		Name:                       version.Name,
 		Args:                       args,
 		Commands:                   cmdMap,
 		HelpFunc:                   cmd.RootHelpFunc(tfctlCmd),
@@ -102,7 +102,7 @@ func realMain() int {
 
 	status, err := c.Run()
 	if err != nil {
-		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", config.Name, err.Error())
+		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
 	}
 
 	return status

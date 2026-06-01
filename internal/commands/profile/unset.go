@@ -11,11 +11,11 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdUnset returns the `profile unset` command for unsetting a profile configuration property.
@@ -33,7 +33,7 @@ func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 		The {{ template "mdCodeOrBold" "%s profile unset" }} command unsets the specified property in your active profile.
 
 		To view all currently set properties, run {{ template "mdCodeOrBold" "%s profile display" }}.
-		`, config.Name, config.Name),
+		`, version.Name, version.Name),
 		Args: cmd.PositionalArguments{
 			Autocomplete: opts.Profile,
 			Args: []cmd.PositionalArgument{
@@ -86,7 +86,7 @@ func unsetRun(opts *UnsetOpts) error {
 	// Validate we are not changing the name
 	if opts.Property == "name" {
 		return fmt.Errorf("to update a profile name use %s",
-			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile profiles rename", config.Name)).Bold())
+			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile profiles rename", version.Name)).Bold())
 	}
 
 	if err := IsValidProperty(opts.Property); err != nil {

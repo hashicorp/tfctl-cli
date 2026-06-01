@@ -10,7 +10,6 @@ import (
 
 	"github.com/hashicorp/go-tfe/api/models"
 
-	"github.com/hashicorp/tfctl-cli/internal/config"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
@@ -19,6 +18,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // StartOpts defines the options for the `run start` command.
@@ -58,7 +58,7 @@ func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 		The ID argument can be:
 		- A workspace ID ({{ template "mdCodeOrBold" "ws-abc123" }})
 		- A workspace name (may require {{ template "mdCodeOrBold" "--organization" }})
-		`, config.Name),
+		`, version.Name),
 		Args: cmd.PositionalArguments{
 			Args: []cmd.PositionalArgument{
 				{
@@ -96,11 +96,11 @@ func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "Start a new run in a workspace by ID",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start ws-abc123`, config.Name),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start ws-abc123`, version.Name),
 			},
 			{
 				Preamble: "Start a new run in a workspace by name",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start my-workspace --organization my-org`, config.Name),
+				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start my-workspace --organization my-org`, version.Name),
 			},
 		},
 		RunF: func(c *cmd.Command, args []string) error {
@@ -180,7 +180,7 @@ func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 {{ Bold "$ %s run status %s" }}
 
 or by visiting {{ Bold "https://%s/app/%s/workspaces/%s/runs/%s" }}
-`, cs.SuccessIcon(), newRunID, config.Name, newRunID, opts.Profile.GetHostname(), *organizationName, *ws.GetAttributes().GetName(), newRunID))
+`, cs.SuccessIcon(), newRunID, version.Name, newRunID, opts.Profile.GetHostname(), *organizationName, *ws.GetAttributes().GetName(), newRunID))
 	fmt.Fprintln(io.Err())
 	return nil
 }
