@@ -6,16 +6,24 @@ package openapi
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
-var schemaRefRe = regexp.MustCompile(`"\$ref"\s*:\s*"#/components/schemas/([^"]+)"`)
+var (
+	schemaRefRe                    = regexp.MustCompile(`"\$ref"\s*:\s*"#/components/schemas/([^"]+)"`)
+	openAPISpecFile profile.FileID = "openapi.json"
+)
 
 // collectSchemaRefs recursively collects all component schema names referenced
 // from the given JSON-serialized value, including transitive references.
@@ -79,7 +87,6 @@ func (w *wrapper) PathByPath(path string) (*openapi3.PathItem, error) {
 var (
 	cachedSchema Schema
 	schemaOnce   sync.Once
-	schemaErr    error
 )
 
 func (w *wrapper) Operations() []*Operation {
@@ -128,15 +135,74 @@ func NewFromData(data []byte) (Schema, error) {
 	return &wrapper{T: root}, nil
 }
 
-// SchemaFactory loads the embedded OpenAPI specification and returns a Schema interface for
-// accessing it. The schema is loaded once and cached for future calls. Any error encountered
-// during loading is also cached and returned on subsequent calls.
-func SchemaFactory(_ *cmd.Context) (Schema, error) {
+// LoadEmbeddedSchema loads the embedded OpenAPI specification and returns a Schema interface for
+// accessing it. This function panics if the embedded spec cannot be loaded, which should never
+// happen and indicates a bug in the code.
+func LoadEmbeddedSchema() Schema {
+	result, err := NewFromData(embeddedOpenAPISpec)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load embedded OpenAPI spec: %v (this is always a bug)", err))
+	}
+	return result
+}
+
+// SchemaFactory attempts to fetch the OpenAPI specification from the profile host
+// and returns a Schema interface for accessing it. If any step of this process fails, it falls back
+// to loading the embedded specification and an error is logged. The result is cached for the
+// duration of the process run to avoid repeated fetch attempts.
+func SchemaFactory(cmdCtx *cmd.Context, logger hclog.Logger) Schema {
+	// Per run, attempt to fetch the hosted OpenAPI spec and update the cache if it's newer than the
+	// cached version. If any step of this process fails, fall back to the embedded version. It's
+	// critical that this process set cachedSchema or panic.
 	schemaOnce.Do(func() {
-		cachedSchema, schemaErr = NewFromData(embeddedOpenAPISpec)
+		if cmdCtx == nil || cmdCtx.Profile == nil {
+			cachedSchema = LoadEmbeddedSchema()
+			return
+		}
+
+		p := cmdCtx.Profile
+		api, err := cmdCtx.NewAPIClient(logger)
+		api.Adapter.Client.Timeout = 2 * time.Second // Don't wait too long for the API in case it's unresponsive
+
+		if err != nil {
+			logger.Error("Failed to create API client for OpenAPI schema loading, falling back to embedded version", "error", err)
+			cachedSchema = LoadEmbeddedSchema()
+			return
+		}
+
+		loader, err := p.HostCache()
+		if err != nil {
+			logger.Error("Failed to get host cache for OpenAPI schema loading, falling back to embedded version", "error", err)
+			cachedSchema = LoadEmbeddedSchema()
+			return
+		}
+
+		data, err := loader.ReadOrRefresh(openAPISpecFile, func(mTime *time.Time) ([]byte, error) {
+			// This function should return nil data if the cached version is still fresh,
+			// or new data if the cache is outdated. Any error will be treated as a fetch failure.
+			data, err := api.TFE.Meta.OpenAPI.Read(cmdCtx.ShutdownCtx, true, mTime)
+			if err != nil {
+				// Logged below
+				return nil, errors.New("failed to read openapi spec from server")
+			}
+			return data, nil
+		})
+
+		if err != nil {
+			logger.Error("Failed to fetch hosted OpenAPI spec, falling back to embedded version", "error", err)
+			cachedSchema = LoadEmbeddedSchema()
+			return
+		}
+
+		cachedSchema, err = NewFromData(data)
+		if err != nil {
+			logger.Error("Failed to parse OpenAPI spec from server, falling back to embedded version", "error", err)
+			cachedSchema = LoadEmbeddedSchema()
+			return
+		}
 	})
 
-	return cachedSchema, schemaErr
+	return cachedSchema
 }
 
 // AtomizePath returns a new schema containing only the components necessary to understand the
@@ -227,32 +293,3 @@ func (w *wrapper) AtomizeOperation(operationID string) (Schema, error) {
 	}
 	return nil, fmt.Errorf("operation with ID %q not found", operationID)
 }
-
-// Future hosted fetch path, intentionally disabled until the real endpoint is
-// confirmed and deployed consistently on the platform.
-//
-// func fetchHostedOpenAPISpec(ctx *cmd.Context) ([]byte, error) {
-// 	if ctx == nil || ctx.APIClient == nil || ctx.APIClient.BaseURL == nil {
-// 		return nil, fmt.Errorf("hosted OpenAPI spec unavailable without API client")
-// 	}
-//
-// 	requestURL, err := client.ResolveURL(ctx.APIClient.BaseURL, "/api/v2/openapi.json")
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	resp, err := ctx.APIClient.RawRequest(schemaSearchContext(ctx), &client.Request{
-// 		Method: http.MethodGet,
-// 		URL:    requestURL,
-// 	})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
-// 		return nil, fmt.Errorf("hosted OpenAPI spec unavailable: %s", resp.Status)
-// 	}
-// 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-// 		return nil, fmt.Errorf("fetch hosted OpenAPI spec: %s", resp.Status)
-// 	}
-// 	return resp.Body, nil
-// }

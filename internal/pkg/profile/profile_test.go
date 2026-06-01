@@ -4,6 +4,7 @@
 package profile
 
 import (
+	"path"
 	"strings"
 	"testing"
 
@@ -134,4 +135,22 @@ func TestCore_Getters(t *testing.T) {
 	r.Equal(v, *p.NoColor)
 	r.Equal(DefaultHostname, p.GetHostname())
 	r.Equal("token-from-env", p.GetToken())
+}
+
+func TestProfile_HostCache(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	// Create a profile with an invalid hostname to force an error when getting the host cache.
+	p := &Profile{
+		Hostname:     "example.com",
+		hostCacheDir: t.TempDir(),
+	}
+	h, err := p.HostCache()
+	r.NoError(err)
+
+	err = h.Write(FileID("test.json"), []byte(`{"ok":true}`))
+	r.NoError(err)
+
+	r.FileExists(path.Join(h.dir, "test.json"))
 }
