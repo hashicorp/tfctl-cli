@@ -1,0 +1,22 @@
+id: find-workspace-by-partial-name
+name: Find workspace by partial name with run state
+description: Tests graceful handling when workspace not found (exit 2 = stop).
+tags:
+  - api-pattern
+  - error-handling
+  - stop-on-not-found
+
+inputs:
+  prompt: |
+    Find the workspace named 'staging-api' in the 'tfc-demo-au' organization
+    and show its current run status including the run ID if one exists.
+
+expected:
+  output_contains_any:
+    - "search[name]"
+    - "filter"
+    - "/organizations/"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 3

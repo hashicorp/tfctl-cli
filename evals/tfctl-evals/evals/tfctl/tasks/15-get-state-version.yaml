@@ -1,0 +1,20 @@
+id: get-workspace-state-version
+name: Get workspace state version info
+description: Tests correct /current-state-version endpoint (not the list endpoint).
+tags:
+  - api-pattern
+  - endpoint-correctness
+
+inputs:
+  prompt: |
+    Get the most recent state version for the 'retail_payments_datazone_ws' workspace
+    in tfc-demo-au. Show its serial number and when it was created.
+
+expected:
+  output_contains:
+    - "/current-state-version"
+    - "-p workspace=retail_payments_datazone_ws"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 3

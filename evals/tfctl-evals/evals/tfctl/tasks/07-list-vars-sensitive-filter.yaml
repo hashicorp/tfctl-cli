@@ -1,0 +1,23 @@
+id: list-vars-sensitive-filtering
+name: List vars with sensitive flag filtering
+description: Tests combined --jq filter for sensitive == false AND key exclusion.
+tags:
+  - api-pattern
+  - jq
+  - endpoint-correctness
+
+inputs:
+  prompt: |
+    Show all non-sensitive variables in the 'api-prod' workspace in the tfc-demo-au
+    organization, excluding any with 'internal' in the key name.
+
+expected:
+  output_contains:
+    - "--jq"
+    - "/workspaces/"
+    - "/vars"
+  output_not_contains:
+    - "/organizations/tfc-demo-au/workspaces/api-prod/vars"
+    - "| jq"
+  behavior:
+    max_tool_calls: 2

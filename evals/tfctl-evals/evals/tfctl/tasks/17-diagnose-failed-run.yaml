@@ -1,0 +1,23 @@
+id: diagnose-failed-run
+name: Diagnose failed run
+description: Tests that agent extracts plan ID from relationships and fetches plan for error details.
+tags:
+  - api-pattern
+  - relationships
+  - diagnostics
+
+inputs:
+  prompt: |
+    The run 'run-vs8ZrFkXbRNUHJcP' in tfc-demo-au failed planning. Diagnose what
+    went wrong by checking the plan status, error messages, and the plan log URL.
+
+expected:
+  output_contains_any:
+    - "run-vs8ZrFkXbRNUHJcP"
+    - "/runs/run-vs8ZrFkXbRNUHJcP"
+    - "/plans/"
+    - "plan"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 3

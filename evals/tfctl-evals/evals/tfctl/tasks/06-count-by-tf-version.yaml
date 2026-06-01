@@ -1,0 +1,21 @@
+id: count-workspaces-by-tf-version
+name: Count workspaces by terraform version
+description: Tests single API call with --all and --jq for grouping/counting.
+tags:
+  - api-pattern
+  - pagination
+  - jq
+
+inputs:
+  prompt: |
+    In the 'tfc-demo-au' organization, how many workspaces are running Terraform
+    1.6 vs 1.7 vs 1.8+? Break down the counts.
+
+expected:
+  output_contains:
+    - "--all"
+    - "--jq"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 2

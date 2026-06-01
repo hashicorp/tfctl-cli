@@ -1,0 +1,24 @@
+id: list-workspace-variables
+name: List workspace variables with correct endpoint
+description: Tests that agent uses /workspaces/{workspace}/vars (NOT org-nested path) and -p flag.
+tags:
+  - api-pattern
+  - endpoint-correctness
+  - anti-pattern
+
+inputs:
+  prompt: |
+    List all variables in the 'billing-prod' workspace in the tfc-demo-au organization,
+    showing their keys, categories (env vs terraform), and whether they're sensitive.
+    Use the correct API endpoint.
+
+expected:
+  output_contains:
+    - "/workspaces/"
+    - "/vars"
+    - "-p workspace=billing-prod"
+  output_not_contains:
+    - "/organizations/tfc-demo-au/workspaces/billing-prod/vars"
+    - "| jq"
+  behavior:
+    max_tool_calls: 2

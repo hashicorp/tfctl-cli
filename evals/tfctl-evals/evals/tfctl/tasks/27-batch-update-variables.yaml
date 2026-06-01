@@ -1,0 +1,21 @@
+id: batch-update-variables
+name: Batch update workspace variables
+description: Tests that agent uses separate API calls (HCP TFC doesn't support bulk POST for vars).
+tags:
+  - api-pattern
+  - mutation
+  - batch
+
+inputs:
+  prompt: |
+    Update 3 environment variables in the 'batch-test' workspace in tfc-demo-au:
+    'ENV=production', 'LOG_LEVEL=debug', 'TIMEOUT=300'. Show the API calls needed.
+
+expected:
+  output_contains:
+    - "/workspaces/"
+    - "/vars"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 5

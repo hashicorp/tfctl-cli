@@ -1,0 +1,20 @@
+id: get-organization-settings
+name: Get organization settings
+description: Tests simple GET /organizations/{org} call.
+tags:
+  - api-pattern
+  - basic
+
+inputs:
+  prompt: |
+    Show the organization settings for 'tfc-demo-au'. What is the default Terraform
+    version and when was the organization created?
+
+expected:
+  output_contains_any:
+    - "/organizations/tfc-demo-au"
+    - "GET /organizations"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 2

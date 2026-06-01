@@ -1,0 +1,21 @@
+id: list-workspaces-by-team
+name: List workspaces by team
+description: Tests correct two-step pattern — resolve team name then query /team-workspaces.
+tags:
+  - api-pattern
+  - teams
+  - multi-step
+
+inputs:
+  prompt: |
+    Which workspaces are managed by the 'bu1_admin' team in tfc-demo-au? List them with their IDs.
+
+expected:
+  output_contains_any:
+    - "/team-workspaces"
+    - "team-workspaces"
+  output_not_contains:
+    - "/organizations/tfc-demo-au/teams/bu1_admin/workspaces"
+    - "| jq"
+  behavior:
+    max_tool_calls: 3

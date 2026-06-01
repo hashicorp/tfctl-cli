@@ -1,0 +1,21 @@
+id: get-policy-check-results
+name: Get policy check results
+description: Tests correct /runs/{run-id}/policy-checks endpoint (not workspace-nested).
+tags:
+  - api-pattern
+  - endpoint-correctness
+  - policy
+
+inputs:
+  prompt: |
+    For the run 'run-POLICY' in tfc-demo-au that has policy checks, show all policy
+    check results including which policies passed and which failed.
+
+expected:
+  output_contains:
+    - "/runs/run-POLICY/policy-checks"
+  output_not_contains:
+    - "/workspaces/"
+    - "| jq"
+  behavior:
+    max_tool_calls: 3
