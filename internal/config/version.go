@@ -16,8 +16,7 @@ const Name = "tfctl"
 
 var (
 	// Version defines what version this application is currently running as.
-	// This needs to be a variable rather than a constant as we use build
-	// arguments to overwrite this when we release a new version.
+	// CHANGE THIS VALUE WITH A BUILD ARGUMENT.
 	version = "dev"
 
 	// Version defines what version this application is currently running as. It
@@ -26,11 +25,12 @@ var (
 	Version = publicVersion(version)
 
 	// Commit defines the git commit used for this specific version.
-	Commit = "HEAD"
+	// CHANGE THIS VALUE WITH A BUILD ARGUMENT.
+	commit = "HEAD"
 
 	// committedTime defines the time at which the compiled binary's latest git
-	// commit was committed. This needs to be a string so the build flags can
-	// overwrite it upon building official releases.
+	// commit was committed.
+	// CHANGE THIS VALUE WITH A BUILD ARGUMENT.
 	committedTime = ""
 
 	// CommitTime is the exposed time.Time version of the commitTime. It's
