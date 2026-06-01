@@ -95,13 +95,9 @@ jobs:
     strategy:
       fail-fast: false # recommended during development
       matrix:
-        goos: [freebsd, windows, netbsd, openbsd, solaris]
+        goos: [freebsd, windows, netbsd, openbsd]
         goarch: ["386", "amd64", "arm"]
         exclude:
-          - goos: solaris
-            goarch: 386
-          - goos: solaris
-            goarch: arm
           - goos: windows
             goarch: arm
 
