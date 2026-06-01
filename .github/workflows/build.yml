@@ -246,6 +246,7 @@ jobs:
       # In this case setting `env.version` here means the action will be unable to set `env.VERSION` internally and fail.
       repo: ${{ github.event.repository.name }}
       product_version: ${{ needs.set-product-version.outputs.product-version }}
+      product_name: ${{ github.env.PKG_NAME }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Docker Build (Action)
