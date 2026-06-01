@@ -5,7 +5,9 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
+	"strings"
 	"time"
 
 	goversion "github.com/hashicorp/go-version"
@@ -16,8 +18,8 @@ const Name = "tfctl"
 
 var (
 	// Version defines what version this application is currently running as.
-	// CHANGE THIS VALUE WITH A BUILD ARGUMENT.
-	version = "dev"
+	//go:embed VERSION
+	version string
 
 	// Version defines what version this application is currently running as. It
 	// is the publicly used version, which will be prefixed with a `v` if it is
@@ -40,7 +42,7 @@ var (
 
 // IsDev returns true if the current version is a development version.
 func IsDev() bool {
-	return version == "dev"
+	return strings.HasSuffix(version, "-dev")
 }
 
 // Commit returns the git commit used for this specific version.

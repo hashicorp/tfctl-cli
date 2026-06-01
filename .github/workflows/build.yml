@@ -62,9 +62,8 @@ jobs:
       - name: Set shared -ldflags
         id: shared-ldflags
         run: |
-          T="github.com/hashicorp/tfctl-cli/internal/config/version"
+          T="github.com/hashicorp/tfctl-cli/version"
           echo "shared-ldflags=-X ${T}.commit=${GITHUB_SHA::8} \
-          -X ${T}.version=${{ steps.set-product-version.outputs.product-version }} \
           -X ${T}.committedTime=${{ steps.set-product-date.outputs.product-date }} \
           " >> "$GITHUB_OUTPUT"
 
