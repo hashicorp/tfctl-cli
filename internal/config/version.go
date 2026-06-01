@@ -43,6 +43,11 @@ func IsDev() bool {
 	return version == "dev"
 }
 
+// Commit returns the git commit used for this specific version.
+func Commit() string {
+	return commit
+}
+
 // mustParseTime will parse a time string and panic if it is not able to.
 func mustParseTime(ts string) time.Time {
 	if ts == "" {
