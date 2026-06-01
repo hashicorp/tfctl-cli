@@ -123,7 +123,7 @@ jobs:
           arch: ${{ matrix.goarch }}
           reproducible: report
           instructions: |
-            make build
+            make go/build
 
   build-linux:
     needs:
