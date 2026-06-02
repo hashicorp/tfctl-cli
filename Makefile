@@ -1,6 +1,6 @@
 SHELL=/usr/bin/env bash
 NAME=tfctl
-BIN_PATH ?= bin/$(NAME)
+BIN_PATH ?= dist/$(NAME)
 
 ifeq ($(GOARCH), arm64)
 	GOARCH = arm64
@@ -18,7 +18,7 @@ linux:
 
 .PHONY: docker
 docker: linux
-	docker build --platform=linux/$(GOARCH) --build-arg BUILD_DIRECTORY="bin" -t hashicorp/$(NAME):latest .
+	docker build --platform=linux/$(GOARCH) --build-arg BUILD_DIRECTORY="dist" -t hashicorp/$(NAME):latest .
 
 .PHONY: bin
 bin: $(BIN_PATH)

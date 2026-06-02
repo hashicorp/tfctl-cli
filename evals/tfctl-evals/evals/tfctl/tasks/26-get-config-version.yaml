@@ -1,0 +1,21 @@
+id: get-configuration-version
+name: Get configuration version info
+description: Tests correct /workspaces/{workspace}/configuration-versions endpoint.
+tags:
+  - api-pattern
+  - endpoint-correctness
+
+inputs:
+  prompt: |
+    Get information about the latest configuration version for the 'network-infra'
+    workspace in tfc-demo-au. Show the source type and when it was created.
+
+expected:
+  output_contains:
+    - "/configuration-versions"
+    - "-p workspace=network-infra"
+  output_not_contains:
+    - "/organizations/tfc-demo-au/workspaces/network-infra/configuration-versions"
+    - "| jq"
+  behavior:
+    max_tool_calls: 2

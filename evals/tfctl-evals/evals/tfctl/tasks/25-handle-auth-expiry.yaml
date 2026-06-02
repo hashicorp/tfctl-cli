@@ -1,0 +1,24 @@
+id: handle-auth-token-expiry
+name: Handle auth token expiry gracefully
+description: Tests that agent explains exit 3 means expired token and advises re-auth.
+tags:
+  - error-handling
+  - auth
+
+inputs:
+  prompt: |
+    Try to list workspaces in tfc-demo-au with an expired auth token.
+    How should the error be handled?
+
+expected:
+  output_contains_any:
+    - "expired"
+    - "re-authenticate"
+    - "login"
+    - "exit 3"
+    - "token"
+  output_not_contains:
+    - "retry indefinitely"
+    - "| jq"
+  behavior:
+    max_tool_calls: 3

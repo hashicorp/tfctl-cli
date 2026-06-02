@@ -1,0 +1,24 @@
+id: add-remote-state-consumer
+name: Add remote state consumer to workspace
+description: Tests correct endpoint and JSON body format for adding a consumer.
+tags:
+  - api-pattern
+  - mutation
+  - relationships
+
+inputs:
+  prompt: |
+    Add workspace 'consumer-ws-123' as a remote state consumer for the state
+    provider workspace 'state-host' in tfc-demo-au. Provide the exact API call to make.
+
+expected:
+  output_contains:
+    - "/relationships/remote-state-consumers"
+  output_contains_any:
+    - "\"type\":\"workspaces\""
+    - "\"type\": \"workspaces\""
+    - "'type':'workspaces'"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 5

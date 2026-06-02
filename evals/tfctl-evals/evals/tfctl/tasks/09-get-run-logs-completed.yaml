@@ -1,0 +1,21 @@
+id: get-run-logs-completed
+name: Get run logs for completed run
+description: Tests that agent gets log URL from /applies or /plans (not run.log-read-url which is null on completed runs).
+tags:
+  - api-pattern
+  - relationships
+  - log-url
+
+inputs:
+  prompt: |
+    For the run 'run-ABC123' in the 'data-pipeline' workspace in tfc-demo-au,
+    get the apply log URL. The run is already completed.
+
+expected:
+  output_contains_any:
+    - "/applies/"
+    - "/plans/"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 3

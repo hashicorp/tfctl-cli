@@ -1,0 +1,22 @@
+id: search-api-operations
+name: Search API operations by keyword
+description: Tests use of tfctl api schema search command.
+tags:
+  - api-pattern
+  - schema-search
+
+inputs:
+  prompt: |
+    Find all API operations related to 'policy' in the HCP Terraform API. Show their operation IDs.
+
+expected:
+  output_contains_any:
+    - "schema search"
+    - "api schema search"
+    - "tfctl api schema search"
+  output_contains:
+    - "policy"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 2

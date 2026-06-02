@@ -16,8 +16,8 @@ builds:
       - -buildvcs=false
     ldflags:
       - -s -w
-      - -X github.com/hashicorp/tfctl-cli/internal/config.Version={{.Version}}
-      - -X github.com/hashicorp/tfctl-cli/internal/config.Commit={{.Commit}}
+      - -X github.com/hashicorp/tfctl-cli/internal/config.version={{.Version}}
+      - -X github.com/hashicorp/tfctl-cli/internal/config.commit={{.Commit}}
       - -X github.com/hashicorp/tfctl-cli/internal/config.committedTime={{.CommitDate}}
     goos:
       - linux

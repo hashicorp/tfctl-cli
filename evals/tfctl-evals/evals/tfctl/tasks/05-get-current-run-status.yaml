@@ -1,0 +1,22 @@
+id: get-current-run-with-status
+name: Get current run with status and logs
+description: Tests that agent follows relationships to get log URL from plan/apply (not run.log-read-url which is null on completed runs).
+tags:
+  - api-pattern
+  - relationships
+  - log-url
+
+inputs:
+  prompt: |
+    What is the current run status for the 'retail_payments_datazone_ws' workspace
+    in tfc-demo-au? If there's a run, show its status and the log URL if available.
+
+expected:
+  output_contains_any:
+    - "/plans/"
+    - "/applies/"
+    - "log-read-url"
+  output_not_contains:
+    - "| jq"
+  behavior:
+    max_tool_calls: 4
