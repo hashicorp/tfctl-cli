@@ -44,12 +44,25 @@ type Request struct {
 }
 
 // New constructs a configured API client from an API address and token.
-func New(address, token string, defaultHeaders http.Header) (*Client, error) {
-	tfeClient, err := tfe.NewClient(&tfe.Config{
-		Address: address,
-		Token:   token,
-		Headers: defaultHeaders,
-	})
+// If logger is non-nil, retry attempts are logged at debug level.
+func New(address, token string, defaultHeaders http.Header, logger hclog.Logger) (*Client, error) {
+	cfg := &tfe.Config{
+		Address:           address,
+		Token:             token,
+		Headers:           defaultHeaders,
+		RetryServerErrors: true,
+		RetryRateLimited:  true,
+	}
+	if logger != nil {
+		cfg.RetryHook = func(attemptNum int, resp *http.Response) {
+			status := 0
+			if resp != nil {
+				status = resp.StatusCode
+			}
+			logger.Debug("retrying API request", "attempt", attemptNum, "status", status)
+		}
+	}
+	tfeClient, err := tfe.NewClient(cfg)
 	if err != nil {
 		return nil, err
 	}
