@@ -34,16 +34,11 @@ func TestRetryServerErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := c.TFE.GetStream(t.Context(), "/test", nil)
-	if resp != nil {
-		resp.Body.Close()
-	}
-
-	got := atomic.LoadInt64(&attempts)
-	if got < 3 {
-		t.Skipf("retries not working yet (got %d attempts, want >=3); pending go-tfe middleware fix", got)
-	}
 	require.NoError(t, err)
+	resp.Body.Close()
+
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.GreaterOrEqual(t, atomic.LoadInt64(&attempts), int64(3))
 }
 
 // TestRetryRateLimited verifies that 429 responses are retried when
@@ -68,16 +63,11 @@ func TestRetryRateLimited(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := c.TFE.GetStream(t.Context(), "/test", nil)
-	if resp != nil {
-		resp.Body.Close()
-	}
-
-	got := atomic.LoadInt64(&attempts)
-	if got < 3 {
-		t.Skipf("retries not working yet (got %d attempts, want >=3); pending go-tfe middleware fix", got)
-	}
 	require.NoError(t, err)
+	resp.Body.Close()
+
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.GreaterOrEqual(t, atomic.LoadInt64(&attempts), int64(3))
 }
 
 // TestRetryLogHook verifies that the RetryHook is invoked on each retry,
@@ -102,14 +92,9 @@ func TestRetryLogHook(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := c.TFE.GetStream(t.Context(), "/test", nil)
-	if resp != nil {
-		resp.Body.Close()
-	}
-
-	got := atomic.LoadInt64(&attempts)
-	if got < 2 {
-		t.Skipf("retries not working yet (got %d attempts, want >=2); pending go-tfe middleware fix", got)
-	}
 	require.NoError(t, err)
+	resp.Body.Close()
+
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.GreaterOrEqual(t, atomic.LoadInt64(&attempts), int64(2))
 }
