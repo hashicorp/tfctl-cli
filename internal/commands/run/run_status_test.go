@@ -41,7 +41,7 @@ func testAPI(t *testing.T, handler http.Handler) *client.Client {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	c, err := client.New(server.URL, "test-token", nil)
+	c, err := client.New(server.URL, "test-token", nil, nil)
 	require.NoError(t, err)
 	return c
 }

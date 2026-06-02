@@ -261,7 +261,7 @@ func (ctx *Context) NewAPIClient(logger hclog.Logger) (*client.Client, error) {
 	}
 	apiClient, err := client.New(address, ctx.Profile.GetToken(), http.Header{
 		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", version.Name, version.Version)},
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}

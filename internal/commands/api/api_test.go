@@ -745,7 +745,7 @@ func newTestOpts(t *testing.T, address string, io *iostreams.Testing, mutate fun
 	t.Helper()
 	apiClient, err := client.New(address, "test-token", http.Header{
 		"User-Agent": []string{"tfctl-cli/test"},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	opts := &Opts{
@@ -832,7 +832,7 @@ func TestLookupResource_ErrNotFound(t *testing.T) {
 	})
 	defer server.Close()
 
-	apiClient, err := client.New(server.URL, "test-token", http.Header{})
+	apiClient, err := client.New(server.URL, "test-token", http.Header{}, nil)
 	require.NoError(t, err)
 
 	resolver := client.NewResolver(apiClient, false, false)
