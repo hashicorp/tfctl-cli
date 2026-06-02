@@ -123,6 +123,12 @@ func (c *Client) Do(ctx context.Context, req *Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	if httpResp.StatusCode >= 400 {
+		if apiErr := tfe.APIErrorFactory(httpResp, nil); apiErr != nil {
+			return nil, apiErr
+		}
+	}
+
 	return httpResp, nil
 }
 
