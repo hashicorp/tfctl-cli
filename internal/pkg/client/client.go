@@ -52,6 +52,7 @@ func New(address, token string, defaultHeaders http.Header, logger hclog.Logger)
 		Headers:           defaultHeaders,
 		RetryServerErrors: true,
 		RetryRateLimited:  true,
+		RetryMaxRetries:   5,
 	}
 	if logger != nil {
 		cfg.RetryHook = func(attemptNum int, resp *http.Response) {
