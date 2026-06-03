@@ -55,7 +55,7 @@ func realMain() int {
 
 	// TODO: check version for updates?
 
-	activeProfile, err := loadProfile(shutdownCtx)
+	activeProfile, err := loadActiveProfile()
 	if err != nil {
 		fmt.Fprintln(io.Err(), err)
 		return 1
@@ -89,7 +89,6 @@ func realMain() int {
 		AutocompleteGlobalFlags: map[string]complete.Predictor{
 			"--help":     complete.PredictNothing,
 			"--version":  complete.PredictNothing,
-			"--agent":    complete.PredictAnything,
 			"--debug":    complete.PredictAnything,
 			"--jq":       complete.PredictAnything,
 			"--json":     complete.PredictAnything,
@@ -138,18 +137,6 @@ func loadActiveProfile() (*profile.Profile, error) {
 	}
 
 	return loader.LoadProfile(activeProfile.Name)
-}
-
-// loadProfile loads the active profile and if one doesn't exist, a default
-// profile is created.
-func loadProfile(_ context.Context) (*profile.Profile, error) {
-	// Get the active profile
-	p, err := loadActiveProfile()
-	if err != nil {
-		return nil, err
-	}
-
-	return p, nil
 }
 
 // IsAutocomplete returns true if the CLI is being run in an autocomplete

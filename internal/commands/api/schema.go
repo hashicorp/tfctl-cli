@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -15,7 +17,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
-type schemaOperationsLoader func(ctx *cmd.Context) (openapi.Schema, error)
+type schemaOperationsLoader func(ctx *cmd.Context, logger hclog.Logger) openapi.Schema
 
 type schemaSearcher interface {
 	Search(ctx context.Context, query string, operations []*openapi.Operation, limit int) ([]schemaSearchResult, error)
@@ -63,12 +65,9 @@ func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
 			Preamble: "Search for workspace operations",
 			Command:  fmt.Sprintf("$ %s api schema search workspace", version.Name),
 		}},
-		RunF: func(_ *cmd.Command, args []string) error {
+		RunF: func(c *cmd.Command, args []string) error {
 			query := strings.Join(args, " ")
-			schema, err := openapi.SchemaFactory(ctx)
-			if err != nil {
-				return err
-			}
+			schema := loadSchemaOperationsForSchemaCommand(ctx, c.Logger(ctx))
 
 			results, err := schemaOperationSearcher.Search(ctx.ShutdownCtx, query, schema.Operations(), maxSchemaSearchResults)
 			if err != nil {
@@ -149,12 +148,10 @@ func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 				Command:  fmt.Sprintf("$ %s api schema get /organizations/{organization}/workspaces", version.Name),
 			},
 		},
-		RunF: func(_ *cmd.Command, args []string) error {
-			schema, err := loadSchemaOperationsForSchemaCommand(ctx)
-			if err != nil {
-				return err
-			}
+		RunF: func(c *cmd.Command, args []string) error {
+			schema := loadSchemaOperationsForSchemaCommand(ctx, c.Logger(ctx))
 
+			var err error
 			var result openapi.Schema
 			if strings.HasPrefix(args[0], "/") {
 				result, err = schema.AtomizePath(args[0])

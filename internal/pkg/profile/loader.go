@@ -223,7 +223,10 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 		}
 	}
 
+	hostCacheDir := filepath.Join(l.configDir, "caches")
 	c.dir = l.profilesDir
+	c.hostCacheDir = hostCacheDir
+
 	return &c, nil
 }
 
