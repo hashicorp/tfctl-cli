@@ -180,7 +180,7 @@ func SchemaFactory(cmdCtx *cmd.Context, logger hclog.Logger) Schema {
 		}
 
 		data, err := loader.ReadOrRefresh(openAPISpecFile, func(mTime *time.Time) profile.RefreshResult {
-			shouldUsePrerelease := strings.HasSuffix(p.GetHostname(), "terraform.io")
+			shouldUsePrerelease := strings.HasSuffix(p.GetHostname(), ".terraform.io")
 
 			// This function should return nil data if the cached version is still fresh,
 			// or new data if the cache is outdated. Any error will be treated as a fetch failure.
