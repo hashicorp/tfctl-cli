@@ -8,7 +8,7 @@ Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise p
 
 ### Prerequisites
 
-- The Go language, vFIXME or later.
+- The Go language, v1.25.10 or later.
 
 ### Install tfctl
 
@@ -50,7 +50,7 @@ tfctl uses a host-centric, layered configuration with a logical precedence.
 
 ### Set hostname
 
-tfctl defaults to the HCP Terraform instance at app.terraform.io. To use a different HCP Terraform instance or your organizations Terraform Enterprise instance, configure it now. Replace HOST with your HCP Terraform hostname (`app.terraform.io` or `app.eu.terraform.io`), or Terraform Enterprise hostname.
+tfctl defaults to the HCP Terraform instance at app.terraform.io. To use a different HCP Terraform instance or your organization's Terraform Enterprise instance, configure it now. Replace HOST with your HCP Terraform hostname (`app.terraform.io` or `app.eu.terraform.io`), or Terraform Enterprise hostname.
 
 ```bash
 $ tfctl profile set hostname HOST
@@ -64,7 +64,7 @@ Create and install a token for tfctl to use to authenticate with HCP Terraform o
 $ tfctl auth login
 ```
 
-tfctl will open a browser window to HCP Terraform or your Terraform Enterprise instance. Click the **Create an API token** button, give your token a description and set its expiration, then click the **Generate token** button. Copy and paste the new token into your terminal window. tfctl will not print the pasted token to the screen. 
+tfctl will open a browser window to HCP Terraform or your Terraform Enterprise instance. Click the **Create an API token** button, give your token a description and set its expiration, then click the **Generate token** button. Copy and paste the new token into your terminal window. tfctl will not print the pasted token to the screen.
 
 If you have not configured a tfctl token for the current profile, tfctl will check your Terraform configuration for a matching token. Refer to [Terraform tokens](#terraform-tokens) for more information.
 
@@ -86,9 +86,9 @@ $ tfctl profile profiles create NAME
 
 tfctl will activate the new profile automatically.
 
-## Example sage
+## Example usage
 
-tfctl provides access to runs, variables, and other HCP Terraform features through named subcommends. The tfctl also provides direct access to the [HCP Terraform API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs) with the `tfctl api` subcommand.
+tfctl provides access to runs, variables, and other HCP Terraform features through named subcommands. The tfctl also provides direct access to the [HCP Terraform API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs) with the `tfctl api` subcommand.
 
 ```bash
 # See status/diagnose Workspace current run
@@ -145,7 +145,7 @@ If you have not configured a particular option for the current profile, tfctl wi
 
 `TFCTL_TOKEN_<profile>`: An HCP Terraform API token to use in conjunction with the named profile.
 
-`TF_TOKEN_<hostname>`: An HCP Terraform API token to use with the specified hostname with punycode formatting, e.g. `TF_TOKEN_app_terraform_io`. tfctl will use the Terraform token only if it has not bee configured in any other way.
+`TF_TOKEN_<hostname>`: An HCP Terraform API token to use with the specified hostname with punycode formatting, e.g. `TF_TOKEN_app_terraform_io`. tfctl will use the Terraform token only if it has not been configured in any other way.
 
 ## Command reference
 
@@ -358,7 +358,7 @@ Manage Terraform and environment variables for workspaces and variable sets.
 
 #### Subcommands
 
-- `import`: Start a new run on the workspace specified by ID or name. Will error if the variable already exists in the target variable set or workspacem unless --overwrite is set.
+- `import`: Import variables to a workspace or variable set.
   - `TFVARS_FILE`: Import Terraform variables from a .tfvars file. Optional
   - `--env=NAME`, `-e NAME`: Import environment variable by name. Repeatable.
   - `--overwrite`: Overwrite existing variable instead of erroring.
@@ -370,13 +370,13 @@ Manage Terraform and environment variables for workspaces and variable sets.
 Import Terraform variables from "terraform.tfvars" file to a workspace named "my-workspace".
 
 ```bash
-$ tfctl import terraform.tfvars --worksapce=my-workspace
+$ tfctl variable import terraform.tfvars --workspace=my-workspace
 ```
 
 Import multiple environment variables into a variable set named "my-varset", overwriting existing values if any.
 
 ```bash
-$ tfctl import --overwrite --variable-set-name=my-varset --env=AWS_ACCESS_KEY_ID --env=AWS_SECRET_ACCESS_KEY
+$ tfctl variable import --overwrite --variable-set-name=my-varset --env=AWS_ACCESS_KEY_ID --env=AWS_SECRET_ACCESS_KEY
 ```
 
 ### `tfctl api` reference
@@ -385,11 +385,11 @@ Perform any HCP Terraform API v2 request with the given path or URL, or inspect 
 
 #### Arguments
 
-- `PATH`: API path relative to configured host, or URL. 
-- `--all`: Disable pagination and fetch all records, to a maxiumum of 2000.
+- `PATH`: API path relative to configured host, or URL.
+- `--all`: Disable pagination and fetch all records, to a maximum of 2000.
 - `--attribute=NAME=VALUE`, `-a NAME=VALUE`: Set attribute in request body. Implies `--method=POST`. Repeatable.
 - `--field=KEY=VALUE`, `-f KEY=VALUE`: Set query parameter in request URL. Repeatable.
-- `--header='name: value'`, `-H 'name: value'`: Set request header. Repeatable
+- `--header='name: value'`, `-H 'name: value'`: Set request header. Repeatable.
 - `--input=BODY`, `-i BODY`: Set raw JSON request body, use `-` to read from stdin.
 - `--method=METHOD`, `-X METHOD`: HTTP method to use (e.g. GET, POST, etc.)
 - `--page-number=NUMBER`: Page number to return. Ignored if --all is set. Default is 1.
