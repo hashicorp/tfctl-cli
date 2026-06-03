@@ -192,8 +192,10 @@ func setRun(opts *SetOpts) error {
 	if hostnameChanged {
 		fmt.Fprintf(opts.IO.Err(), "\n%s Hostname changed to %q. Organization and token settings have been cleared.\n",
 			opts.IO.ColorScheme().WarningLabel(), opts.Value)
-		fmt.Fprintf(opts.IO.Err(), "Please run %s to reconfigure your organization and token for this hostname.\n\n",
-			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile init", version.Name)).Bold())
+		fmt.Fprintf(opts.IO.Err(), "Please run %s to reconfigure your token for this hostname.\n\n",
+			opts.IO.ColorScheme().String(fmt.Sprintf("%s auth login", version.Name)).Bold())
+		fmt.Fprintf(opts.IO.Err(), "It's also recommended to run %s to set a default organization.\n\n",
+			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile set organization ORGANIZATION", version.Name)).Bold())
 	}
 
 	return nil

@@ -89,7 +89,6 @@ func realMain() int {
 		AutocompleteGlobalFlags: map[string]complete.Predictor{
 			"--help":     complete.PredictNothing,
 			"--version":  complete.PredictNothing,
-			"--agent":    complete.PredictAnything,
 			"--debug":    complete.PredictAnything,
 			"--jq":       complete.PredictAnything,
 			"--json":     complete.PredictAnything,

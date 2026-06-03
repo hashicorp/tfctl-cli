@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -178,12 +179,14 @@ func SchemaFactory(cmdCtx *cmd.Context, logger hclog.Logger) Schema {
 		}
 
 		data, err := loader.ReadOrRefresh(openAPISpecFile, func(mTime *time.Time) ([]byte, error) {
+			shouldUsePrerelease := strings.HasSuffix(p.GetHostname(), "terraform.io")
+
 			// This function should return nil data if the cached version is still fresh,
 			// or new data if the cache is outdated. Any error will be treated as a fetch failure.
-			data, err := api.TFE.Meta.OpenAPI.Read(cmdCtx.ShutdownCtx, true, mTime)
+			data, err := api.TFE.Meta.OpenAPI.Read(cmdCtx.ShutdownCtx, shouldUsePrerelease, mTime)
 			if err != nil {
 				// Logged below
-				return nil, errors.New("failed to read openapi spec from server")
+				return nil, errors.New("remote openapi spec not found or failed to fetch")
 			}
 			return data, nil
 		})
