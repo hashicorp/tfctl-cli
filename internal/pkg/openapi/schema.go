@@ -163,13 +163,14 @@ func SchemaFactory(cmdCtx *cmd.Context, logger hclog.Logger) Schema {
 
 		p := cmdCtx.Profile
 		api, err := cmdCtx.NewAPIClient(logger)
-		api.Adapter.Client.Timeout = 5 * time.Second // Don't wait too long for the API in case it's unresponsive
 
 		if err != nil {
 			logger.Error("Failed to create API client for OpenAPI schema loading, falling back to embedded version", "error", err)
 			cachedSchema = LoadEmbeddedSchema()
 			return
 		}
+
+		api.Adapter.Client.Timeout = 3 * time.Second // Don't wait too long for the API in case it's unresponsive
 
 		loader, err := p.HostCache(logger)
 		if err != nil {

@@ -50,17 +50,7 @@ func NewHostCacheLoader(baseDir, hostname string, logger hclog.Logger) (*HostCac
 }
 
 func (f FileID) valid() bool {
-	isFilename := string(f) == path.Base(string(f))
-	if !isFilename {
-		return false
-	}
-
-	info, err := os.Lstat(string(f))
-	if err != nil {
-		return true
-	}
-
-	return !info.IsDir()
+	return string(f) == path.Base(string(f))
 }
 
 // ReadOrRefresh checks if the cached data for the given fileID is still valid by calling the

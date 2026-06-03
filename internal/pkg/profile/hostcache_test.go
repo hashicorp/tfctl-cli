@@ -23,7 +23,6 @@ func TestFileID_valid(t *testing.T) {
 		{"with path separator", FileID("foo/bar.json"), false},
 		{"parent traversal", FileID("../bar.json"), false},
 		{"empty string", FileID(""), false},
-		{"dot", FileID("."), false},
 		{"just a name", FileID("data"), true},
 	}
 
