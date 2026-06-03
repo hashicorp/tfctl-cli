@@ -1,6 +1,11 @@
 # tfctl: The HCP Terraform CLI
 
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
+[![Go Version](https://img.shields.io/badge/Go-1.25.10+-00ADD8?logo=go)](https://go.dev/)
+
 Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise platform.
+
+tfctl provides both high-level commands for common workflows (managing runs, variables, and workspaces) and low-level API access for advanced automation. It supports multiple configuration profiles, allowing you to easily switch between different HCP Terraform organizations and Terraform Enterprise instances.
 
 ![tfctl](assets/tfctl.png "tfctl")
 
@@ -8,15 +13,25 @@ Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise p
 
 ### Prerequisites
 
-- The Go language, v1.25.10 or later.
+- The Go language, v1.25.10 or later
+- Git
+- Make
 
 ### Install tfctl
 
-1. Clone the git [repository](https://github.com/hashicorp/tfctl-cli): `git clone git@github.com:hashicorp/tfctl-cli.git`
+1. Clone the git [repository](https://github.com/hashicorp/tfctl-cli):
+   - SSH: `git clone git@github.com:hashicorp/tfctl-cli.git`
+   - HTTPS: `git clone https://github.com/hashicorp/tfctl-cli.git`
 1. Change to the new directory: `cd tfctl-cli`
 1. Run `make go/install`.
 
 Binary releases available soon!
+
+Verify the installation:
+
+```bash
+$ tfctl --version
+```
 
 ### Install shell completion
 
@@ -30,13 +45,15 @@ You can uninstall shell completion with the `tfctl --autocomplete-uninstall` com
 
 ### Install AI agent skill
 
-tfctl ships with an agent skill that gives AI coding agents full access to HCP Terraform. You can install it using tfctl. Replace AGENT with the name of your supported AI agent: `bob`, `claude`, `codex`, `copilot`, `gemini`, `opencode`, or `pi`.
+tfctl ships with an agent skill that gives AI coding agents full access to HCP Terraform. You can install it using tfctl or NPX. Replace AGENT with one of the supported AI agents: `bob`, `claude`, `codex`, `copilot`, `gemini`, `opencode`, or `pi`.
+
+To install the skill with tfctl, run:
 
 ```bash
 $ tfctl harness install AGENT --global
 ```
 
-You can instead install tfctl skills with NPX.
+To install the skill with NPX, run:
 
 ```bash
 $ npx skills add hashicorp/tfctl-cli --skill 'tfctl'
@@ -46,7 +63,7 @@ This adds the skill to your user profile so that compatible agents can use tfctl
 
 ## Configure tfctl
 
-tfctl uses a host-centric, layered configuration with a logical precedence.
+tfctl uses a layered configuration system. Settings can be specified in profiles, environment variables, or local Terraform configuration, with a clear order of precedence.
 
 ### Set hostname
 
@@ -76,9 +93,9 @@ Configure the organization for tfctl to use. Replace NAME with your HCP Terrafor
 $ tfctl profile set organization NAME
 ```
 
-### Manage configuration profiles
+### Manage profiles
 
-tfctl supports multiple local configuration profiles, accessible via the `tfctl profile profiles` subcommand. Use profiles to switch between HCP Terraform organizations and instances of HCP Terraform and Terraform Enterprise. To start using profiles, create one.
+tfctl supports multiple local profiles, accessible via the `tfctl profile profiles` subcommand. Use profiles to switch between HCP Terraform organizations and instances of HCP Terraform and Terraform Enterprise. To start using profiles, create one.
 
 ```bash
 $ tfctl profile profiles create NAME
@@ -88,19 +105,21 @@ tfctl will activate the new profile automatically.
 
 ## Example usage
 
-tfctl provides access to runs, variables, and other HCP Terraform features through named subcommands. The tfctl also provides direct access to the [HCP Terraform API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs) with the `tfctl api` subcommand.
+**Command Syntax:** `tfctl <command> [subcommand] [flags] [arguments]`
+
+tfctl provides access to runs, variables, and other HCP Terraform features through named subcommands. tfctl also provides direct access to the [HCP Terraform API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs) with the `tfctl api` subcommand.
 
 ```bash
 # See status/diagnose Workspace current run
 tfctl run status my-workspace
 
-# Migrate a tfvars file to the current workspace
+# Import variables from a tfvars file to the Terraform workspace configured in the current directory
 tfctl variable import bigsecret.tfvars
 
-# Migrate a tfvars file to a new variable set
-tfctl variable import bigsecret.tfvars --variable-set-name "production"
+# Import variables from a tfvars file to a new variable set
+tfctl variable import bigsecret.tfvars --variable-set-name="production"
 
-# Migrate ENV variables available to the current workspace
+# Import environment variables available to the Terraform workspace configured in the current directory
 tfctl variable import -e AWS_REGION -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY
 
 # Execute any API v2 GET query
@@ -108,7 +127,7 @@ tfctl api /account/details # Table format
 tfctl api /organizations --json # JSON format
 
 # Execute any POST query by specifying -a for request body attributes in key=value format or -i for raw request body input
-tfctl api /organizations/acme/projects -a "name=my-project" -a "description=it\'s a very fine project"
+tfctl api /organizations/acme/projects -a "name=my-project" -a "description=A very fine project"
 
 # ...or use a JSON input file as the body
 tfctl api /organizations/acme/projects --input my-project.json
@@ -137,7 +156,7 @@ If you have not configured a token for the current profile with `tfctl auth logi
 
 If you have not configured a particular option for the current profile, tfctl will check the following environment variables:
 
-`TFCTL_ORGANIZATION`: The default organization to use, where one might apply.
+`TFCTL_ORGANIZATION`: The default organization to use for commands that require an organization.
 
 `TFCTL_HOSTNAME`: The Terraform Enterprise or HCP Terraform hostname to use. Defaults to `app.terraform.io`.
 
@@ -279,18 +298,16 @@ $ tfctl profile set organization my-organization
 
 ### `tfctl profile profiles` reference
 
-#### Description
-
 Manage tfctl user profiles.
 
 #### Subcommands
 
 - `activate NAME`: Activate an existing named profile.
-- `create NAME`: Create a new configuration profile, and activate it.
+- `create NAME`: Create a new profile, and activate it.
   - `--no-activate`: Don't automatically activate the new profile.
   - `--hostname=HOST`: Set the hostname for the new profile.
 - `delete NAME`: Delete an existing named profile.
-- `list`: List existing configuration profiles.
+- `list`: List existing profiles.
 - `rename NAME`: Rename an existing named profile.
   - `--new_name=NAME`: Set the profile name. Required.
 
@@ -314,9 +331,13 @@ Switch to a profile by name.
 $ tfctl profile profiles activate NAME
 ```
 
-### `tfctl run` reference
+Switch back to the default profile.
 
-#### Description
+```bash
+$ tfctl profile profiles activate default
+```
+
+### `tfctl run` reference
 
 Print out the status of Terraform runs, or start a new run.
 
@@ -344,17 +365,21 @@ Print out the status of a run with an ID of "run-1234abcd".
 $ tfctl run status run-1234abcd
 ```
 
-Print out the status of the latest run on an existing workspace named "my-workspace".
+Print out the status of the latest run on a workspace using the workspace name.
 
 ```bash
 $ tfctl run status my-workspace
 ```
 
+Print out the status of the latest run on a workspace using the workspace ID.
+
+```bash
+$ tfctl run status ws-abc123xyz
+```
+
 ### `tfctl variable` reference
 
-#### Description
-
-Manage Terraform and environment variables for workspaces and variable sets.
+Manage Terraform and environment variables for workspaces and variable sets. Provide either a variable set or a workspace by name, or tfctl will scan the current working directory for Terraform configuration to attempt to determine the workspace name.
 
 #### Subcommands
 
@@ -419,7 +444,7 @@ $ tfctl api /organizations/{organization}/projects --attribute="name=my-project"
 
 Print a list of all the workspaces (up to a limit of 2000) for the currently configured organization, sorted by the time the last run was started.
 
-```
+```bash
 $ tfctl api /organizations/{organization}/workspaces --all --field="sort=-current-run.created-at"
 ```
 
