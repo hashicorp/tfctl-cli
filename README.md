@@ -16,6 +16,14 @@ Shell completion greatly assists with command, argument, and API path completion
 $ tfctl --autocomplete-install
 ```
 
+### Run in Docker
+
+If you have a TFCTL_TOKEN set in your environment, you can use this example to invoke tfctl using docker (see [Environment Variable Configuration](#environment-variable-configuration) for more configuration)
+
+```bash
+$ docker run -e TFCTL_TOKEN hashicorp/tfctl
+```
+
 ### AI Agent Skill
 
 tfctl ships with an agent skill that gives AI coding agents full access to HCP Terraform. You can install it using tfctl:

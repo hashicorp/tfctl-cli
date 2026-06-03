@@ -18,7 +18,7 @@ linux:
 
 .PHONY: docker
 docker: linux
-	docker build --platform=linux/$(GOARCH) --build-arg BUILD_DIRECTORY="dist" -t hashicorp/$(NAME):latest .
+	docker build --build-arg BUILD_DIRECTORY="dist" -t hashicorp/$(NAME):latest .
 
 .PHONY: bin
 bin: $(BIN_PATH)
