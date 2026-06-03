@@ -163,7 +163,7 @@ func SchemaFactory(cmdCtx *cmd.Context, logger hclog.Logger) Schema {
 
 		p := cmdCtx.Profile
 		api, err := cmdCtx.NewAPIClient(logger)
-		api.Adapter.Client.Timeout = 2 * time.Second // Don't wait too long for the API in case it's unresponsive
+		api.Adapter.Client.Timeout = 5 * time.Second // Don't wait too long for the API in case it's unresponsive
 
 		if err != nil {
 			logger.Error("Failed to create API client for OpenAPI schema loading, falling back to embedded version", "error", err)
@@ -171,24 +171,30 @@ func SchemaFactory(cmdCtx *cmd.Context, logger hclog.Logger) Schema {
 			return
 		}
 
-		loader, err := p.HostCache()
+		loader, err := p.HostCache(logger)
 		if err != nil {
 			logger.Error("Failed to get host cache for OpenAPI schema loading, falling back to embedded version", "error", err)
 			cachedSchema = LoadEmbeddedSchema()
 			return
 		}
 
-		data, err := loader.ReadOrRefresh(openAPISpecFile, func(mTime *time.Time) ([]byte, error) {
+		data, err := loader.ReadOrRefresh(openAPISpecFile, func(mTime *time.Time) profile.RefreshResult {
 			shouldUsePrerelease := strings.HasSuffix(p.GetHostname(), "terraform.io")
 
 			// This function should return nil data if the cached version is still fresh,
 			// or new data if the cache is outdated. Any error will be treated as a fetch failure.
-			data, err := api.TFE.Meta.OpenAPI.Read(cmdCtx.ShutdownCtx, shouldUsePrerelease, mTime)
+			response, err := api.TFE.Meta.OpenAPI.Read(cmdCtx.ShutdownCtx, shouldUsePrerelease, mTime)
 			if err != nil {
 				// Logged below
-				return nil, errors.New("remote openapi spec not found or failed to fetch")
+				return profile.RefreshResult{
+					Err: errors.New("remote openapi spec not found or failed to fetch"),
+				}
 			}
-			return data, nil
+
+			return profile.RefreshResult{
+				DataIfNew:    response.Bytes,
+				LastModified: response.LastModified,
+			}
 		})
 
 		if err != nil {

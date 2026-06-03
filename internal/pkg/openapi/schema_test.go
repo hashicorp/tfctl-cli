@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
@@ -121,11 +122,12 @@ func TestSchemaFactory(t *testing.T) {
 		}
 
 		// Pre-populate cache with the test spec.
-		loader, err := p.HostCache()
+		loader, err := p.HostCache(hclog.NewNullLogger())
 		require.NoError(t, err)
 
 		var openAPIFile profile.FileID = "openapi.json"
-		err = loader.Write(openAPIFile, testOpenAPISpec)
+		now := time.Now()
+		err = loader.Write(openAPIFile, testOpenAPISpec, &now)
 		require.NoError(t, err)
 
 		schema := SchemaFactory(cmdContext, hclog.NewNullLogger())
@@ -160,12 +162,13 @@ func TestSchemaFactory(t *testing.T) {
 		}
 
 		// Pre-populate cache with the embedded spec (simulating an outdated cache).
-		loader, err := p.HostCache()
+		loader, err := p.HostCache(hclog.NewNullLogger())
 		require.NoError(t, err)
 
 		var openAPIFile profile.FileID = "openapi.json"
+		now := time.Now()
 
-		err = loader.Write(openAPIFile, embeddedOpenAPISpec)
+		err = loader.Write(openAPIFile, embeddedOpenAPISpec, &now)
 		require.NoError(t, err)
 
 		schema := SchemaFactory(cmdContext, hclog.NewNullLogger())

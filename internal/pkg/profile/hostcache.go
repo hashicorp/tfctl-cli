@@ -6,11 +6,14 @@ import (
 	"path"
 	"path/filepath"
 	"time"
+
+	"github.com/hashicorp/go-hclog"
 )
 
 // HostCacheLoader is responsible for loading and refreshing cached data for a host.
 type HostCacheLoader struct {
-	dir string
+	dir    string
+	logger hclog.Logger
 }
 
 // FileID is an identifier for a specific cache file. It should only contain the file name
@@ -21,10 +24,30 @@ type FileID string
 // otherwise invalid.
 var ErrInvalidFileID = errors.New("invalid file ID: must be a file name without path components")
 
+// RefreshResult represents the result of a network refresh check, including the new data (if any).
+type RefreshResult struct {
+	DataIfNew    []byte
+	Err          error
+	LastModified *time.Time
+}
+
 // CheckRefreshFunc checks the upstream source for new data, returning nil if the
 // cached data is still valid, or the new data if it is not. Return an error if
 // the refresh check fails.
-type CheckRefreshFunc func(mTime *time.Time) ([]byte, error)
+type CheckRefreshFunc func(mTime *time.Time) RefreshResult
+
+// NewHostCacheLoader creates a new HostCacheLoader for the given hostname, using the provided logger for logging.
+func NewHostCacheLoader(baseDir, hostname string, logger hclog.Logger) (*HostCacheLoader, error) {
+	hostDir := filepath.Join(baseDir, normalizeHostname(hostname))
+	if err := os.MkdirAll(hostDir, 0766); err != nil {
+		return nil, err
+	}
+
+	return &HostCacheLoader{
+		dir:    hostDir,
+		logger: logger.ResetNamed("hostcache").With("hostname", hostname),
+	}, nil
+}
 
 func (f FileID) valid() bool {
 	isFilename := string(f) == path.Base(string(f))
@@ -55,21 +78,30 @@ func (h HostCacheLoader) ReadOrRefresh(fileID FileID, check CheckRefreshFunc) ([
 		return nil, err
 	}
 
-	data, err := check(mTime)
-	if err != nil {
-		return nil, err
+	if mTime != nil {
+		h.logger.Debug("Checking remote against cache", "file", string(fileID), "modTime", mTime)
+	} else {
+		h.logger.Debug("No cached file found, fetching new data", "file", string(fileID))
 	}
 
-	if data == nil {
+	result := check(mTime)
+	if result.Err != nil {
+		h.logger.Debug("Failed to check remote against cache", "file", string(fileID), "error", result.Err)
+		return nil, result.Err
+	}
+
+	if result.DataIfNew == nil {
+		h.logger.Debug("Cached file is up-to-date", "file", string(fileID))
 		// This means the data is not newer than what is cached, read from cache
 		return h.read(fileID)
 	}
 
-	if err := h.Write(fileID, data); err != nil {
+	if err := h.Write(fileID, result.DataIfNew, result.LastModified); err != nil {
+		h.logger.Debug("Cached file is stale; updating cache", "file", string(fileID))
 		return nil, err
 	}
 
-	return data, nil
+	return result.DataIfNew, nil
 }
 
 func (h HostCacheLoader) mtime(fileID FileID) (*time.Time, error) {
@@ -87,13 +119,22 @@ func (h HostCacheLoader) mtime(fileID FileID) (*time.Time, error) {
 }
 
 // Write writes the given data to the cache with the given fileID, overwriting any existing data.
-func (h HostCacheLoader) Write(fileID FileID, data []byte) error {
+func (h HostCacheLoader) Write(fileID FileID, data []byte, lastModified *time.Time) error {
 	if !fileID.valid() {
 		return ErrInvalidFileID
 	}
 
 	path := filepath.Join(h.dir, string(fileID))
-	return os.WriteFile(path, data, 0o666)
+	err := os.WriteFile(path, data, 0o666)
+	if err != nil {
+		return err
+	}
+
+	if lastModified != nil {
+		return os.Chtimes(path, time.Now(), *lastModified)
+	}
+
+	return nil
 }
 
 func (h HostCacheLoader) read(fileID FileID) ([]byte, error) {

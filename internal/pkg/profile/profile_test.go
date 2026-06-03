@@ -7,7 +7,9 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 	"github.com/stretchr/testify/require"
 )
@@ -146,10 +148,11 @@ func TestProfile_HostCache(t *testing.T) {
 		Hostname:     "example.com",
 		hostCacheDir: t.TempDir(),
 	}
-	h, err := p.HostCache()
+	h, err := p.HostCache(hclog.NewNullLogger())
 	r.NoError(err)
 
-	err = h.Write(FileID("test.json"), []byte(`{"ok":true}`))
+	now := time.Now()
+	err = h.Write(FileID("test.json"), []byte(`{"ok":true}`), &now)
 	r.NoError(err)
 
 	r.FileExists(path.Join(h.dir, "test.json"))
