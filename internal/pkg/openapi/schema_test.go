@@ -75,7 +75,8 @@ func TestSchemaFactory(t *testing.T) {
 		t.Cleanup(resetSchemaFactory)
 
 		srv := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/api/meta/openapi" {
+			t.Log("test server received request", "method", r.Method, "path", r.URL.Path)
+			if r.URL.Path == "/openapi/prerelease.json" {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write(testOpenAPISpec)
@@ -105,7 +106,7 @@ func TestSchemaFactory(t *testing.T) {
 		t.Cleanup(resetSchemaFactory)
 
 		srv := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/api/meta/openapi" {
+			if r.URL.Path == "/openapi/prerelease.json" {
 				// Return 304 Not Modified to indicate the cache is still fresh.
 				w.WriteHeader(http.StatusNotModified)
 				return
@@ -142,7 +143,7 @@ func TestSchemaFactory(t *testing.T) {
 		t.Cleanup(resetSchemaFactory)
 
 		srv := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/api/meta/openapi" {
+			if r.URL.Path == "/openapi/prerelease.json" {
 				// Server returns new data (ignores If-Modified-Since for simplicity).
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
