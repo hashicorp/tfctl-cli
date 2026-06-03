@@ -5,7 +5,7 @@
 
 Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise platform.
 
-tfctl provides both high-level commands for common workflows (managing runs, variables, and workspaces) and low-level API access for advanced automation. It supports multiple configuration profiles, allowing you to easily switch between different HCP Terraform organizations and Terraform Enterprise instances.
+tfctl provides both high-level commands for common workflows (managing runs, variables, and workspaces) and direct API access for advanced automation. It supports multiple configuration profiles, allowing you to easily switch between different HCP Terraform organizations and Terraform Enterprise instances. It also integrates with AI coding agents to facilitate agent-assisted management of Terraform workflows.
 
 ![tfctl](assets/tfctl.png "tfctl")
 
@@ -212,28 +212,47 @@ tfctl supports the following global flags.
   - Data type: Boolean flag
   - Defaults to false.
 
-### `tfctl auth` reference
+### `tfctl auth login` reference
 
-Authenticate with HCP Terraform or Terraform Enterprise, or check authentication token status.
+**Usage:** `tfctl auth login [options]`
 
-#### Subcommands
+#### Description
 
-- `login`: Create and save an authentication token to login to HCP Terraform or Terraform Enterprise.
-- `status`: Check the status of the currently configured authentication token.
+Authenticate the tfctl CLI with HCP Terraform or Terraform Enterprise. Opens a browser to the token creation page for the configured hostname and prompts you to paste the generated token.
 
-#### Example usage
+#### Examples
 
-Create an authentication token for the configured host, either HCP Terraform or your Terraform Enterprise instance.
+Login interactively:
 
 ```bash
 $ tfctl auth login
 ```
 
-Check the status of the token for the configured host, including expiration date if available.
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
+### `tfctl auth status` reference
+
+**Usage:** `tfctl auth status [options]`
+
+#### Description
+
+Check the status of the currently configured authentication token, including expiration date if available.
+
+#### Examples
+
+Check the status of the token for the configured host:
 
 ```bash
 $ tfctl auth status
 ```
+
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
 
 ### `tfctl harness` reference
 
@@ -267,211 +286,556 @@ Print out agent context for tfctl, suitable for AGENTS.md.
 $ tfctl harness context
 ```
 
-### `tfctl profile` reference
+### `tfctl profile display` reference
 
-Configure and manage tfctl user profiles. Profiles allow you to use tfctl to manage multiple organizations and instances of HCP Terraform or Terraform Enterprise.
+**Usage:** `tfctl profile display [options]`
 
-#### Subcommands
+#### Description
 
-- `display`: Print out configuration for the active profile.
-- `get PROPERTY`: Get the value of the given configuration property for the active profile.
-- `set PROPERTY`: Set the value of the given configuration property for the active profile.
-- `unset PROPERTY`: Unset the value of the given configuration property for the active profile.
+Print out configuration for the active profile.
 
-#### Command groups
-
-- [`profiles`](#tfctl-profile-profiles-reference): Manage profiles
-
-#### Example usage
-
-Display configuration for the active profile.
+#### Examples
 
 ```bash
 $ tfctl profile display
 ```
 
-Set the organization to "my-organization" for the active profile.
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
+### `tfctl profile get` reference
+
+**Usage:** `tfctl profile get PROPERTY [options]`
+
+#### Description
+
+Get the value of the given configuration property for the active profile.
+
+#### Arguments
+
+- `PROPERTY`: The configuration property name to retrieve.
+  - Required argument
+  - Data type: String
+
+#### Examples
+
+```bash
+$ tfctl profile get organization
+```
+
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
+### `tfctl profile set` reference
+
+**Usage:** `tfctl profile set PROPERTY VALUE [options]`
+
+#### Description
+
+Set the value of the given configuration property for the active profile.
+
+#### Arguments
+
+- `PROPERTY`: The configuration property name to set.
+  - Required argument
+  - Data type: String
+
+- `VALUE`: The value to set for the property.
+  - Required argument
+  - Data type: String
+
+#### Examples
+
+Set the organization to "my-organization" for the active profile:
 
 ```bash
 $ tfctl profile set organization my-organization
 ```
 
-### `tfctl profile profiles` reference
+#### Related
 
-Manage tfctl user profiles.
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
 
-#### Subcommands
+### `tfctl profile unset` reference
 
-- `activate NAME`: Activate an existing named profile.
-- `create NAME`: Create a new profile, and activate it.
-  - `--no-activate`: Don't automatically activate the new profile.
-  - `--hostname=HOST`: Set the hostname for the new profile.
-- `delete NAME`: Delete an existing named profile.
-- `list`: List existing profiles.
-- `rename NAME`: Rename an existing named profile.
-  - `--new_name=NAME`: Set the profile name. Required.
+**Usage:** `tfctl profile unset PROPERTY [options]`
 
-#### Example usage
+#### Description
 
-Create and switch to a new profile.
+Unset the value of the given configuration property for the active profile.
 
-```bash
-$ tfctl profile profiles create NAME --hostname=HOST
-```
+#### Arguments
 
-List configured profiles.
+- `PROPERTY`: The configuration property name to unset.
+  - Required argument
+  - Data type: String
+
+#### Examples
 
 ```bash
-$ tfctl profile profiles list
+$ tfctl profile unset organization
 ```
 
-Switch to a profile by name.
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
+### `tfctl profile profiles activate` reference
+
+**Usage:** `tfctl profile profiles activate NAME [options]`
+
+#### Description
+
+Activate an existing named profile.
+
+#### Arguments
+
+- `NAME`: The profile name to activate.
+  - Required argument
+  - Data type: String
+
+#### Examples
+
+Switch to a profile by name:
 
 ```bash
 $ tfctl profile profiles activate NAME
 ```
 
-Switch back to the default profile.
+Switch back to the default profile:
 
 ```bash
 $ tfctl profile profiles activate default
 ```
 
-### `tfctl run` reference
+#### Related
 
-Print out the status of Terraform runs, or start a new run.
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
 
-#### Subcommands
+### `tfctl profile profiles create` reference
 
-- `start WORKSPACE`: Start a new run on the workspace specified by ID or name.
-  - `--allow-empty-apply`: Allow the run to proceed even if the plan has no changes.
-  - `--debugging-mode`: Enables trace logging for this run by setting TF_LOG=trace in the terraform environment for this run.
-  - `--message MESSAGE`: Attach a message to the run.
-  - `--organization NAME`: Organization name, overrides profile's configured organization name.
-- `status ID`: Print out the status of a run by run ID, or the latest run on a workspace by workspace ID or name.
-  - `--organization NAME`: Organization name, overrides profile's configured organization name.
+**Usage:** `tfctl profile profiles create NAME [options]`
 
-#### Example usage
+#### Description
 
-Start a new run on an existing workspace named "my-workspace".
+Create a new profile, and activate it automatically unless `--no-activate` is specified.
+
+#### Arguments
+
+- `NAME`: The profile name to create.
+  - Required argument
+  - Data type: String
+
+#### Flags
+
+- `--no-activate`: Don't automatically activate the new profile.
+  - Optional
+  - Data type: Boolean flag
+  - Default: false
+
+- `--hostname`: Set the hostname for the new profile.
+  - Optional
+  - Data type: String
+
+#### Examples
+
+Create and switch to a new profile:
+
+```bash
+$ tfctl profile profiles create NAME --hostname=HOST
+```
+
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
+### `tfctl profile profiles list` reference
+
+**Usage:** `tfctl profile profiles list [options]`
+
+#### Description
+
+List existing profiles.
+
+#### Examples
+
+```bash
+$ tfctl profile profiles list
+```
+
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
+### `tfctl profile profiles delete` reference
+
+**Usage:** `tfctl profile profiles delete PROFILE_NAMES [PROFILE_NAMES ...] [options]`
+
+#### Description
+
+Delete an existing named profile.
+
+#### Arguments
+
+- `PROFILE_NAMES`: One or more profile names to delete.
+  - Required argument
+  - Data type: String (repeatable)
+
+#### Examples
+
+```bash
+$ tfctl profile profiles delete old-profile
+```
+
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
+### `tfctl profile profiles rename` reference
+
+**Usage:** `tfctl profile profiles rename NAME --new_name=NEW_NAME [options]`
+
+#### Description
+
+Rename an existing named profile.
+
+#### Arguments
+
+- `NAME`: The current profile name.
+  - Required argument
+  - Data type: String
+
+#### Flags
+
+- `--new_name`: Set the new profile name.
+  - Required
+  - Data type: String
+
+#### Examples
+
+```bash
+$ tfctl profile profiles rename old-name --new_name=new-name
+```
+
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
+### `tfctl run start` reference
+
+**Usage:** `tfctl run start WORKSPACE [options]`
+
+#### Description
+
+Start a new run on the workspace specified by ID or name.
+
+#### Arguments
+
+- `WORKSPACE`: Workspace ID or name.
+  - Required argument
+  - Data type: String
+
+#### Flags
+
+- `--allow-empty-apply`: Allow the run to proceed even if the plan has no changes.
+  - Optional
+  - Data type: Boolean flag
+  - Default: false
+
+- `--debugging-mode`: Enables trace logging for this run by setting TF_LOG=trace in the terraform environment for this run.
+  - Optional
+  - Data type: Boolean flag
+  - Default: false
+
+- `--message`: Attach a message to the run.
+  - Optional
+  - Data type: String
+
+- `--organization`: Organization name, overrides profile's configured organization name.
+  - Optional
+  - Data type: String
+
+#### Examples
+
+Start a new run on an existing workspace named "my-workspace":
 
 ```bash
 $ tfctl run start my-workspace
 ```
 
-Print out the status of a run with an ID of "run-1234abcd".
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
+### `tfctl run status` reference
+
+**Usage:** `tfctl run status ID [options]`
+
+#### Description
+
+Print out the status of a run by run ID, or the latest run on a workspace by workspace ID or name.
+
+The ID argument can be:
+- A run ID (run-...)
+- A workspace ID (ws-...) to get the latest run
+- A workspace name to get the latest run (may require --organization)
+
+#### Arguments
+
+- `ID`: Run ID, workspace ID, or workspace name.
+  - Required argument
+  - Data type: String
+
+#### Flags
+
+- `--organization`: Organization name.
+  - Optional
+  - Data type: String
+  - Default: Defaults to profile or terraform cloud config context
+
+#### Examples
+
+Print out the status of a run with an ID of "run-1234abcd":
 
 ```bash
 $ tfctl run status run-1234abcd
 ```
 
-Print out the status of the latest run on a workspace using the workspace name.
+Print out the status of the latest run on a workspace using the workspace name:
 
 ```bash
 $ tfctl run status my-workspace
 ```
 
-Print out the status of the latest run on a workspace using the workspace ID.
+Print out the status of the latest run on a workspace using the workspace ID:
 
 ```bash
 $ tfctl run status ws-abc123xyz
 ```
 
-### `tfctl variable` reference
+#### Related
 
-Manage Terraform and environment variables for workspaces and variable sets. Provide either a variable set or a workspace by name, or tfctl will scan the current working directory for Terraform configuration to attempt to determine the workspace name.
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
 
-#### Subcommands
+### `tfctl variable import` reference
 
-- `import`: Import variables to a workspace or variable set.
-  - `TFVARS_FILE`: Import Terraform variables from a .tfvars file. Optional
-  - `--env=NAME`, `-e NAME`: Import environment variable by name. Repeatable.
-  - `--overwrite`: Overwrite existing variable instead of erroring.
-  - `--variable-set-name=NAME`: Import variables to variable set by name.
-  - `--workspace=NAME`: Import variables to workspace by name.
+**Usage:** `tfctl variable import [TFVARS_FILE] [options]`
 
-#### Example usage
+#### Description
 
-Import Terraform variables from "terraform.tfvars" file to a workspace named "my-workspace".
+Import Terraform variables from .tfvars files or environment variables from the tfctl process environment into Workspaces or Variable Sets.
+
+Provide either a variable set or a workspace by name, or tfctl will scan the current working directory for Terraform configuration to attempt to determine the workspace name.
+
+#### Arguments
+
+- `TFVARS_FILE`: The .tfvars file to import variables from.
+  - Optional argument
+  - Data type: File path (string)
+
+#### Flags
+
+- `--env`, `-e`: Environment variable to import.
+  - Repeatable
+  - Data type: String
+
+- `--organization`: Organization name.
+  - Optional
+  - Data type: String
+  - Default: Defaults to config or terraform cloud config context
+
+- `--overwrite`: Update matching existing variables instead of erroring.
+  - Optional
+  - Data type: Boolean flag
+  - Default: false
+
+- `--variable-set-name`: Target Variable Set by name.
+  - Optional
+  - Data type: String
+  - Default: Defaults to workspace if not set
+
+- `--workspace`: Workspace name override.
+  - Optional
+  - Data type: String
+  - Default: Defaults to terraform cloud config context
+
+#### Examples
+
+Import Terraform variables from "terraform.tfvars" file to a workspace named "my-workspace":
 
 ```bash
 $ tfctl variable import terraform.tfvars --workspace=my-workspace
 ```
 
-Import multiple environment variables into a variable set named "my-varset", overwriting existing values if any.
+Import multiple environment variables into a variable set named "my-varset", overwriting existing values if any:
 
 ```bash
 $ tfctl variable import --overwrite --variable-set-name=my-varset --env=AWS_ACCESS_KEY_ID --env=AWS_SECRET_ACCESS_KEY
 ```
 
+#### Related
+
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
+
 ### `tfctl api` reference
 
-Perform any HCP Terraform API v2 request with the given path or URL, or inspect the API schema.
+**Usage:** `tfctl api PATH [options]`
+
+#### Description
+
+Perform any HCP Terraform API v2 request with the given path or URL.
+
+The HCP Terraform API typically requires a resource ID as part of the path for resource-specific requests. To support this, tfctl interpolates parameter values in the `PATH` argument denoted by `{NAME}`. Whenever possible, tfctl will infer these values from the path, the active profile, or local Terraform configuration. You can provide values for named parameters with the `--pathparam` argument.
 
 #### Arguments
 
 - `PATH`: API path relative to configured host, or URL.
+  - Required argument
+  - Data type: String
+
+#### Flags
+
 - `--all`: Disable pagination and fetch all records, to a maximum of 2000.
-- `--attribute=NAME=VALUE`, `-a NAME=VALUE`: Set attribute in request body. Implies `--method=POST`. Repeatable.
-- `--field=KEY=VALUE`, `-f KEY=VALUE`: Set query parameter in request URL. Repeatable.
-- `--header='name: value'`, `-H 'name: value'`: Set request header. Repeatable.
-- `--input=BODY`, `-i BODY`: Set raw JSON request body, use `-` to read from stdin.
-- `--method=METHOD`, `-X METHOD`: HTTP method to use (e.g. GET, POST, etc.)
-- `--page-number=NUMBER`: Page number to return. Ignored if --all is set. Default is 1.
-- `--page-size=SIZE`: Limit the number of records to return. Default varies by resource. Ignored if --all is set.
-- `--pathparam=NAME=VALUE`, `-p NAME=VALUE`: Provide a hint for path parameter resolution. Repeatable.
-- `--type=JSON:API TYPE`, `-t JSON:API TYPE`: Resource type for --attribute JSON:API request bodies. 
+  - Optional
+  - Data type: Boolean flag
+  - Default: false
 
-The HCP Terraform API typically requires a resource ID as part of the path for resource-specific requests. To support this, tfctl interpolates parameter values in the `PATH` argument denoted by `{NAME}`. Whenever possible, tfctl will infer these values from the path, the active profile, or local Terraform configuration. You can provide values for named parameters with the `--pathparam` argument.
+- `--attribute`, `-a`: Set attribute in request body. Implies `--method=POST`.
+  - Repeatable
+  - Data type: String (NAME=VALUE format)
 
-#### Command groups
+- `--field`, `-f`: Set query parameter in request URL.
+  - Repeatable
+  - Data type: String (KEY=VALUE format)
 
-- [`schema`](#tfctl-api-schema-reference): Inspect API schema.
+- `--header`, `-H`: Set request header.
+  - Repeatable
+  - Data type: String ('name: value' format)
 
-#### Example usage
+- `--input`, `-i`: Set raw JSON request body, use `-` to read from stdin.
+  - Optional
+  - Data type: String or file path
 
-Print out details about the account associated with the configured token in JSON format.
+- `--method`, `-X`: HTTP method to use (e.g. GET, POST, etc.)
+  - Optional
+  - Data type: String
+
+- `--page-number`: Page number to return. Ignored if --all is set.
+  - Optional
+  - Data type: Number
+  - Default: 1
+
+- `--page-size`: Limit the number of records to return. Default varies by resource. Ignored if --all is set.
+  - Optional
+  - Data type: Number
+
+- `--pathparam`, `-p`: Provide a hint for path parameter resolution.
+  - Repeatable
+  - Data type: String (NAME=VALUE format)
+
+- `--type`, `-t`: Resource type for --attribute JSON:API request bodies.
+  - Optional
+  - Data type: String
+
+#### Examples
+
+Print out details about the account associated with the configured token in JSON format:
 
 ```bash
 $ tfctl api /account/details --json
 ```
 
-Create a project named "my-project" for the currently configured organization.
+Create a project named "my-project" for the currently configured organization:
 
 ```bash
 $ tfctl api /organizations/{organization}/projects --attribute="name=my-project" --attribute="description=A very fine project indeed."
 ```
 
-Print a list of all the workspaces (up to a limit of 2000) for the currently configured organization, sorted by the time the last run was started.
+Print a list of all the workspaces (up to a limit of 2000) for the currently configured organization, sorted by the time the last run was started:
 
 ```bash
 $ tfctl api /organizations/{organization}/workspaces --all --field="sort=-current-run.created-at"
 ```
 
-### `tfctl api schema` reference
+#### Related
 
-Search for API operations from the OpenAPI spec and inspect a single operation schema.
+- [`tfctl api schema`](#tfctl-api-schema-get-reference): Inspect API schema
+- [Configuration reference](#configuration-reference)
+- [Global flags](#global-flags)
 
-#### Subcommands
+### `tfctl api schema get` reference
 
-- `get`: Show a trimmed OpenAPI document for a single operationId or all operations on an exact API path.
-  - `OPERATION_ID_OR_PATH`: An exact OpenAPI operationId or an API path (starting with /) to inspect.
-- `search`: Search API operations by keywords.
-  - `QUERY`: The search query to match against API operations. Repeatable.
+**Usage:** `tfctl api schema get OPERATION_ID_OR_PATH [options]`
 
-#### Example usage
+#### Description
 
-Inspect the getWorkspace operation.
+Show a trimmed OpenAPI document for a single operationId or all operations on an exact API path.
+
+#### Arguments
+
+- `OPERATION_ID_OR_PATH`: An exact OpenAPI operationId or an API path (starting with /) to inspect.
+  - Required argument
+  - Data type: String
+
+#### Examples
+
+Inspect the getWorkspace operation:
 
 ```bash
 $ tfctl api schema get getWorkspace
 ```
 
-Print out all operations available for workspaces.
+Print out all operations available for workspaces:
 
 ```bash 
 $ tfctl api schema get /organizations/{organization}/workspaces
 ```
+
+#### Related
+
+- [`tfctl api`](#tfctl-api-reference): Perform API requests
+- [Global flags](#global-flags)
+
+### `tfctl api schema search` reference
+
+**Usage:** `tfctl api schema search QUERY [QUERY ...] [options]`
+
+#### Description
+
+Search API operations by keywords.
+
+#### Arguments
+
+- `QUERY`: The search query to match against API operations.
+  - Required argument (repeatable)
+  - Data type: String
+
+#### Examples
+
+Search for workspace-related operations:
+
+```bash
+$ tfctl api schema search workspace
+```
+
+#### Related
+
+- [`tfctl api`](#tfctl-api-reference): Perform API requests
+- [Global flags](#global-flags)
 
 ## Exit codes
 
