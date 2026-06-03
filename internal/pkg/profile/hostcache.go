@@ -39,7 +39,7 @@ type CheckRefreshFunc func(mTime *time.Time) RefreshResult
 // NewHostCacheLoader creates a new HostCacheLoader for the given hostname, using the provided logger for logging.
 func NewHostCacheLoader(baseDir, hostname string, logger hclog.Logger) (*HostCacheLoader, error) {
 	hostDir := filepath.Join(baseDir, normalizeHostname(hostname))
-	if err := os.MkdirAll(hostDir, 0766); err != nil {
+	if err := os.MkdirAll(hostDir, 0o766); err != nil {
 		return nil, err
 	}
 
@@ -86,8 +86,8 @@ func (h HostCacheLoader) ReadOrRefresh(fileID FileID, check CheckRefreshFunc) ([
 		return h.read(fileID)
 	}
 
+	h.logger.Debug("Cached file is stale; updating cache", "file", string(fileID))
 	if err := h.Write(fileID, result.DataIfNew, result.LastModified); err != nil {
-		h.logger.Debug("Cached file is stale; updating cache", "file", string(fileID))
 		return nil, err
 	}
 
