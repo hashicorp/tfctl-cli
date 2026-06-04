@@ -45,7 +45,7 @@ You can uninstall shell completion with the `tfctl --autocomplete-uninstall` com
 
 ### Install AI agent skill
 
-tfctl ships with an agent skill that gives AI coding agents access to HCP Terraform, but discourages non-human delete operationss. You can install it using tfctl or NPX. Replace AGENT with one of the supported AI agents: `bob`, `claude`, `codex`, `copilot`, `gemini`, `opencode`, or `pi`.
+tfctl ships with an agent skill that gives AI coding agents access to HCP Terraform through tfctl, but discourages non-human delete operationss. You can install it using tfctl or NPX. Replace AGENT with one of the supported AI agents: `bob`, `claude`, `codex`, `copilot`, `gemini`, `opencode`, or `pi`.
 
 To install the skill with tfctl, run:
 
@@ -107,36 +107,35 @@ tfctl will activate the new profile automatically.
 
 **Command Syntax:** `tfctl <command> [subcommand] [flags] [arguments]`
 
-tfctl provides access to runs, variables, and other HCP Terraform features through named subcommands. tfctl also provides direct access to the [HCP Terraform API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs) with the `tfctl api` subcommand.
-
 ```bash
-# See status/diagnose Workspace current run
-tfctl run status my-workspace
+# Scenario: Check the status of two workspaces across two instances of HCP Terraform. Start a run on a workspace.
 
-# Import variables from a tfvars file to the Terraform workspace configured in the current directory
-tfctl variable import bigsecret.tfvars
+# Configure profiles for EU and US organizations, and authenticate to both. You must already have users with access to the organizations in each HCP Terraform instance.
+$ tfctl profile profiles create us --hostname=app.terraform.io
+$ tfctl profile set organization my-us-org-name
+$ tfctl auth login # Create API token in web browser, copy it, then paste it to terminal
 
-# Import variables from a tfvars file to a new variable set
-tfctl variable import bigsecret.tfvars --variable-set-name="production"
+$ tfctl profile profiles create eu --hostname=app.eu.terraform.io
+$ tfctl profile set organization my-eu-org-name
+$ tfctl auth login # Create API token in web browser, copy it, then paste it to terminal
 
-# Import environment variables available to the Terraform workspace configured in the current directory
-tfctl variable import -e AWS_REGION -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY
+# Get workspace configuration from EU org. Workspace must already exist in this org.
+$ tfctl api /organizations/{organization}/workspaces/example-app-workspace
 
-# Execute any API v2 GET query
-tfctl api /account/details # Table format
-tfctl api /organizations --json # JSON format
+# Get status of last workspace run
+$ tfctl run status example-app-workspace
 
-# Execute any POST query by specifying -a for request body attributes in key=value format or -i for raw request body input
-tfctl api /organizations/acme/projects -a "name=my-project" -a "description=A very fine project"
+# Switch to US profile
+$ tfctl profile profiles activate us
 
-# ...or use a JSON input file as the body
-tfctl api /organizations/acme/projects --input my-project.json
+# Start a run on the US workspace. Workspace must already exist in this org.
+$ tfctl run start example-app-workspace --message="Run started with tfctl."
 
-# ...or use stdin as the request body
-./generate_hcptf_run.sh | tfctl api /runs --input -
+# Check run status
+$ tfctl run status example-app-workspace
 
-# Fetch all workspaces (up to 1000 pages of data) and sorts by latest runs
-tfctl api /organizations/acme/workspaces --all -f "sort=-current-run.created-at"
+# Get detailed run status in JSON format
+$ tfctl run status example-app-workspace --json
 ```
 
 ## Configuration reference
@@ -683,7 +682,7 @@ $ tfctl variable import terraform.tfvars --workspace=my-workspace
 Import multiple environment variables into a variable set named "my-varset", overwriting existing values if any:
 
 ```bash
-$ tfctl variable import --overwrite --variable-set-name=my-varset --env=AWS_ACCESS_KEY_ID --env=AWS_SECRET_ACCESS_KEY
+$ tfctl variable import --overwrite --variable-set-name="my-varset" --env=AWS_ACCESS_KEY_ID --env=AWS_SECRET_ACCESS_KEY
 ```
 
 #### Related
