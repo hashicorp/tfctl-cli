@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 ARG base_image=docker.mirror.hashicorp.services/alpine:3.21
-FROM ${base_image}
+FROM ${base_image} AS single
 
 ARG PRODUCT_NAME
 ARG PRODUCT_VERSION
