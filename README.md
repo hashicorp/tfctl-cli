@@ -653,13 +653,13 @@ Provide either a variable set or a workspace by name, or tfctl will scan the cur
 
 #### Arguments
 
-- `TFVARS_FILE`: The .tfvars file to import variables from.
+- `TFVARS_FILE`: The .tfvars file to import variables from. tfctl will configure variables whose names indicate they may be sensitive as sensitive.
   - Optional argument
   - Data type: File path (string)
 
 #### Flags
 
-- `--env`, `-e`: Environment variable to import.
+- `--env`, `-e`: Environment variable to import. tfctl will configure all imported environment variables as sensitive.
   - Repeatable
   - Data type: String
 
