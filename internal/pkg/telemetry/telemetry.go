@@ -146,6 +146,9 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 		opts := []otlptracehttp.Option{
 			otlptracehttp.WithEndpoint(resolveEndpoint(cfg.Hostname)),
 		}
+		if strings.HasPrefix(resolveEndpoint(cfg.Hostname), "localhost") {
+			opts = append(opts, otlptracehttp.WithInsecure())
+		}
 		exporter, err = otlptracehttp.New(ctx, opts...)
 	}
 
