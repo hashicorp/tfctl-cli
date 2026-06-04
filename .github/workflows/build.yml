@@ -263,16 +263,15 @@ jobs:
           pkg_name: ${{ env.PKG_NAME }}_${{ env.product_version }}
           bin_name: ${{ env.PKG_NAME }}
           version: ${{ env.product_version }}${{ matrix.version }}
-          target: release-default
           dockerfile: ${{ matrix.dockerfile }}
           arch: ${{ matrix.arch }}
           # The ECR tag used below is to allow us to test by pushing to a private ECR registry.
-          # If you want to pubish to ECR use the following syntax instead - public.ecr.aws/hashicorp/${{env.repo}}:${{env.version}}.
+          # If you want to pubish to ECR use the following syntax instead - public.ecr.aws/hashicorp/${{env.PKG_NAME}}:${{env.version}}.
           # Please note - if you haven't previously been publishing to ECR you will need to reach out to team-rel-eng
           # - https://hashicorp.atlassian.net/wiki/spaces/RDXPOC/pages/2298218311/How+to+Push+a+Docker+image+to+ECR
           tags: |
-            docker.io/hashicorp/${{ env.repo }}:${{ env.product_version }}
-            986891699432.dkr.ecr.us-east-1.amazonaws.com/hashicorp/${{ env.repo }}:${{ env.product_version }}
+            docker.io/hashicorp/${{ env.PKG_NAME }}:${{ env.product_version }}
+            986891699432.dkr.ecr.us-east-1.amazonaws.com/hashicorp/${{ env.PKG_NAME }}:${{ env.product_version }}
           # dev_tags are tags that get automatically pushed whenever successful
           # builds make it to the stable channel. The intention is for these tags
           # to be used for early testing of new code prior to official releases
@@ -293,72 +292,5 @@ jobs:
           # will fail to any other DockerHub org or registry. You can optionally
           # prepend docker.io
           dev_tags: |
-            docker.io/hashicorppreview/${{ env.repo }}:${{ env.product_version }}-dev
-            docker.io/hashicorppreview/${{ env.repo }}:${{ env.product_version }}-${{ github.sha }}
-
-  build-docker-alternate:
-    name: Docker release-alternate ${{matrix.runner}}/${{ matrix.arch }}
-    needs:
-      - set-product-version
-      - build-linux
-    runs-on: ${{matrix.runner}}
-    strategy:
-      matrix:
-        runner: [ubuntu-22.04]
-        arch: ["arm", "arm64", "386", "amd64"]
-      fail-fast: false # recommended during development
-    env:
-      repo: ${{ github.event.repository.name }}
-      product_version: ${{ needs.set-product-version.outputs.product-version }}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: hashicorp/actions-docker-build@v2
-        with:
-          version: ${{ env.product_version }}
-          pkg_name: ${{ env.PKG_NAME }}_${{ env.product_version }}
-          bin_name: ${{ env.PKG_NAME }}
-          target: release-alternate
-          arch: ${{ matrix.arch }}
-          tags: |
-            docker.io/hashicorp/${{ env.repo }}-alternate:${{ env.product_version }}
-            986891699432.dkr.ecr.us-east-1.amazonaws.com/hashicorp/${{ env.repo }}:alternate-${{ env.product_version }}
-          dev_tags: |
-            docker.io/hashicorppreview/${{ env.repo }}-alternate:${{ env.product_version }}-dev
-            docker.io/hashicorppreview/${{ env.repo }}-alternate:${{ env.product_version }}-${{ github.sha }}
-
-  # build-docker-redhat is an example of how to build a Red Hat Certified Container (RHCC) Image.
-  # This means it uses the 'redhat_tag' input, instead of 'tags' and 'dev_tags'.
-  # By convention, we will also publish the same images to Docker.io.
-  build-docker-redhat:
-    name: Docker release-ubi ${{matrix.runner}}/${{ matrix.arch }}
-    strategy:
-      matrix:
-        runner: [ubuntu-22.04]
-        arch: [arm64, amd64]
-      fail-fast: false # recommended during development
-    needs:
-      - set-product-version
-      - build-linux
-    runs-on: ${{matrix.runner}}
-    env:
-      repo: ${{github.event.repository.name}}
-      product_version: ${{needs.set-product-version.outputs.product-version}}
-      minor_version: ${{needs.set-product-version.outputs.product-minor-version}}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: hashicorp/actions-docker-build@v2
-        with:
-          version: ${{env.product_version}}
-          pkg_name: ${{ env.PKG_NAME }}_${{ env.product_version }}
-          bin_name: ${{ env.PKG_NAME }}
-          target: release-ubi
-          arch: ${{ matrix.arch }}
-          redhat_tag: quay.io/redhat-isv-containers/62211e0d8bf2cabc69a39c7d:${{env.product_version}}-ubi
-          # TODO: Multiple redhat_tags are not supported at this time.
-          # quay.io/redhat-isv-containers/62211e0d8bf2cabc69a39c7d:${{env.minor_version}}-ubi
-          dev_tags: |
-            docker.io/hashicorppreview/${{ env.repo }}:${{ env.product_version }}-ubi
-            docker.io/hashicorppreview/${{ env.repo }}:${{ env.minor_version }}-ubi
-          tags:
-            docker.io/hashicorp/${{ env.repo }}:${{ env.product_version }}-ubi
-            docker.io/hashicorp/${{ env.repo }}:${{ env.minor_version }}-ubi
+            docker.io/hashicorppreview/${{ env.PKG_NAME }}:${{ env.product_version }}-dev
+            docker.io/hashicorppreview/${{ env.PKG_NAME }}:${{ env.product_version }}-${{ github.sha }}
