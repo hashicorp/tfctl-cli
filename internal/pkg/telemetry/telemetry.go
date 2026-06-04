@@ -149,6 +149,11 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 		if strings.HasPrefix(resolveEndpoint(cfg.Hostname), "localhost") {
 			opts = append(opts, otlptracehttp.WithInsecure())
 		}
+
+		if strings.HasSuffix(resolveEndpoint(cfg.Hostname), ".terraform.io") {
+			opts = append(opts, otlptracehttp.WithURLPath("/otlp/v1/traces"))
+		}
+
 		exporter, err = otlptracehttp.New(ctx, opts...)
 	}
 
