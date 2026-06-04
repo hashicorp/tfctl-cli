@@ -198,3 +198,24 @@ func TestCommand_GlobalExitCode(t *testing.T) {
 		})
 	}
 }
+
+func TestCommand_CommandPath(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	root := &Command{Name: "tfctl"}
+	run := &Command{Name: "run"}
+	start := &Command{Name: "start"}
+
+	root.AddChild(run)
+	run.AddChild(start)
+
+	// Root command has no path (parent is nil).
+	r.Equal("", root.CommandPath())
+
+	// Direct child of root.
+	r.Equal("run", run.CommandPath())
+
+	// Grandchild: should return full path excluding root.
+	r.Equal("run start", start.CommandPath())
+}

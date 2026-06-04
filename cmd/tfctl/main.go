@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
@@ -66,12 +67,28 @@ func realMain() int {
 		io.ForceNoColor()
 	}
 
+	// Initialize telemetry
+	var profileTelemetry string
+	if activeProfile != nil {
+		profileTelemetry = activeProfile.GetTelemetry()
+	}
+	tel := telemetry.Init(shutdownCtx, telemetry.Config{
+		ProfileTelemetry: profileTelemetry,
+		Version:          version.Version,
+		ErrWriter:        io.Err(),
+		IsTTY:            io.IsOutputTTY(),
+	})
+	defer func() {
+		_ = tel.Shutdown(shutdownCtx)
+	}()
+
 	// Create the command context
 	cCtx := &cmd.Context{
 		IO:          io,
 		Profile:     activeProfile,
 		Output:      format.New(io),
 		ShutdownCtx: shutdownCtx,
+		Telemetry:   tel,
 	}
 
 	// Get the HCP Root command

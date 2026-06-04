@@ -96,14 +96,14 @@ func TestProfile_Predict(t *testing.T) {
 			Args: complete.Args{
 				All: []string{""},
 			},
-			Expected: []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token"},
+			Expected: []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token", "telemetry"},
 		},
 		{
 			Name: "specific field",
 			Args: complete.Args{
 				All: []string{"org"},
 			},
-			Expected: []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token"},
+			Expected: []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token", "telemetry"},
 		},
 	}
 

@@ -121,14 +121,6 @@ If information is not found in the profile, the following environment variables 
 
 `TF_TOKEN_<hostname>`: An API token to use with the specified hostname with punycode formatting, e.g. `TF_TOKEN_app_terraform_io`, only used if the token is not specified in any other way.
 
-### Usage
-
-You can use `tfctl <command> --help` for detailed usage instructions.
-
-**`tfctl api <path> [flags]`**
-
-Perform an API request. See `tfctl api --help` for usage and examples.
-
 ### Exit Codes
 
 | Exit | Meaning                          | Solution                              |
@@ -142,6 +134,16 @@ Perform an API request. See `tfctl api --help` for usage and examples.
 | 6    | Underlying error detected        | Command succeeded but found a problem |
 | 130  | Canceled (ctrl-c).               | &mdash;                               |
 
+
+### Telemetry
+
+By default, HashiCorp collects basic telemetry for each command invocation, including command details and OS/process information. You can disable telemetry using any of these methods: Set `TFCTL_TELEMETRY` to `disabled`, Set `DO_NOT_TRACK` to `true`, or set telemetry to disabled in your profile: 
+
+```bash
+$ tfctl profile set telemetry disabled
+```
+
+### Uninstall/Clean up
 
 **Uninstall Shell Completions**
 

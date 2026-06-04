@@ -105,6 +105,10 @@ type Profile struct {
 	// Token is the API token to use for API requests. If not set, the CLI will look for the token in the environment or terraform credentials.
 	Token string `hcl:"token,optional" json:",omitempty"`
 
+	// Telemetry controls telemetry behavior. Values: "false"/"disabled" to disable,
+	// "log" to write spans to stderr, or any other value (including empty) to enable OTLP export.
+	Telemetry *string `hcl:"telemetry,optional" json:",omitempty"`
+
 	// tokenFromEnv is the token extracted from the environment. This is not written to disk and is only used to allow GetToken
 	// to return a token from the environment if one is not set on the profile.
 	tokenFromEnv string
@@ -122,6 +126,7 @@ func (p *Profile) Predict(args complete.Args) []string {
 		"no_color":  {"true", "false"},
 		"verbosity": {VerbosityTrace, VerbosityDebug, VerbosityInfo, VerbosityWarn, VerbosityError},
 		"quiet":     {"true", "false"},
+		"telemetry": {"true", "false", "disabled", "log"},
 	}
 
 	// If the property has been specified, return possible values.
@@ -134,7 +139,7 @@ func (p *Profile) Predict(args complete.Args) []string {
 
 	// predicting the property
 	if len(args.All) == 1 {
-		return []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token"}
+		return []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token", "telemetry"}
 	}
 
 	return nil
@@ -298,6 +303,19 @@ func (p *Profile) SetOrg(name string) *Profile {
 
 	p.Organization = name
 	return p
+}
+
+// GetTelemetry returns the telemetry setting or an empty string if unset.
+func (p *Profile) GetTelemetry() string {
+	if p == nil {
+		return ""
+	}
+
+	if p.Telemetry == nil {
+		return ""
+	}
+
+	return *p.Telemetry
 }
 
 // IsQuiet returns whether the quiet property has been configured to be quiet.

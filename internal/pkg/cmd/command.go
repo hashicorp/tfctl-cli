@@ -7,6 +7,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -269,6 +270,16 @@ type DocSection struct {
 func (c *Command) AddChild(cmd *Command) {
 	cmd.parent = c
 	c.children = append(c.children, cmd)
+}
+
+// CommandPath returns the full command path excluding the root command name.
+// For example, if the command tree is "tfctl" -> "run" -> "start", this returns "run start".
+func (c *Command) CommandPath() string {
+	var parts []string
+	for cmd := c; cmd != nil && cmd.parent != nil; cmd = cmd.parent {
+		parts = append([]string{cmd.Name}, parts...)
+	}
+	return strings.Join(parts, " ")
 }
 
 // SetIO sets the commands IO for input and output.

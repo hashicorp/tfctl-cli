@@ -19,6 +19,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
@@ -34,6 +35,10 @@ type Context struct {
 	// command to be shutdown. If a command can block for an extended amount of
 	// time, the context should be used to exit early.
 	ShutdownCtx context.Context
+
+	// Telemetry is the telemetry instance for this CLI invocation. If nil,
+	// telemetry is not configured.
+	Telemetry *telemetry.Telemetry
 
 	// flags stores our global flags. Access must go through GetGlobalFlags()
 	// which ensures flags are only accessed after the flags have been parsed
@@ -180,6 +185,22 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		}
 
 		c.io = ctx.IO
+
+		// Start the telemetry span now that we know the command and flags.
+		if ctx.Telemetry != nil {
+			var org, prof string
+			if ctx.Profile != nil {
+				org = ctx.Profile.Organization
+				prof = ctx.Profile.Name
+			}
+			ctx.Telemetry.StartCommand(ctx.ShutdownCtx, telemetry.CommandInfo{
+				Command:             c.CommandPath(),
+				DefaultOrganization: org,
+				Profile:             prof,
+				DryRun:              ctx.flags.dryRun,
+				IsTTY:               ctx.IO.IsOutputTTY(),
+			})
+		}
 
 		err := isAuthenticated(ctx, c, args)
 		if err != nil {

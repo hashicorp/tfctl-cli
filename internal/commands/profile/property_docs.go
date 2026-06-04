@@ -46,6 +46,10 @@ func addCoreProperties(b *availablePropertiesBuilder) {
 		{{ template "mdCodeOrBold" "trace" }}, {{ template "mdCodeOrBold" "debug" }},
 		{{ template "mdCodeOrBold" "info" }}, {{ template "mdCodeOrBold" "warn" }}, and
 		{{ template "mdCodeOrBold" "error" }}.`, version.Name)
+	b.AddProperty("", "telemetry", `
+		Controls telemetry behavior. Set to {{ template "mdCodeOrBold" "false" }} or
+		{{ template "mdCodeOrBold" "disabled" }} to disable telemetry, {{ template "mdCodeOrBold" "log" }}
+		to output span data to stderr, or any other value to enable OTLP export.`)
 }
 
 type availablePropertiesBuilder struct {
