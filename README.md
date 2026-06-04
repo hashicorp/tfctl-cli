@@ -45,7 +45,7 @@ You can uninstall shell completion with the `tfctl --autocomplete-uninstall` com
 
 ### Install AI agent skill
 
-tfctl ships with an agent skill that gives AI coding agents access to HCP Terraform through tfctl, but discourages non-human delete operationss. You can install it using tfctl or NPX. Replace AGENT with one of the supported AI agents: `bob`, `claude`, `codex`, `copilot`, `gemini`, `opencode`, or `pi`.
+tfctl ships with an agent skill that gives AI coding agents access to HCP Terraform through tfctl, but discourages non-human delete operations. You can install it using tfctl or NPX. Replace AGENT with one of the supported AI agents: `bob`, `claude`, `codex`, `copilot`, `gemini`, `opencode`, or `pi`.
 
 To install the skill with tfctl, run:
 
