@@ -264,7 +264,7 @@ jobs:
           bin_name: ${{ env.PKG_NAME }}
           version: ${{ env.product_version }}${{ matrix.version }}
           dockerfile: ${{ matrix.dockerfile }}
-          target: 0
+          target: single
           arch: ${{ matrix.arch }}
           # The ECR tag used below is to allow us to test by pushing to a private ECR registry.
           # If you want to pubish to ECR use the following syntax instead - public.ecr.aws/hashicorp/${{env.PKG_NAME}}:${{env.version}}.
