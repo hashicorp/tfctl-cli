@@ -73,6 +73,7 @@ func realMain() int {
 		profileTelemetry = activeProfile.GetTelemetry()
 	}
 	tel := telemetry.Init(shutdownCtx, telemetry.Config{
+		Hostname:         activeProfile.GetHostname(),
 		ProfileTelemetry: profileTelemetry,
 		Version:          version.Version,
 		ErrWriter:        io.Err(),

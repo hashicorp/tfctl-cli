@@ -59,6 +59,7 @@ func displayRun(opts *DisplayOpts) error {
 	}
 
 	fmt.Fprint(opts.IO.Out(), opts.Profile.String())
+	fmt.Fprintln(opts.IO.Out())
 	return nil
 }
 

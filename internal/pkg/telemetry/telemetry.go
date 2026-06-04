@@ -26,6 +26,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
@@ -67,17 +68,17 @@ type CommandInfo struct {
 	// Command is the full command path (e.g., "run start").
 	Command string
 
-	// DefaultOrganization is the profile organization.
-	DefaultOrganization string
-
-	// Profile is the active profile name.
-	Profile string
+	// Profile is the active profile.
+	Profile *profile.Profile
 
 	// DryRun indicates whether --dry-run was specified.
 	DryRun bool
 
-	// IsTTY indicates whether the terminal is interactive.
-	IsTTY bool
+	// Debug indicates whether --debug mode is enabled or verbose logging is enabled.
+	Debug bool
+
+	// JSON indicates whether --json output mode is enabled.
+	JSON bool
 }
 
 // Telemetry manages the lifecycle of OpenTelemetry tracing for a CLI invocation.
@@ -90,6 +91,13 @@ type Telemetry struct {
 	span      trace.Span
 	parentCtx context.Context
 	errWriter io.Writer
+	isTTY     bool
+}
+
+// SetErrorHandler allows overriding the default OpenTelemetry error handler. By default,
+// errors are ignored.
+func SetErrorHandler(handler func(error)) {
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(handler))
 }
 
 // Init creates and configures a Telemetry instance based on the resolved mode.
@@ -103,6 +111,7 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 		errWriter: cfg.ErrWriter,
 		parentCtx: ctx,
 		hostname:  cfg.Hostname,
+		isTTY:     cfg.IsTTY,
 	}
 
 	if mode == ModeDisabled {
@@ -165,6 +174,11 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 	t.tracer = tp.Tracer(serviceName)
 	otel.SetTracerProvider(tp)
 
+	// Suppress OTel SDK internal errors (e.g. exporter connection failures)
+	// from being printed to stderr. Telemetry errors are non-fatal and should
+	// never produce visible output for the user.
+	SetErrorHandler(otel.ErrorHandlerFunc(func(_ error) {}))
+
 	// Parse TRACEPARENT from environment for context propagation
 	t.parentCtx = extractTraceParent(ctx)
 
@@ -200,15 +214,22 @@ func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.
 	// Build attributes from CommandInfo
 	attrs := []attribute.KeyValue{
 		attribute.String("tfctl.command", info.Command),
-		attribute.String("tfctl.default_organization", info.DefaultOrganization),
-		attribute.String("tfctl.hostname", t.hostname),
-		attribute.String("tfctl.profile_name", info.Profile),
 		attribute.Bool("tfctl.dry_run", info.DryRun),
+		attribute.Bool("tfctl.debug", info.Debug),
+		attribute.Bool("tfctl.json", info.JSON),
 		attribute.String("os", runtime.GOOS),
 		attribute.String("arch", runtime.GOARCH),
 		attribute.Bool("ci", os.Getenv("CI") != ""),
 		attribute.String("agent_detected", detectAgent()),
-		attribute.Bool("is_tty", info.IsTTY),
+		attribute.Bool("is_tty", t.isTTY),
+	}
+
+	if info.Profile != nil {
+		attrs = append(attrs,
+			attribute.String("tfctl.default_organization", info.Profile.Organization),
+			attribute.String("tfctl.hostname", info.Profile.GetHostname()),
+			attribute.String("tfctl.profile_name", info.Profile.Name),
+		)
 	}
 
 	spanName := fmt.Sprintf("tfctl %s", info.Command)

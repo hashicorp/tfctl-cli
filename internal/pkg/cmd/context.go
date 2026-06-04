@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -186,19 +187,39 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 
 		c.io = ctx.IO
 
+		telemetry.SetErrorHandler(func(err error) {
+			logger := c.Logger(ctx)
+			logger = logger.ResetNamed(version.Name).Named("telemetry")
+
+			errorReader := strings.NewReader(err.Error())
+			scanner := bufio.NewScanner(errorReader)
+			scanner.Split(bufio.ScanLines)
+
+			firstLine := ""
+			additionalLines := 0
+			for scanner.Scan() {
+				if firstLine == "" {
+					firstLine = scanner.Text()
+				} else {
+					additionalLines++
+				}
+			}
+
+			if additionalLines > 0 {
+				firstLine = fmt.Sprintf("%s (and %d more lines)", firstLine, additionalLines)
+			}
+
+			logger.Debug("Telemetry Error", "error", firstLine)
+		})
+
 		// Start the telemetry span now that we know the command and flags.
 		if ctx.Telemetry != nil {
-			var org, prof string
-			if ctx.Profile != nil {
-				org = ctx.Profile.Organization
-				prof = ctx.Profile.Name
-			}
 			ctx.Telemetry.StartCommand(ctx.ShutdownCtx, telemetry.CommandInfo{
-				Command:             c.CommandPath(),
-				DefaultOrganization: org,
-				Profile:             prof,
-				DryRun:              ctx.flags.dryRun,
-				IsTTY:               ctx.IO.IsOutputTTY(),
+				Command: c.CommandPath(),
+				Profile: ctx.Profile,
+				Debug:   ctx.flags.debug > 0 || ctx.Profile.GetVerbosity() == "debug",
+				JSON:    ctx.flags.json || ctx.flags.jq != "",
+				DryRun:  ctx.flags.dryRun,
 			})
 		}
 

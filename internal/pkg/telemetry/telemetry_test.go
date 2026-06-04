@@ -14,6 +14,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 // ============================================================
@@ -195,11 +197,9 @@ func TestStartCommand_CreatesSpanWithAttributes(t *testing.T) {
 	tel, exporter := newTestTelemetry(t)
 
 	ctx := tel.StartCommand(context.Background(), CommandInfo{
-		Command:             "run start",
-		DefaultOrganization: "hashicorp",
-		Profile:             "default",
-		DryRun:              true,
-		IsTTY:               true,
+		Command: "run start",
+		Profile: profile.TestProfile(t),
+		DryRun:  true,
 	})
 	require.NotNil(t, ctx)
 	require.NotNil(t, tel.span)
@@ -220,10 +220,10 @@ func TestStartCommand_CreatesSpanWithAttributes(t *testing.T) {
 	// Check attributes.
 	attrs := spanAttrMap(s)
 	assert.Equal(t, "run start", attrs["tfctl.command"])
-	assert.Equal(t, "hashicorp", attrs["tfctl.default_organization"])
+	assert.Equal(t, "test-organization", attrs["tfctl.default_organization"])
 	assert.Equal(t, "default", attrs["tfctl.profile_name"])
 	assert.Equal(t, true, attrs["tfctl.dry_run"])
-	assert.Equal(t, true, attrs["is_tty"])
+	assert.Equal(t, false, attrs["is_tty"])
 	assert.NotEmpty(t, attrs["os"])
 	assert.NotEmpty(t, attrs["arch"])
 }
@@ -234,7 +234,7 @@ func TestStartCommand_IncludesCIAttribute(t *testing.T) {
 
 	tel, exporter := newTestTelemetry(t)
 
-	tel.StartCommand(context.Background(), CommandInfo{Command: "api get"})
+	tel.StartCommand(context.Background(), CommandInfo{Command: "api get", Profile: profile.TestProfile(t)})
 	tel.span.End()
 	require.NoError(t, tel.sdkTP.ForceFlush(context.Background()))
 
