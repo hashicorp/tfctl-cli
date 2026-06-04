@@ -265,7 +265,7 @@ Install coding agent skills or print out coding agent context document.
 
 Available agents are: `bob`, `claude`, `codex`, `copilot`, `gemini`, `opencode`, and `pi`.
 
-#### Example usage
+#### Examples
 
 Install tfctl skills for Bob in the current project directory.
 
@@ -295,6 +295,8 @@ Print out configuration for the active profile.
 
 #### Examples
 
+Display information about the active profile:
+
 ```bash
 $ tfctl profile display
 ```
@@ -319,6 +321,8 @@ Get the value of the given configuration property for the active profile.
   - Data type: String
 
 #### Examples
+
+Get the organization for the active profile:
 
 ```bash
 $ tfctl profile get organization
@@ -376,6 +380,8 @@ Unset the value of the given configuration property for the active profile.
 
 #### Examples
 
+Unset the organization for the active profile:
+
 ```bash
 $ tfctl profile unset organization
 ```
@@ -401,10 +407,10 @@ Activate an existing named profile.
 
 #### Examples
 
-Switch to a profile by name:
+Switch to a profile named "my-profile":
 
 ```bash
-$ tfctl profile profiles activate NAME
+$ tfctl profile profiles activate my-profile
 ```
 
 Switch back to the default profile:
@@ -445,10 +451,10 @@ Create a new profile, and activate it automatically unless `--no-activate` is sp
 
 #### Examples
 
-Create and switch to a new profile:
+Create and switch to a new profile named "my-profile", configured for a Terraform Enterprise instance hosted at "my-tfe-instance.example.com":
 
 ```bash
-$ tfctl profile profiles create NAME --hostname=HOST
+$ tfctl profile profiles create my-profile --hostname=my-tfe-instance.example.com
 ```
 
 #### Related
@@ -466,8 +472,10 @@ List existing profiles.
 
 #### Examples
 
+List all profiles in JSON format:
+
 ```bash
-$ tfctl profile profiles list
+$ tfctl profile profiles list --json
 ```
 
 #### Related
@@ -490,6 +498,8 @@ Delete an existing named profile.
   - Data type: String (repeatable)
 
 #### Examples
+
+Delete a profile named "old-profile".
 
 ```bash
 $ tfctl profile profiles delete old-profile
@@ -521,6 +531,8 @@ Rename an existing named profile.
   - Data type: String
 
 #### Examples
+
+Rename a profile named "old-name" to "new-name":
 
 ```bash
 $ tfctl profile profiles rename old-name --new_name=new-name
@@ -589,7 +601,7 @@ Print out the status of a run by run ID, or the latest run on a workspace by wor
 The ID argument can be:
 - A run ID (run-...)
 - A workspace ID (ws-...) to get the latest run
-- A workspace name to get the latest run (may require --organization)
+- A workspace name to get the latest run
 
 #### Arguments
 
