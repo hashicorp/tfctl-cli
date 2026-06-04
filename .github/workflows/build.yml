@@ -260,7 +260,7 @@ jobs:
               exit 1
             fi
             printf "ok: container smoke test\n"
-          pkg_name: ${{ env.PKG_NAME }}
+          pkg_name: ${{ env.PKG_NAME }}_${{ env.product_version }}
           version: ${{ env.product_version }}${{ matrix.version }}
           target: release-default
           dockerfile: ${{ matrix.dockerfile }}
@@ -314,7 +314,7 @@ jobs:
       - uses: hashicorp/actions-docker-build@v2
         with:
           version: ${{ env.product_version }}
-          pkg_name: ${{ env.PKG_NAME }}
+          pkg_name: ${{ env.PKG_NAME }}_${{ env.product_version }}
           target: release-alternate
           arch: ${{ matrix.arch }}
           tags: |
@@ -347,7 +347,7 @@ jobs:
       - uses: hashicorp/actions-docker-build@v2
         with:
           version: ${{env.product_version}}
-          pkg_name: ${{ env.PKG_NAME }}
+          pkg_name: ${{ env.PKG_NAME }}_${{ env.product_version }}
           target: release-ubi
           arch: ${{ matrix.arch }}
           redhat_tag: quay.io/redhat-isv-containers/62211e0d8bf2cabc69a39c7d:${{env.product_version}}-ubi
