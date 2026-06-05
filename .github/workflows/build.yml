@@ -260,7 +260,7 @@ jobs:
             printf "ok: container smoke test\n"
           pkg_name: ${{ env.PKG_NAME }}_${{ env.product_version }}
           bin_name: ${{ env.PKG_NAME }}
-          version: ${{ env.product_version }}${{ matrix.version }}
+          version: ${{ env.product_version }}
           dockerfile: ${{ matrix.dockerfile }}
           target: single
           arch: ${{ matrix.arch }}
