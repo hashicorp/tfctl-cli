@@ -54,20 +54,18 @@ func New(address, token string, defaultHeaders http.Header, logger hclog.Logger)
 		RetryRateLimited:  true,
 		RetryMaxRetries:   5,
 	}
-	if logger != nil {
-		cfg.RetryHook = func(attemptNum int, resp *http.Response) {
-			status := 0
-			url := ""
-			method := ""
-			if resp != nil {
-				status = resp.StatusCode
-				if resp.Request != nil {
-					url = resp.Request.URL.String()
-					method = resp.Request.Method
-				}
+	cfg.RetryHook = func(attemptNum int, resp *http.Response) {
+		status := 0
+		url := ""
+		method := ""
+		if resp != nil {
+			status = resp.StatusCode
+			if resp.Request != nil {
+				url = resp.Request.URL.String()
+				method = resp.Request.Method
 			}
-			logger.Debug("Retrying API request", "attempt", attemptNum, "status", status, "method", method, "url", url)
 		}
+		logger.Debug("Retrying API request", "attempt", attemptNum, "status", status, "method", method, "url", url)
 	}
 	tfeClient, err := tfe.NewClient(cfg)
 	if err != nil {

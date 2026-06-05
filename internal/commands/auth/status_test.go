@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -95,7 +96,7 @@ func newFakeStatusTFE(t *testing.T, username, tokenType, tokenID, expiredAt stri
 // newStatusClient returns a *client.Client pointed at srv, for use in StatusOpts.
 func newStatusClient(t *testing.T, srv *httptest.Server) *client.Client {
 	t.Helper()
-	c, err := client.New(srv.URL, "test-token", nil, nil)
+	c, err := client.New(srv.URL, "test-token", nil, hclog.NewNullLogger())
 	require.NoError(t, err)
 	return c
 }

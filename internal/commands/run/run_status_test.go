@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -41,7 +42,7 @@ func testAPI(t *testing.T, handler http.Handler) *client.Client {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	c, err := client.New(server.URL, "test-token", nil, nil)
+	c, err := client.New(server.URL, "test-token", nil, hclog.NewNullLogger())
 	require.NoError(t, err)
 	return c
 }

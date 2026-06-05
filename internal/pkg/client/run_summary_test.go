@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/hashicorp/go-hclog"
 )
 
 func TestParseDiagnostics_Structured(t *testing.T) {
@@ -179,7 +181,7 @@ func Test_PopulatePolicyCheckSummary(t *testing.T) {
 	}))
 	t.Cleanup(api.Close)
 
-	c, err := New(api.URL, "test-token", nil, nil)
+	c, err := New(api.URL, "test-token", nil, hclog.NewNullLogger())
 	if err != nil {
 		t.Fatalf("creating client: %v", err)
 	}
