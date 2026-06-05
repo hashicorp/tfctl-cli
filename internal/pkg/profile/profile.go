@@ -70,6 +70,18 @@ func (c *ActiveProfile) Write() error {
 // Profile is a named set of configuration for the CLI. It captures common
 // configuration values such as the organization and project being interacted
 // with, but also allows storing service specific configuration.
+
+//      _
+//     | |
+//   __| | __ _ _ __   __ _  ___ _ __
+//  / _` |/ _` | '_ \ / _` |/ _ \ '__|
+// | (_| | (_| | | | | (_| |  __/ |
+//  \__,_|\__,_|_| |_|\__, |\___|_|
+//                     __/ |
+//                    |___/
+
+// As long as hclsimple.Decode is used to load the profile, you can't remove any of these fields
+// without causing a loading error.
 type Profile struct {
 	// Name is the name of the profile
 	Name string `hcl:"name"`

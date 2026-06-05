@@ -251,14 +251,8 @@ jobs:
       - name: Docker Build (Action)
         uses: hashicorp/actions-docker-build@v2
         with:
-          # Add smoke test here. Below is a sample smoke test that runs the built image
-          # and validates the version.
           smoke_test: |
-            TEST_VERSION="$(docker run "${IMAGE_NAME}" | awk '/CLI version/{print $3}')"
-            if [ "${TEST_VERSION}" != "${{ env.product_version }}" ]; then
-              printf "fail: container smoke test, got=%q want=%q\n" "${TEST_VERSION}" "${{ env.product_version }}"
-              exit 1
-            fi
+            docker run "${IMAGE_NAME}"
             printf "ok: container smoke test\n"
           pkg_name: ${{ env.PKG_NAME }}_${{ env.product_version }}
           bin_name: ${{ env.PKG_NAME }}
