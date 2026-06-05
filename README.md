@@ -10,7 +10,9 @@ The `tfctl` CLI  provides high-level commands for common workflows, such as mana
 ![tfctl](assets/tfctl.png "tfctl")
 
 ## Installation
+
 You can install the CLI, command completion utility, and agent skill separately.  
+
 ### Prerequisites
 
 - Go language v1.25.10 or later
@@ -25,7 +27,6 @@ You can install the CLI, command completion utility, and agent skill separately.
 1. Change to the new directory: `cd tfctl-cli`
 1. Run `make go/install`.
 
-
 Verify the installation:
 
 ```bash
@@ -34,7 +35,7 @@ $ tfctl --version
 
 ### Install shell completion
 
-We strongly recommend installing the shell completion module for command, argument, and API path completion.
+We recommend installing the shell completion module for command, argument, and API path completion.
 
 ```bash
 $ tfctl --autocomplete-install
@@ -44,7 +45,7 @@ You can uninstall shell completion with the `tfctl --autocomplete-uninstall` com
 
 ### Install AI agent skill
 
-The core CLI ships with an agent skill that gives AI coding agents access to HCP Terraform through the `tfctl` command, but discourages non-human delete operations. You can install it using the `tfctl harness install` command or NPX. Replace `AGENT` with one of the following supported AI agents: 
+The `tfctl` CLI ships with an agent skill that gives AI coding agents access to HCP Terraform through the `tfctl` command, but discourages non-human delete operations. You can install it using the `tfctl harness install` command or NPX. Replace `<agent>` with one of the following supported AI agents:
 
 - `bob` 
 - `claude`
@@ -57,7 +58,7 @@ The core CLI ships with an agent skill that gives AI coding agents access to HCP
 To install the skill with `tfctl harness install` command, run:
 
 ```bash
-$ tfctl harness install AGENT --global
+$ tfctl harness install <agent> --global
 ```
 
 To install the skill with NPX, run:
@@ -70,14 +71,14 @@ This adds the skill to your user profile so that compatible agents can use `tfct
 
 ## Configure tfctl
 
-The `tfctl` CLI is a layered configuration system. You can configure settings in profiles, environment variables, or local Terraform configuration, with a clear order of precedence.
+The `tfctl` CLI uses a layered configuration system. You can configure settings in profiles, environment variables, or local Terraform configuration, in order of precedence.
 
 ### Set hostname
 
-The default hostname is the HCP Terraform instance at `app.terraform.io`. To use a different HCP Terraform instance or your organization's Terraform Enterprise instance, use the `tfctl profile set hostname` command and specify the specific your hostname you want the CLI to connect to.
+The default hostname is the HCP Terraform instance at `app.terraform.io`. To use a different HCP Terraform instance or your organization's Terraform Enterprise instance, use the `tfctl profile set hostname` command and specify the hostname you want the CLI to connect to.
 
 ```bash
-$ tfctl profile set hostname HOST
+$ tfctl profile set hostname <host>
 ```
 
 ### Set authentication token
@@ -90,26 +91,26 @@ $ tfctl auth login
 
 The command opens HCP Terraform or your Terraform Enterprise instance in a browser window. Click the **Create an API token** button, then give your token a description and set its expiration. Click **Generate token**, then copy and paste the new token into your terminal window. The CLI does not print the pasted token to the screen. 
 
-Verify that the login is successful before closing the UI because the UI does not show the token once it's closed. You must create a new token if an issue occurs during the process and you close the dialog showing the token.
+Verify that the login is successful before leaving the token page in your browser, because HCP Terraform does not show the token once it's closed. You must create a new token if an issue occurs during the process and you close the dialog showing the token.
 
-The CLI checks your Terraform configuration for a matching token if it doesn't find a token for the current profile. Refer to [Terraform tokens](#terraform-tokens) for more information.
+If the CLI does not find a token configured for the active profile, it checks your Terraform configuration for a matching token. Refer to [Terraform tokens](#terraform-tokens) for more information.
 
-### Set default organization
+### Set organization
 
-Run the `tfctl profile set organization` command to set the default organization. Replace `NAME` with your HCP Terraform or Terraform Enterprise organization name.
+Run the `tfctl profile set organization` command to set the organization. Replace `<name>` with your HCP Terraform or Terraform Enterprise organization name.
 
 ```bash
-$ tfctl profile set organization NAME
+$ tfctl profile set organization <name>
 ```
 
 ### Manage profiles
 
-Use the `tfctl profile profiles` command to create and manage profiles. You can use a different profile for each HCP Terraform organization and each instance of HCP Terraform and instance of Terraform Enterprise. 
+Use the `tfctl profile profiles` command group to create and manage profiles. You can use a different profile for each HCP Terraform organization and each instance of HCP Terraform and instance of Terraform Enterprise.
 
-Run the `tfctl profile profiles create` command and specify a name to create a profile.
+Run the `tfctl profile profiles create` command and specify a name to create a profile. Replace `<name>` with a name for your new profile.
 
 ```bash
-$ tfctl profile profiles create NAME
+$ tfctl profile profiles create <name>
 ```
 
 The CLI activates the new profile automatically.
@@ -142,29 +143,26 @@ $ tfctl profile profiles activate us
 # Start a run on the US workspace. Workspace must already exist in this org.
 $ tfctl run start example-app-workspace --message="Run started with tfctl."
 
-# Check run status
-$ tfctl run status example-app-workspace
-
 # Get detailed run status in JSON format
 $ tfctl run status example-app-workspace --json
 ```
 
 ## Configuration reference
 
-tfctl stores its configuration in the following directories, depending on your operating system:
+The `tfctl` CLI stores its configuration in the following directories, depending on your operating system:
 
 - Linux/MacOS: `~/.config/tfctl`
 - Windows: `%AppData%/tfctl`
 
-tfctl stores configuration for individual profiles in the `profiles` subdirectory. For example, `profiles/default.hcl` stores the configuration for your default profile.
+The CLI stores configuration for individual profiles in the `profiles` subdirectory. For example, `profiles/default.hcl` stores the configuration for your default profile.
 
 ### Terraform tokens
 
-If you have not configured a token for the current profile with `tfctl auth login`, tfctl will check your Terraform configuration for a matching token. This configuration is found in your Terraform configuration directory, for example `~/.terraform.d/credentials.tfrc.json`, or the corresponding Terraform environment variables, such as `TF_TOKEN_app_terraform_io`.
+If you have not configured a token for the active profile with `tfctl auth login`, tfctl will check your Terraform configuration for a matching token. This configuration is found in your Terraform configuration directory, for example `~/.terraform.d/credentials.tfrc.json`, or the corresponding Terraform environment variables, such as `TF_TOKEN_app_terraform_io`.
 
 ### Environment variables
 
-If you have not configured a particular option for the current profile, tfctl will check the following environment variables:
+If you have not configured a particular option for the active profile, tfctl will check the following environment variables:
 
 `TFCTL_ORGANIZATION`: The default organization to use for commands that require an organization.
 
@@ -198,7 +196,7 @@ tfctl supports the following global flags.
   - Data type: Boolean flag
   - Defaults to false.
 
-- `--jq=EXPRESSION`: A jq filter expression to apply to JSON output. Implies --json.
+- `--jq=<expression>`: A jq filter expression to apply to JSON output. Implies --json.
   - Data type: String
   - Optional parameter.
 
@@ -210,7 +208,7 @@ tfctl supports the following global flags.
   - Data type: Boolean flag
   - Defaults to false.
 
-- `--profile=NAME`: The profile to use. If omitted, the currently selected profile will be used.
+- `--profile=<name>`: The profile to use. If omitted, the currently active profile will be used.
   - Data type: String
   - Optional parameter.
 
@@ -271,10 +269,18 @@ Install coding agent skills or print out coding agent context document.
 #### Subcommands
 
 - `context`: Print coding agent context for tfctl, suitable for AGENTS.md.
-- `install AGENT`: Install coding agent skills for tfctl in your project directory.
+- `install <agent>`: Install coding agent skills for tfctl in your project directory.
   - `--global`: Install skills in the global user directory instead of the current project directory.
 
-Available agents are: `bob`, `claude`, `codex`, `copilot`, `gemini`, `opencode`, and `pi`.
+Supported agents are:
+
+- `bob`
+- `claude`
+- `codex`
+- `copilot`
+- `gemini`
+- `opencode`
+- `pi`
 
 #### Examples
 
@@ -302,14 +308,20 @@ $ tfctl harness context
 
 #### Description
 
-Print out configuration for the active profile.
+Print out configuration for a profile.
 
 #### Examples
 
-Display information about the active profile:
+Print out information about the active profile:
 
 ```bash
 $ tfctl profile display
+```
+
+Print out information about a profile named "my-profile":
+
+```bash
+$ tfctl profile display --profile="my-profile"
 ```
 
 #### Related
@@ -319,15 +331,15 @@ $ tfctl profile display
 
 ### `tfctl profile get` reference
 
-**Usage:** `tfctl profile get PROPERTY [options]`
+**Usage:** `tfctl profile get <property> [options]`
 
 #### Description
 
-Get the value of the given configuration property for the active profile.
+Get the value of the given configuration property for a profile.
 
 #### Arguments
 
-- `PROPERTY`: The configuration property name to retrieve.
+- `<property>`: The configuration property name to retrieve.
   - Required argument
   - Data type: String
 
@@ -346,19 +358,19 @@ $ tfctl profile get organization
 
 ### `tfctl profile set` reference
 
-**Usage:** `tfctl profile set PROPERTY VALUE [options]`
+**Usage:** `tfctl profile set <property> <value> [options]`
 
 #### Description
 
-Set the value of the given configuration property for the active profile.
+Set the value of the given configuration property for a profile.
 
 #### Arguments
 
-- `PROPERTY`: The configuration property name to set.
+- `<property>`: The configuration property name to set.
   - Required argument
   - Data type: String
 
-- `VALUE`: The value to set for the property.
+- `<value>`: The value to set for the property.
   - Required argument
   - Data type: String
 
@@ -377,15 +389,15 @@ $ tfctl profile set organization my-organization
 
 ### `tfctl profile unset` reference
 
-**Usage:** `tfctl profile unset PROPERTY [options]`
+**Usage:** `tfctl profile unset <property> [options]`
 
 #### Description
 
-Unset the value of the given configuration property for the active profile.
+Unset the value of the given configuration property for a profile.
 
 #### Arguments
 
-- `PROPERTY`: The configuration property name to unset.
+- `<property>`: The configuration property name to unset.
   - Required argument
   - Data type: String
 
@@ -404,7 +416,7 @@ $ tfctl profile unset organization
 
 ### `tfctl profile profiles activate` reference
 
-**Usage:** `tfctl profile profiles activate NAME [options]`
+**Usage:** `tfctl profile profiles activate <name> [options]`
 
 #### Description
 
@@ -412,7 +424,7 @@ Activate an existing named profile.
 
 #### Arguments
 
-- `NAME`: The profile name to activate.
+- `<name>`: The profile name to activate.
   - Required argument
   - Data type: String
 
@@ -437,7 +449,7 @@ $ tfctl profile profiles activate default
 
 ### `tfctl profile profiles create` reference
 
-**Usage:** `tfctl profile profiles create NAME [options]`
+**Usage:** `tfctl profile profiles create <name> [options]`
 
 #### Description
 
@@ -445,7 +457,7 @@ Create a new profile, and activate it automatically unless `--no-activate` is sp
 
 #### Arguments
 
-- `NAME`: The profile name to create.
+- `<name>`: The profile name to create.
   - Required argument
   - Data type: String
 
@@ -496,7 +508,7 @@ $ tfctl profile profiles list --json
 
 ### `tfctl profile profiles delete` reference
 
-**Usage:** `tfctl profile profiles delete PROFILE_NAMES [PROFILE_NAMES ...] [options]`
+**Usage:** `tfctl profile profiles delete <name> [<name> ...] [options]`
 
 #### Description
 
@@ -504,9 +516,10 @@ Delete an existing named profile.
 
 #### Arguments
 
-- `PROFILE_NAMES`: One or more profile names to delete.
+- `<name>`: One or more profile names to delete.
   - Required argument
-  - Data type: String (repeatable)
+  - Data type: String
+  - Repeatable
 
 #### Examples
 
@@ -523,7 +536,7 @@ $ tfctl profile profiles delete old-profile
 
 ### `tfctl profile profiles rename` reference
 
-**Usage:** `tfctl profile profiles rename NAME --new_name=NEW_NAME [options]`
+**Usage:** `tfctl profile profiles rename <name> --new_name=<new_name> [options]`
 
 #### Description
 
@@ -531,11 +544,9 @@ Rename an existing named profile.
 
 #### Arguments
 
-- `NAME`: The current profile name.
+- `<name>`: The current profile name.
   - Required argument
   - Data type: String
-
-#### Flags
 
 - `--new_name`: Set the new profile name.
   - Required
@@ -556,7 +567,7 @@ $ tfctl profile profiles rename old-name --new_name=new-name
 
 ### `tfctl run start` reference
 
-**Usage:** `tfctl run start WORKSPACE [options]`
+**Usage:** `tfctl run start <workspace_id_or_name> [options]`
 
 #### Description
 
@@ -564,7 +575,7 @@ Start a new run on the workspace specified by ID or name.
 
 #### Arguments
 
-- `WORKSPACE`: Workspace ID or name.
+- `<workspace_id_or_name>`: Workspace ID or name.
   - Required argument
   - Data type: String
 
@@ -603,20 +614,20 @@ $ tfctl run start my-workspace
 
 ### `tfctl run status` reference
 
-**Usage:** `tfctl run status ID [options]`
+**Usage:** `tfctl run status <id> [options]`
 
 #### Description
 
 Print out the status of a run by run ID, or the latest run on a workspace by workspace ID or name.
 
-The ID argument can be:
+The `<id>` argument can be:
 - A run ID (run-...)
-- A workspace ID (ws-...) to get the latest run
-- A workspace name to get the latest run
+- A workspace ID (ws-...) to get the latest run on the workspace
+- A workspace name to get the latest run on the workspace
 
 #### Arguments
 
-- `ID`: Run ID, workspace ID, or workspace name.
+- `<id>`: Run ID, workspace ID, or workspace name.
   - Required argument
   - Data type: String
 
@@ -635,13 +646,13 @@ Print out the status of a run with an ID of "run-1234abcd":
 $ tfctl run status run-1234abcd
 ```
 
-Print out the status of the latest run on a workspace using the workspace name:
+Print out the status of the latest run on a workspace named "my-workspace":
 
 ```bash
 $ tfctl run status my-workspace
 ```
 
-Print out the status of the latest run on a workspace using the workspace ID:
+Print out the status of the latest run on a workspace with an ID of "ws-abc123xyz":
 
 ```bash
 $ tfctl run status ws-abc123xyz
@@ -654,21 +665,21 @@ $ tfctl run status ws-abc123xyz
 
 ### `tfctl variable import` reference
 
-**Usage:** `tfctl variable import [TFVARS_FILE] [options]`
+**Usage:** `tfctl variable import [<tfvars_file>] [options]`
 
 #### Description
 
-Import Terraform variables from .tfvars files or environment variables from the tfctl process environment into Workspaces or Variable Sets.
+Import Terraform variables from .tfvars files or environment variables from the `tfctl` process environment into a workspace or variable set.
 
-Provide either a variable set or a workspace by name, or tfctl will scan the current working directory for Terraform configuration to attempt to determine the workspace name.
+Provide either a variable set or a workspace by name, or `tfctl` will scan the current working directory for Terraform configuration to attempt to determine the workspace name.
 
 #### Arguments
 
-- `TFVARS_FILE`: The .tfvars file to import variables from. tfctl will configure variables whose names indicate they may be sensitive as sensitive.
+- `<tfvars_file>`: The .tfvars file to import variables from. tfctl will configure variables whose names indicate they may be sensitive as sensitive.
   - Optional argument
   - Data type: File path (string)
 
-#### Flags
+#### Options
 
 - `--env`, `-e`: Environment variable to import. tfctl will configure all imported environment variables as sensitive.
   - Repeatable
@@ -715,21 +726,21 @@ $ tfctl variable import --overwrite --variable-set-name="my-varset" --env=AWS_AC
 
 ### `tfctl api` reference
 
-**Usage:** `tfctl api PATH [options]`
+**Usage:** `tfctl api <path>> [options]`
 
 #### Description
 
 Perform any HCP Terraform API v2 request with the given path or URL.
 
-The HCP Terraform API typically requires a resource ID as part of the path for resource-specific requests. To support this, tfctl interpolates parameter values in the `PATH` argument denoted by `{NAME}`. Whenever possible, tfctl will infer these values from the path, the active profile, or local Terraform configuration. You can provide values for named parameters with the `--pathparam` argument.
+The HCP Terraform API typically requires a resource ID as part of the path for resource-specific requests. To support this, tfctl interpolates parameter values in the `<path>` argument denoted by `{NAME}`. Whenever possible, tfctl will infer these values from the path, the active profile, or local Terraform configuration. You can provide values for named parameters with the `--pathparam` argument.
 
 #### Arguments
 
-- `PATH`: API path relative to configured host, or URL.
+- `<path>`: API path relative to configured host, or URL.
   - Required argument
   - Data type: String
 
-#### Flags
+#### Options
 
 - `--all`: Disable pagination and fetch all records, to a maximum of 2000.
   - Optional
@@ -801,7 +812,7 @@ $ tfctl api /organizations/{organization}/workspaces --all --field="sort=-curren
 
 ### `tfctl api schema get` reference
 
-**Usage:** `tfctl api schema get OPERATION_ID_OR_PATH [options]`
+**Usage:** `tfctl api schema get <operation_id_or_path> [options]`
 
 #### Description
 
@@ -809,7 +820,7 @@ Show a trimmed OpenAPI document for a single operationId or all operations on an
 
 #### Arguments
 
-- `OPERATION_ID_OR_PATH`: An exact OpenAPI operationId or an API path (starting with /) to inspect.
+- `<operation_id_or_path>`: An exact OpenAPI operationId or an API path (starting with /) to inspect.
   - Required argument
   - Data type: String
 
@@ -834,7 +845,7 @@ $ tfctl api schema get /organizations/{organization}/workspaces
 
 ### `tfctl api schema search` reference
 
-**Usage:** `tfctl api schema search QUERY [QUERY ...] [options]`
+**Usage:** `tfctl api schema search <query> [<query> ...] [options]`
 
 #### Description
 
@@ -842,7 +853,7 @@ Search API operations by keywords.
 
 #### Arguments
 
-- `QUERY`: The search query to match against API operations.
+- `<query>`: The search query to match against API operations.
   - Required argument (repeatable)
   - Data type: String
 
