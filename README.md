@@ -184,15 +184,15 @@ Use the `--help` flag to print out detailed usage instructions. For example, `tf
 
 tfctl supports the following global flags.
 
-- `--agent`, `--json`: Sets the output format to JSON.
-  - Data type: Boolean flag
-  - Defaults to false.
-
 - `--debug`: Enable debug output.
   - Data type: Boolean flag
   - Defaults to false.
 
 - `--dry-run`: Shows what would happen without actually changing anything.
+  - Data type: Boolean flag
+  - Defaults to false.
+
+- `--json`: Sets the output format to JSON.
   - Data type: Boolean flag
   - Defaults to false.
 
