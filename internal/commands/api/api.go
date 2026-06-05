@@ -344,7 +344,7 @@ func resolveOrg(ctx *cmd.Context, cloudCfg *terraformcfg.CloudConfig) string {
 func lookupResource(goCtx context.Context, resolver *client.Resolver, segment, org, name string) (string, error) {
 	id, err := resolver.ResolveFromName(goCtx, segment, org, name)
 	if err != nil {
-		if errors.Is(err, tfe.ErrNotFound) || isNotFound(err) {
+		if errors.Is(err, tfe.ErrNotFound) {
 			return "", fmt.Errorf("%s named %q not found in organization %q", segment, name, org)
 		}
 
@@ -354,15 +354,6 @@ func lookupResource(goCtx context.Context, resolver *client.Resolver, segment, o
 		return "", fmt.Errorf("%s %q resolved to nil ID", segment, name)
 	}
 	return *id, nil
-}
-
-// isNotFound checks whether an error from the Kiota SDK indicates a 404 response.
-func isNotFound(err error) bool {
-	var apiErr interface{ GetStatusCode() int }
-	if errors.As(err, &apiErr) {
-		return apiErr.GetStatusCode() == http.StatusNotFound
-	}
-	return false
 }
 
 func runAPI(opts *Opts) error {
