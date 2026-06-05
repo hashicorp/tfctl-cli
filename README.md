@@ -5,19 +5,19 @@
 
 Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise platform.
 
-tfctl provides both high-level commands for common workflows (managing runs, variables, and workspaces) and direct API access for advanced automation. It supports multiple configuration profiles, allowing you to switch between different HCP Terraform organizations and Terraform Enterprise instances. It also integrates with AI coding agents to facilitate agent-assisted management of Terraform workflows.
+The `tfctl` CLI  provides high-level commands for common workflows, such as managing runs, variables, and workspaces, and direct API access for advanced automation. It supports multiple configuration profiles, allowing you to switch between different HCP Terraform organizations and Terraform Enterprise instances. It also integrates with AI coding agents to facilitate agent-assisted management of Terraform workflows.
 
 ![tfctl](assets/tfctl.png "tfctl")
 
 ## Installation
-
+You can install the CLI, command completion utility, and agent skill separately.  
 ### Prerequisites
 
-- The Go language, v1.25.10 or later
+- Go language v1.25.10 or later
 - Git
 - Make
 
-### Install tfctl
+### Install `tfctl`
 
 1. Clone the git [repository](https://github.com/hashicorp/tfctl-cli):
    - SSH: `git clone git@github.com:hashicorp/tfctl-cli.git`
@@ -25,7 +25,6 @@ tfctl provides both high-level commands for common workflows (managing runs, var
 1. Change to the new directory: `cd tfctl-cli`
 1. Run `make go/install`.
 
-Binary releases available soon!
 
 Verify the installation:
 
@@ -35,7 +34,7 @@ $ tfctl --version
 
 ### Install shell completion
 
-Shell completion assists with command, argument, and API path completion and is highly recommended.
+We strongly recommend installing the shell completion module for command, argument, and API path completion.
 
 ```bash
 $ tfctl --autocomplete-install
@@ -45,9 +44,17 @@ You can uninstall shell completion with the `tfctl --autocomplete-uninstall` com
 
 ### Install AI agent skill
 
-tfctl ships with an agent skill that gives AI coding agents access to HCP Terraform through tfctl, but discourages non-human delete operations. You can install it using tfctl or NPX. Replace AGENT with one of the supported AI agents: `bob`, `claude`, `codex`, `copilot`, `gemini`, `opencode`, or `pi`.
+The core CLI ships with an agent skill that gives AI coding agents access to HCP Terraform through the `tfctl` command, but discourages non-human delete operations. You can install it using the `tfctl harness install` command or NPX. Replace `AGENT` with one of the following supported AI agents: 
 
-To install the skill with tfctl, run:
+- `bob` 
+- `claude`
+- `codex`
+- `copilot`
+- `gemini`
+- `opencode`
+- `pi`
+
+To install the skill with `tfctl harness install` command, run:
 
 ```bash
 $ tfctl harness install AGENT --global
@@ -59,15 +66,15 @@ To install the skill with NPX, run:
 $ npx skills add hashicorp/tfctl-cli --skill 'tfctl'
 ```
 
-This adds the skill to your user profile so that compatible agents can use tfctl on your behalf.
+This adds the skill to your user profile so that compatible agents can use `tfctl` commands on your behalf.
 
 ## Configure tfctl
 
-tfctl uses a layered configuration system. Settings can be specified in profiles, environment variables, or local Terraform configuration, with a clear order of precedence.
+The `tfctl` CLI is a layered configuration system. You can configure settings in profiles, environment variables, or local Terraform configuration, with a clear order of precedence.
 
 ### Set hostname
 
-tfctl defaults to the HCP Terraform instance at app.terraform.io. To use a different HCP Terraform instance or your organization's Terraform Enterprise instance, configure it now. Replace HOST with your HCP Terraform hostname (`app.terraform.io` or `app.eu.terraform.io`), or Terraform Enterprise hostname.
+The default hostname is the HCP Terraform instance at `app.terraform.io`. To use a different HCP Terraform instance or your organization's Terraform Enterprise instance, use the `tfctl profile set hostname` command and specify the specific your hostname you want the CLI to connect to.
 
 ```bash
 $ tfctl profile set hostname HOST
@@ -75,19 +82,21 @@ $ tfctl profile set hostname HOST
 
 ### Set authentication token
 
-Create and install a token for tfctl to use to authenticate with HCP Terraform or Terraform Enterprise.
+Run the `tfctl auth login` command to create and install a token for authenticating with HCP Terraform or Terraform Enterprise.
 
 ```bash
 $ tfctl auth login
 ```
 
-tfctl will open a browser window to HCP Terraform or your Terraform Enterprise instance. Click the **Create an API token** button, give your token a description and set its expiration, then click the **Generate token** button. Copy and paste the new token into your terminal window. tfctl will not print the pasted token to the screen.
+The command opens HCP Terraform or your Terraform Enterprise instance in a browser window. Click the **Create an API token** button, then give your token a description and set its expiration. Click **Generate token**, then copy and paste the new token into your terminal window. The CLI does not print the pasted token to the screen. 
 
-If you have not configured a tfctl token for the current profile, tfctl will check your Terraform configuration for a matching token. Refer to [Terraform tokens](#terraform-tokens) for more information.
+Verify that the login is successful before closing the UI because the UI does not show the token once it's closed. You must create a new token if an issue occurs during the process and you close the dialog showing the token.
+
+The CLI checks your Terraform configuration for a matching token if it doesn't find a token for the current profile. Refer to [Terraform tokens](#terraform-tokens) for more information.
 
 ### Set default organization
 
-Configure the organization for tfctl to use. Replace NAME with your HCP Terraform or Terraform Enterprise organization name.
+Run the `tfctl profile set organization` command to set the default organization. Replace `NAME` with your HCP Terraform or Terraform Enterprise organization name.
 
 ```bash
 $ tfctl profile set organization NAME
@@ -95,13 +104,15 @@ $ tfctl profile set organization NAME
 
 ### Manage profiles
 
-tfctl supports multiple local profiles, accessible via the `tfctl profile profiles` subcommand. Use profiles to switch between HCP Terraform organizations and instances of HCP Terraform and Terraform Enterprise. To start using profiles, create one.
+Use the `tfctl profile profiles` command to create and manage profiles. You can use a different profile for each HCP Terraform organization and each instance of HCP Terraform and instance of Terraform Enterprise. 
+
+Run the `tfctl profile profiles create` command and specify a name to create a profile.
 
 ```bash
 $ tfctl profile profiles create NAME
 ```
 
-tfctl will activate the new profile automatically.
+The CLI activates the new profile automatically.
 
 ## Example usage
 
