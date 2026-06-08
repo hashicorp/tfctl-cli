@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/cli v1.1.7
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-tfe v1.78.1-0.20260603210239-533755d8b9f5
+	github.com/hashicorp/go-tfe v1.78.1-0.20260608224359-24b3bab9762b
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/itchyny/gojq v0.12.19

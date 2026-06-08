@@ -98,3 +98,30 @@ func TestRetryLogHook(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.GreaterOrEqual(t, atomic.LoadInt64(&attempts), int64(2))
 }
+
+// TestRetryInternalServerError verifies that 500 responses are retried.
+func TestRetryInternalServerError(t *testing.T) {
+	t.Parallel()
+
+	var attempts int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt64(&attempts, 1)
+		if n < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`ok`))
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(srv.URL, "test-token", nil, hclog.NewNullLogger())
+	require.NoError(t, err)
+
+	resp, err := c.TFE.GetStream(t.Context(), "/test", nil)
+	require.NoError(t, err)
+	resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.GreaterOrEqual(t, atomic.LoadInt64(&attempts), int64(3))
+}
