@@ -744,25 +744,25 @@ The HCP Terraform API typically requires a resource ID as part of the path for r
 - `--all`: Disable pagination and fetch all records. The `tfctl api` command can retrieve up to 2000 records per call.
   - Optional
   - Data type: Boolean flag
-  - Default: false
+  - Default: `false`
 
-- `--attribute`, `-a`: Set attribute in request body. Implies `--method=POST`.
+- `--attribute`, `-a`: Set attribute in request body. Sets `--method` to `POST`.
   - Repeatable
-  - Data type: String (NAME=VALUE format)
+  - Data type: String  formatted as `<name>=<value>`
 
 - `--field`, `-f`: Set query parameter in request URL.
   - Repeatable
-  - Data type: String (KEY=VALUE format)
+  - Data type: String  formatted as `<key>=<value>`
 
 - `--header`, `-H`: Set request header.
   - Repeatable
-  - Data type: String ('name: value' format)
+  - Data type: String  formatted as `<name>: <value>`
 
-- `--input`, `-i`: Set raw JSON request body, use `-` to read from stdin.
+- `--input`, `-i`: Specifies the raw JSON request body. You can specify the path if the JSON file is in a different directory. Use `-` to read from stdin.
   - Optional
-  - Data type: String or file path
+  - Data type: String
 
-- `--method`, `-X`: HTTP method to use (e.g. GET, POST, etc.)
+- `--method`, `-X`: HTTP method to use (such as `GET` or `POST`)
   - Optional
   - Data type: String
 
