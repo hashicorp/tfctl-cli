@@ -226,3 +226,70 @@ jobs:
           reproducible: report
           instructions: |
             make go/build
+
+  build-docker-default:
+    name: Docker release-default ${{matrix.runner}}/${{ matrix.arch }}
+    needs:
+      - set-product-version
+      - build-linux
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - { runner: "ubuntu-22.04", arch: "amd64", dockerfile: "Dockerfile" }
+          - { runner: "ubuntu-22.04", arch: "arm64", dockerfile: "Dockerfile" }
+          - { runner: "ubuntu-22.04", arch: "arm", dockerfile: "Dockerfile" }
+      fail-fast: false # recommended during development
+    env:
+      # Windows Warning: Do not set environment variables that case-conflict with variables used within an action
+      # on windows this will cause the action to not be able to set the environment variables.
+      # In this case setting `env.version` here means the action will be unable to set `env.VERSION` internally and fail.
+      repo: ${{ github.event.repository.name }}
+      product_version: ${{ needs.set-product-version.outputs.product-version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Docker Build (Action)
+        uses: hashicorp/actions-docker-build@v2
+        with:
+          smoke_test: |
+            TEST_VERSION="$(docker run "${IMAGE_NAME}" --version 2>&1)"
+            if [ "${TEST_VERSION}" != "v${{ env.product_version }}" ]; then
+              printf "fail: container smoke test, got=%q want=%q\n" "${TEST_VERSION}" "${{ env.product_version }}"
+              exit 1
+            fi
+            printf "ok: container smoke test\n"
+          pkg_name: ${{ env.PKG_NAME }}_${{ env.product_version }}
+          bin_name: ${{ env.PKG_NAME }}
+          version: ${{ env.product_version }}
+          dockerfile: ${{ matrix.dockerfile }}
+          target: single
+          arch: ${{ matrix.arch }}
+          # The ECR tag used below is to allow us to test by pushing to a private ECR registry.
+          # If you want to pubish to ECR use the following syntax instead - public.ecr.aws/hashicorp/${{env.PKG_NAME}}:${{env.version}}.
+          # Please note - if you haven't previously been publishing to ECR you will need to reach out to team-rel-eng
+          # - https://hashicorp.atlassian.net/wiki/spaces/RDXPOC/pages/2298218311/How+to+Push+a+Docker+image+to+ECR
+          tags: |
+            docker.io/hashicorp/${{ env.PKG_NAME }}:${{ env.product_version }}
+            986891699432.dkr.ecr.us-east-1.amazonaws.com/hashicorp/${{ env.PKG_NAME }}:${{ env.product_version }}
+          # dev_tags are tags that get automatically pushed whenever successful
+          # builds make it to the stable channel. The intention is for these tags
+          # to be used for early testing of new code prior to official releases
+          # going out. The stable channel implies that all tests and scans have
+          # completed successfully, so these images should be _stable_ but are not
+          # intended for production use.
+          #
+          # Here we have two example dev tags. The first (ending -dev) is a tag
+          # that will be updated over-and-over as new builds arrive in stable.
+          #
+          # The second (using the git SHA) will produce a new separate tag for
+          # each commit that is built. (These can still be overridden if the same
+          # commit is built successfully a second time, but that is a less likely
+          # scenario.) These kinds of dev tags are useful if you want to be able
+          # to use Docker images built from those specific commits.
+          #
+          # NOTE: dev_tags MUST publish to the 'hashicorppreview' DockerHub org, it
+          # will fail to any other DockerHub org or registry. You can optionally
+          # prepend docker.io
+          dev_tags: |
+            docker.io/hashicorppreview/${{ env.PKG_NAME }}:${{ env.product_version }}-dev
+            docker.io/hashicorppreview/${{ env.PKG_NAME }}:${{ env.product_version }}-${{ github.sha }}

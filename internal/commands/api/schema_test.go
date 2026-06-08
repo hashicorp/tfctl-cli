@@ -12,6 +12,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -19,7 +21,7 @@ import (
 )
 
 //go:embed fixtures/openapi.json
-var embeddedOpenAPISpec []byte
+var embeddedFixtureSpec []byte
 
 func TestSchemaSearchFiltersToSameResource(t *testing.T) {
 	t.Parallel()
@@ -46,8 +48,12 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 
 	io := iostreams.Test()
 	originalLoader := loadSchemaOperationsForSchemaCommand
-	loadSchemaOperationsForSchemaCommand = func(*cmd.Context) (openapi.Schema, error) {
-		return openapi.NewFromData(embeddedOpenAPISpec)
+	loadSchemaOperationsForSchemaCommand = func(*cmd.Context, hclog.Logger) openapi.Schema {
+		data, err := openapi.NewFromData(embeddedFixtureSpec)
+		if err != nil {
+			t.Fatalf("failed to load test schema: %v", err)
+		}
+		return data
 	}
 	t.Cleanup(func() {
 		loadSchemaOperationsForSchemaCommand = originalLoader
@@ -70,8 +76,12 @@ func TestCmdAPISchemaGetRun(t *testing.T) {
 
 	io := iostreams.Test()
 	originalLoader := loadSchemaOperationsForSchemaCommand
-	loadSchemaOperationsForSchemaCommand = func(*cmd.Context) (openapi.Schema, error) {
-		return openapi.NewFromData(embeddedOpenAPISpec)
+	loadSchemaOperationsForSchemaCommand = func(*cmd.Context, hclog.Logger) openapi.Schema {
+		result, err := openapi.NewFromData(embeddedFixtureSpec)
+		if err != nil {
+			t.Fatalf("failed to load test schema: %v", err)
+		}
+		return result
 	}
 	t.Cleanup(func() {
 		loadSchemaOperationsForSchemaCommand = originalLoader
@@ -94,8 +104,12 @@ func TestCmdAPISchemaGetByPath(t *testing.T) {
 	io := iostreams.Test()
 	cCtx := testCommandContext(io)
 	originalLoader := loadSchemaOperationsForSchemaCommand
-	loadSchemaOperationsForSchemaCommand = func(ctx *cmd.Context) (openapi.Schema, error) {
-		return openapi.NewFromData(embeddedOpenAPISpec)
+	loadSchemaOperationsForSchemaCommand = func(ctx *cmd.Context, logger hclog.Logger) openapi.Schema {
+		result, err := openapi.NewFromData(embeddedFixtureSpec)
+		if err != nil {
+			t.Fatalf("failed to load test schema: %v", err)
+		}
+		return result
 	}
 	t.Cleanup(func() {
 		loadSchemaOperationsForSchemaCommand = originalLoader
@@ -116,8 +130,12 @@ func TestCmdAPISchemaGetByPathNotFound(t *testing.T) {
 
 	io := iostreams.Test()
 	originalLoader := loadSchemaOperationsForSchemaCommand
-	loadSchemaOperationsForSchemaCommand = func(*cmd.Context) (openapi.Schema, error) {
-		return openapi.NewFromData(embeddedOpenAPISpec)
+	loadSchemaOperationsForSchemaCommand = func(*cmd.Context, hclog.Logger) openapi.Schema {
+		result, err := openapi.NewFromData(embeddedFixtureSpec)
+		if err != nil {
+			t.Fatalf("failed to load test schema: %v", err)
+		}
+		return result
 	}
 	t.Cleanup(func() {
 		loadSchemaOperationsForSchemaCommand = originalLoader

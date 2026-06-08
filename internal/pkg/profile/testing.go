@@ -3,13 +3,17 @@
 
 package profile
 
-import "testing"
+import (
+	"testing"
+)
 
 // TestProfile returns a profile appropriate for use during testing. If
 // interacting with more than one profile, prefer using TestLoader.
 func TestProfile(t *testing.T) *Profile { //nolint:paralleltest
 	defaultProfile := TestLoader(t).DefaultProfile()
 	defaultProfile.Hostname = "app.test.terraform.io"
+	defaultProfile.hostCacheDir = t.TempDir()
+	defaultProfile.Token = "test-token"
 
 	return defaultProfile
 }

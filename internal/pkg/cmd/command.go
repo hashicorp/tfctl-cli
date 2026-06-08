@@ -297,7 +297,7 @@ func (c *Command) Logger(ctx *Context) hclog.Logger {
 		Output:     io.Err(),
 		TimeFn:     time.Now,
 		TimeFormat: "15:04:05.000",
-		Color:      hclog.ColorOff, // Enabled later, maybe
+		Color:      hclog.ColorOff, // Enabled next, maybe
 	}
 
 	if io.ColorEnabled() && io.IsErrorTTY() {

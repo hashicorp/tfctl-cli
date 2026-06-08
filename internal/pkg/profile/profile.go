@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclwrite"
@@ -67,6 +68,18 @@ func (c *ActiveProfile) Write() error {
 	return os.WriteFile(path, f.Bytes(), 0o666)
 }
 
+//      _
+//     | |
+//   __| | __ _ _ __   __ _  ___ _ __
+//  / _` |/ _` | '_ \ / _` |/ _ \ '__|
+// | (_| | (_| | | | | (_| |  __/ |
+//  \__,_|\__,_|_| |_|\__, |\___|_|
+//                     __/ |
+//                    |___/
+
+// As long as hclsimple.Decode is used to load the profile, you can't remove any of these fields
+// without causing a loading error.
+
 // Profile is a named set of configuration for the CLI. It captures common
 // configuration values such as the organization and project being interacted
 // with, but also allows storing service specific configuration.
@@ -98,6 +111,9 @@ type Profile struct {
 
 	// dir is the directory the profile should write to.
 	dir string
+
+	// hostCacheDir is the directory the profile should write host-specific cache files to.
+	hostCacheDir string
 }
 
 // Predict predicts the HCL key names and basic settable values.
@@ -122,6 +138,17 @@ func (p *Profile) Predict(args complete.Args) []string {
 	}
 
 	return nil
+}
+
+// HostCache returns a HostCacheLoader for the profile, which can be used to
+// read and write host-specific cache files.
+func (p *Profile) HostCache(logger hclog.Logger) (*HostCacheLoader, error) {
+	hostname := p.GetHostname()
+	if hostname == "" {
+		return nil, fmt.Errorf("cannot get host cache with empty hostname")
+	}
+
+	return NewHostCacheLoader(p.hostCacheDir, hostname, logger)
 }
 
 // Validate validates that the set values are valid. It validates parameters

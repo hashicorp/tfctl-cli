@@ -70,11 +70,8 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		Output:      ctx.Output,
 	}
 
-	oas, oaserr := openapi.SchemaFactory(nil)
-	if oaserr != nil {
-		fmt.Fprintf(ctx.IO.Err(), "%s failed to load embedded openAPI spec, this is always a %s bug", ctx.IO.ColorScheme().ErrorLabel(), version.Name)
-		panic(oaserr)
-	}
+	// The embedded schema is always used for autocomplete
+	oas := openapi.LoadEmbeddedSchema()
 
 	cmd := &cmd.Command{
 		Name:      "api",

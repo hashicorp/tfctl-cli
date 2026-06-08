@@ -52,7 +52,6 @@ type GlobalFlags struct {
 	// helpers exported in the Context.
 	profile  string
 	json     bool
-	agent    bool
 	markdown bool
 	noColor  bool
 	jq       string
@@ -137,12 +136,6 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
-		Name:          "agent",
-		Description:   "Sets the output format.",
-		Value:         flagvalue.Simple(false, &ctx.flags.agent),
-		IsBooleanFlag: true,
-		global:        true,
-	}, &Flag{
 		Name:          "markdown",
 		Description:   "Sets the output format to markdown.",
 		Value:         flagvalue.Simple(false, &ctx.flags.markdown),
@@ -222,9 +215,6 @@ func (ctx *Context) applyGlobalFlags(_ *Command) error {
 	if ctx.flags.json {
 		f = format.JSON
 	}
-	if ctx.flags.agent {
-		f = format.Agent
-	}
 	if ctx.flags.markdown {
 		if f == format.Unset {
 			f = format.Markdown
@@ -233,10 +223,10 @@ func (ctx *Context) applyGlobalFlags(_ *Command) error {
 		}
 	}
 
-	// --jq implies --json and is only compatible with --json or --agent
+	// --jq implies --json and is only compatible with --json
 	if ctx.flags.jq != "" {
-		if f != format.Unset && f != format.JSON && f != format.Agent {
-			return fmt.Errorf("--jq cannot be used with --markdown; only --json or --agent output is supported")
+		if f != format.Unset && f != format.JSON {
+			return fmt.Errorf("--jq cannot be used with --markdown; only --json output is supported")
 		}
 		if f == format.Unset {
 			f = format.JSON
