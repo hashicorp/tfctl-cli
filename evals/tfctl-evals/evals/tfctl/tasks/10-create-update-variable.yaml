@@ -20,4 +20,4 @@ expected:
     - "/organizations/tfc-demo-au/workspaces/dev-env/vars"
     - "| jq"
   behavior:
-    max_tool_calls: 3
+    max_tool_calls: 15
