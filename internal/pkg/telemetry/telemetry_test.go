@@ -398,13 +398,13 @@ func TestLogMode_WritesSpanToWriter(t *testing.T) {
 
 func TestResolveEndpoint_Default(t *testing.T) {
 	clearEnv(t)
-	assert.Equal(t, "localhost:4318", resolveEndpoint("localhost:4318"))
+	assert.Equal(t, "telemetry.terraform.io:4318", resolveEndpoint())
 }
 
 func TestResolveEndpoint_EnvOverride(t *testing.T) {
 	clearEnv(t)
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.example.com:4318")
-	assert.Equal(t, "collector.example.com:4318", resolveEndpoint("collector.example.com:4318"))
+	assert.Equal(t, "collector.example.com:4318", resolveEndpoint())
 }
 
 // ============================================================

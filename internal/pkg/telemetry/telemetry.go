@@ -35,11 +35,14 @@ const (
 	serviceName = version.Name
 
 	// shutdownTimeout is the maximum time allowed for flushing spans on shutdown.
-	shutdownTimeout = 5 * time.Second
+	shutdownTimeout = 2 * time.Second
 
 	// batchTimeout is set high to ensure spans are only flushed on shutdown,
 	// not periodically during short-lived CLI execution.
 	batchTimeout = 1 * time.Hour
+
+	// DefaultHostname is the default OTLP endpoint hostname:port if not overridden by env var.
+	DefaultHostname = "telemetry.terraform.io:4318"
 )
 
 // Config holds the configuration needed to initialize telemetry.
@@ -143,15 +146,12 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 			stdouttrace.WithPrettyPrint(),
 		)
 	case ModeEnabled:
+		hostname := resolveEndpoint()
 		opts := []otlptracehttp.Option{
-			otlptracehttp.WithEndpoint(resolveEndpoint(cfg.Hostname)),
+			otlptracehttp.WithEndpoint(hostname),
 		}
-		if strings.HasPrefix(resolveEndpoint(cfg.Hostname), "localhost") {
+		if strings.HasPrefix(hostname, "localhost") {
 			opts = append(opts, otlptracehttp.WithInsecure())
-		}
-
-		if strings.HasSuffix(resolveEndpoint(cfg.Hostname), ".terraform.io") {
-			opts = append(opts, otlptracehttp.WithURLPath("/otlp/v1/traces"))
 		}
 
 		exporter, err = otlptracehttp.New(ctx, opts...)
@@ -279,11 +279,11 @@ func (t *Telemetry) Mode() Mode {
 
 // resolveEndpoint returns the OTLP endpoint (host:port only, no scheme),
 // checking the standard env var first and falling back to the default.
-func resolveEndpoint(hostname string) string {
+func resolveEndpoint() string {
 	if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
 		return stripScheme(ep)
 	}
-	return hostname
+	return DefaultHostname
 }
 
 // stripScheme removes the http:// or https:// prefix from an endpoint URL.
