@@ -201,7 +201,7 @@ Use the `--help` flag to print out detailed usage instructions. For example, `tf
   - Data type: Boolean flag
   - Defaults to `false`.
 
-- `--jq=<expression>`: A jq filter expression to apply to JSON output. Implies `--json`.
+- `--jq=<expression>`: A jq filter expression to apply to JSON output. Sets `--json` to `true`.
   - Data type: String
   - Optional parameter.
 
@@ -685,7 +685,7 @@ You must provide either a variable set or a workspace by name. Otherwise, `tfctl
 
 #### Arguments
 
-- `<tfvars_file>`: The .tfvars file to import variables from. You can specify the path to the file if it's in another directory. The CLI configures variables and apply names that indicate variables may be sensitive.
+- `<tfvars_file>`: The .tfvars file to import variables from. You can specify the path to the file if it's in another directory. The CLI automatically configures variables whose names indicate they may be sensitive as `sensitive`, such as those containing `secret`, `token`, or `private`.
   - Optional argument
   - Data type: String
 
