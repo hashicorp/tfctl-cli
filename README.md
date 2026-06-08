@@ -89,7 +89,7 @@ Run the `tfctl auth login` command to create and install a token for authenticat
 $ tfctl auth login
 ```
 
-The command opens HCP Terraform or your Terraform Enterprise instance in a browser window. Click the **Create an API token** button, then give your token a description and set its expiration. Click **Generate token**, then copy and paste the new token into your terminal window. The CLI does not print the pasted token to the screen. 
+The command opens HCP Terraform or your Terraform Enterprise instance in a browser window. Click the **Create an API token** button, then give your token a description and set its expiration. Click **Generate token**, then copy and paste the new token into your terminal window. The CLI does not print the pasted token to the screen. As with Terraform, `tfctl` stores these tokens in plain text.
 
 Verify that the login is successful before leaving the token page in your browser, because HCP Terraform does not show the token once it's closed. You must create a new token if an issue occurs during the process and you close the dialog showing the token.
 
