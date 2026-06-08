@@ -766,20 +766,20 @@ The HCP Terraform API typically requires a resource ID as part of the path for r
   - Optional
   - Data type: String
 
-- `--page-number`: Page number to return. Ignored if --all is set.
+- `--page-number`: Page number to return. Ignored when `--all` is set.
   - Optional
   - Data type: Number
-  - Default: 1
+  - Default: `1`
 
-- `--page-size`: Limit the number of records to return. Default varies by resource. Ignored if --all is set.
+- `--page-size`: Limit the number of records to return. Default varies by resource. Ignored when `--all` is set.
   - Optional
   - Data type: Number
 
 - `--pathparam`, `-p`: Provide a hint for path parameter resolution.
   - Repeatable
-  - Data type: String (NAME=VALUE format)
+  - Data type: String  formatted as `<name>=<value>`
 
-- `--type`, `-t`: Resource type for --attribute JSON:API request bodies.
+- `--type`, `-t`: Resource type for `--attribute JSON:API` request bodies.
   - Optional
   - Data type: String
 
@@ -791,13 +791,13 @@ Print out details about the account associated with the configured token in JSON
 $ tfctl api /account/details --json
 ```
 
-Create a project named "my-project" for the currently configured organization:
+Create a project named `my-project` for the currently configured organization:
 
 ```bash
 $ tfctl api /organizations/{organization}/projects --attribute="name=my-project" --attribute="description=A very fine project indeed."
 ```
 
-Print a list of all the workspaces (up to a limit of 2000) for the currently configured organization, sorted by the time the last run was started:
+Print a list of all the workspaces for the currently configured organization, up to a limit of 2000, sorted by the time the last run was started:
 
 ```bash
 $ tfctl api /organizations/{organization}/workspaces --all --field="sort=-current-run.created-at"
@@ -819,13 +819,13 @@ Show a trimmed OpenAPI document for a single operationId or all operations on an
 
 #### Arguments
 
-- `<operation_id_or_path>`: An exact OpenAPI operationId or an API path (starting with /) to inspect.
+- `<operation_id_or_path>`: Either the OpenAPI `operationId` or API path to inspect. The operation ID must be the exact value. The API path must begin with `/`.
   - Required argument
   - Data type: String
 
 #### Examples
 
-Inspect the getWorkspace operation:
+Inspect the `getWorkspace` operation:
 
 ```bash
 $ tfctl api schema get getWorkspace
@@ -853,7 +853,8 @@ Search API operations by keywords.
 #### Arguments
 
 - `<query>`: The search query to match against API operations.
-  - Required argument (repeatable)
+  - Required argument
+  - Repeatable  
   - Data type: String
 
 #### Examples
@@ -871,7 +872,7 @@ $ tfctl api schema search workspace
 
 ## Exit codes
 
-tfctl will return the following shell exit codes, depending on whether the command exited successfully or with an error.
+The `tfctl` command returns the following shell exit codes depending on whether the command exited successfully or with an error:
 
 | Exit | Meaning                          | Solution                              |
 |------|----------------------------------|---------------------------------------|
