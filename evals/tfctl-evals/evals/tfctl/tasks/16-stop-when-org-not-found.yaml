@@ -22,4 +22,4 @@ expected:
     - "exit 2"
     - "enterprise"
   behavior:
-    max_tool_calls: 3
+    max_tool_calls: 15

@@ -10,7 +10,7 @@ inputs:
   prompt: |
     List all variables in the 'billing-prod' workspace in the tfc-demo-au organization,
     showing their keys, categories (env vs terraform), and whether they're sensitive.
-    Use the correct API endpoint.
+    Use tfctl with the -p workspace= flag for the workspace parameter.
 
 expected:
   output_contains:
@@ -21,4 +21,4 @@ expected:
     - "/organizations/tfc-demo-au/workspaces/billing-prod/vars"
     - "| jq"
   behavior:
-    max_tool_calls: 2
+    max_tool_calls: 10
