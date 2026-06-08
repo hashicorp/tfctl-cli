@@ -808,7 +808,7 @@ Create a project named `my-project` for the currently configured organization:
 $ tfctl api /organizations/{organization}/projects --attribute="name=my-project" --attribute="description=A very fine project indeed."
 ```
 
-Print a list of all the workspaces for the currently configured organization, up to a limit of 2000, sorted by the time the last run was started:
+Print a list of all the workspaces for the currently configured organization, up to a limit of 2000, sorted by the time the last run was started, in descending order:
 
 ```bash
 $ tfctl api /organizations/{organization}/workspaces --all --field="sort=-current-run.created-at"
