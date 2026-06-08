@@ -11,7 +11,6 @@ The `tfctl` CLI  provides high-level commands for common workflows, such as mana
 
 ## Installation
 You can install the CLI, command completion utility, and agent skill separately.  
-You can install the CLI, command completion utility, and agent skill separately.  
 
 ### Prerequisites
 
@@ -83,15 +82,15 @@ $ tfctl profile set hostname <host>
 
 ### Set authentication token
 
-Run the `tfctl auth login` command to create and install a token for authenticating with HCP Terraform or Terraform Enterprise.
+Run the `tfctl auth login` command to create and install a token for `tfctl` to use to authenticate with HCP Terraform or Terraform Enterprise.
 
 ```bash
 $ tfctl auth login
 ```
 
-The command opens HCP Terraform or your Terraform Enterprise instance in a browser window. Click the **Create an API token** button, then give your token a description and set its expiration. Click **Generate token**, then copy and paste the new token into your terminal window. The CLI does not print the pasted token to the screen. As with Terraform, `tfctl` stores these tokens in plain text.
+The command opens HCP Terraform or your Terraform Enterprise instance in a browser window. Click the **Create an API token** button, then give your token a description and set its expiration. Click **Generate token**, then copy and paste the new token into your terminal window. The CLI does not print the pasted token to the screen. As with Terraform, `tfctl` stores these tokens in plain text. Refer to [Configuration reference](#configuration-reference) for more information.
 
-Verify that the login is successful before leaving the token page in your browser, because HCP Terraform does not show the token once it's closed. You must create a new token if an issue occurs during the process and you close the dialog showing the token.
+Verify that the login is successful before leaving the token page in your browser, because HCP Terraform does not show the token once it's closed. If an issue occurs during the process or you close the dialog showing the token before copying it, you must create a new token.
 
 If the CLI does not find a token configured for the active profile, it checks your Terraform configuration for a matching token. Refer to [Terraform tokens](#terraform-tokens) for more information.
 
@@ -107,13 +106,7 @@ $ tfctl profile set organization <name>
 
 Use the `tfctl profile profiles` command group to create and manage profiles. You can use a different profile for each HCP Terraform organization and each instance of HCP Terraform and instance of Terraform Enterprise.
 
-Run the `tfctl profile profiles create` command and specify a name to create a profile. Replace `<name>` with a name for your new profile.
-
-```bash
-$ tfctl profile profiles create <name>
-```
-
-The CLI activates the new profile automatically.
+To create a profile, run the `tfctl profile profiles create <name>` command and specify a name to create a profile. Replace `<name>` with a name for your new profile. The CLI activates the new profile automatically.
 
 ## Example usage
 
@@ -158,13 +151,13 @@ The CLI stores configuration for individual profiles in the `profiles` subdirect
 
 ### Terraform tokens
 
-If you have not configured a token for the active profile with `tfctl auth login`, the `tfctl` CLI checks your Terraform configuration for a matching token. This configuration is in either your Terraform configuration directory, for example `~/.terraform.d/credentials.tfrc.json`, or the corresponding Terraform environment variables, such as `TF_TOKEN_app_terraform_io`.
+If you have not configured a token for the active profile with `tfctl auth login`, the `tfctl` CLI checks your Terraform configuration for a matching token. These tokens may either be in your Terraform configuration directory, for example `~/.terraform.d/credentials.tfrc.json`, or the corresponding Terraform environment variables, such as `TF_TOKEN_app_terraform_io`.
 
 ### Environment variables
 
 If you have not configured a particular option for the active profile, `tfctl` checks the following environment variables:
 
-`TFCTL_ORGANIZATION`: The default organization to use for commands that require an organization.
+`TFCTL_ORGANIZATION`: The organization to use for commands that require an organization.
 
 `TFCTL_HOSTNAME`: The Terraform Enterprise or HCP Terraform hostname to use. Defaults to `app.terraform.io`.
 
@@ -172,7 +165,7 @@ If you have not configured a particular option for the active profile, `tfctl` c
 
 `TFCTL_TOKEN_<profile>`: An HCP Terraform API token to use in conjunction with the named profile.
 
-`TF_TOKEN_<hostname>`: An HCP Terraform API token to present with the specified hostname in Punycode formatting, for example `TF_TOKEN_app_terraform_io`. The CLI present the Terraform token only if it has not been configured in any other way.
+`TF_TOKEN_<hostname>`: An HCP Terraform API token to present during authentication, with the specified hostname in Punycode formatting, for example `TF_TOKEN_app_terraform_io`. The CLI present the Terraform token only if it has not been configured in any other way.
 
 ## Command reference
 
@@ -234,6 +227,12 @@ Login interactively:
 
 ```bash
 $ tfctl auth login
+```
+
+Login with a token from stdin. Replace `abcd.atlasv1.1234` with a valid HCP Terraform or Terraform Enterprise token.
+
+```bash
+$ echo "abcd.atlasv1.1234" | tfctl auth login --token
 ```
 
 #### Related
@@ -477,7 +476,7 @@ Create a new profile, and activate it automatically unless `--no-activate` is sp
 Create and switch to a new profile named `my-profile` configured for a Terraform Enterprise instance hosted at `my-tfe-instance.example.com`:
 
 ```bash
-$ tfctl profile profiles create my-profile --hostname=my-tfe-instance.example.com
+$ tfctl profile profiles create my-profile --hostname="my-tfe-instance.example.com"
 ```
 
 #### Related
@@ -557,7 +556,7 @@ Rename an existing named profile.
 Rename a profile named `old-name` to `new-name`:
 
 ```bash
-$ tfctl profile profiles rename old-name --new_name=new-name
+$ tfctl profile profiles rename old-name --new_name="new-name"
 ```
 
 #### Related
@@ -595,7 +594,7 @@ Start a new run on the workspace specified by ID or name.
   - Optional
   - Data type: String
 
-- `--organization`: Organization name. This value overrides the organization name configured  for the profile.
+- `--organization`: Organization name. This value overrides the organization name configured for the profile.
   - Optional
   - Data type: String
 
@@ -622,7 +621,7 @@ Print out the status of a run. You can specify a run ID, workspace ID, or worksp
 
 - Run ID: Gets the specific run. Run IDs are prefixed with `run-`.
 - Workspace ID: Gets the latest run on the workspace. Workspace IDs are prefixed with `ws-`. 
-- Workspace name: Gets the most recent run on the workspace.
+- Workspace name: Gets the most recent run on the named workspace.
 
 #### Arguments
 
@@ -674,13 +673,13 @@ You must provide either a variable set or a workspace by name. Otherwise, `tfctl
 
 #### Arguments
 
-- `<tfvars_file>`: The .tfvars file to import variables from. You can specify the path to the file if it's in another directory. The CLI  configures variables and apply names that indicate variables may be sensitive.
+- `<tfvars_file>`: The .tfvars file to import variables from. You can specify the path to the file if it's in another directory. The CLI configures variables and apply names that indicate variables may be sensitive.
   - Optional argument
   - Data type: String
 
 #### Options
 
-- `--env`, `-e`: Environment variable to import. `tfctl`  configures all imported environment variables as sensitive.
+- `--env`, `-e`: Environment variable to import. `tfctl` configures all imported environment variables as sensitive.
   - Repeatable
   - Data type: String
 
@@ -709,13 +708,13 @@ You must provide either a variable set or a workspace by name. Otherwise, `tfctl
 Import Terraform variables from `terraform.tfvars` file to a workspace named `my-workspace`:
 
 ```bash
-$ tfctl variable import terraform.tfvars --workspace=my-workspace
+$ tfctl variable import terraform.tfvars --workspace="my-workspace"
 ```
 
 Import multiple environment variables into a variable set named `my-varset` and overwrite existing values:
 
 ```bash
-$ tfctl variable import --overwrite --variable-set-name="my-varset" --env=AWS_ACCESS_KEY_ID --env=AWS_SECRET_ACCESS_KEY
+$ tfctl variable import --overwrite --variable-set-name="my-varset" --env="AWS_ACCESS_KEY_ID" --env="AWS_SECRET_ACCESS_KEY"
 ```
 
 #### Related
@@ -748,15 +747,15 @@ The HCP Terraform API typically requires a resource ID as part of the path for r
 
 - `--attribute`, `-a`: Set attribute in request body. Sets `--method` to `POST`.
   - Repeatable
-  - Data type: String  formatted as `<name>=<value>`
+  - Data type: String formatted as `<name>=<value>`
 
 - `--field`, `-f`: Set query parameter in request URL.
   - Repeatable
-  - Data type: String  formatted as `<key>=<value>`
+  - Data type: String formatted as `<key>=<value>`
 
 - `--header`, `-H`: Set request header.
   - Repeatable
-  - Data type: String  formatted as `<name>: <value>`
+  - Data type: String formatted as `<name>: <value>`
 
 - `--input`, `-i`: Specifies the raw JSON request body. You can specify the path if the JSON file is in a different directory. Use `-` to read from stdin.
   - Optional
@@ -882,5 +881,5 @@ The `tfctl` command returns the following shell exit codes depending on whether 
 | 3    | Authentication Error             | `tfctl auth login`                    |
 | 4    | Network error                    | Check connectivity                    |
 | 5    | API Server Error Persists        | Try again later                       |
-| 6    | Underlying error detected        | Command succeeded but found a problem |
+| 6    | Underlying error detected        | Varies depending on error condition   |
 | 130  | Canceled (ctrl-c).               | &mdash;                               |
