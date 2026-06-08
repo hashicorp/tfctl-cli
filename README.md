@@ -102,22 +102,6 @@ Run the `tfctl profile set organization` command to set the organization. Replac
 $ tfctl profile set organization <name>
 ```
 
-### Manage profiles
-
-Use the `tfctl profile profiles` command group to create and manage profiles. You can use a different profile for each HCP Terraform organization and each instance of HCP Terraform and instance of Terraform Enterprise.
-
-To create a profile, run the `tfctl profile profiles create <name>` command and specify a name to create a profile. Replace `<name>` with a name for your new profile. The CLI activates the new profile automatically.
-
-### Run `tfctl` in Docker
-
-If you have a `TFCTL_TOKEN` environment variable set, you can invoke `tfctl` using Docker. Refer to [Environment variables](#environment-variables) for more configuration environment variables.
-
-For example, the following command will run `tfctl` in a docker container, passing the local `TFCTL_TOKEN` environment variable into the container:
-
-```bash
-$ docker run -e TFCTL_TOKEN hashicorp/tfctl
-```
-
 ## Example usage
 
 **Command Syntax:** `tfctl <command> [subcommand] [flags] [arguments]`
@@ -148,6 +132,28 @@ $ tfctl run start example-app-workspace --message="Run started with tfctl."
 
 # Get detailed run status in JSON format
 $ tfctl run status example-app-workspace --json
+```
+
+### Manage profiles
+
+Use the `tfctl profile profiles` command group to create and manage profiles. You can use a different profile for each HCP Terraform organization and each instance of HCP Terraform and instance of Terraform Enterprise.
+
+To create a profile, run the `tfctl profile profiles create` command and specify a name to create a profile. Replace `<name>` with a name for your new profile.
+
+```bash
+$ tfctl profile profiles create <name>
+```
+
+The CLI activates the new profile automatically.
+
+### Run `tfctl` in Docker
+
+If you have a `TFCTL_TOKEN` environment variable set, you can invoke `tfctl` using Docker. Refer to [Environment variables](#environment-variables) for more configuration environment variables.
+
+For example, the following command will run `tfctl` in a docker container, passing the local `TFCTL_TOKEN` environment variable into the container:
+
+```bash
+$ docker run -e TFCTL_TOKEN hashicorp/tfctl
 ```
 
 ## Configuration reference
