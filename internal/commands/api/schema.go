@@ -61,7 +61,6 @@ type schemaCmdConfig struct {
 	// loadSchema, when non-nil, overrides the production schema loader. When
 	// nil, the command builds defaultSchemaLoader at run time.
 	loadSchema func() openapi.Schema
-	searcher   schemaSearcher
 }
 
 // schemaCmdOption customizes a schema subcommand at construction time.
@@ -69,7 +68,7 @@ type schemaCmdOption func(*schemaCmdConfig)
 
 // newSchemaCmdConfig applies the given options over the production defaults.
 func newSchemaCmdConfig(opts ...schemaCmdOption) schemaCmdConfig {
-	cfg := schemaCmdConfig{searcher: schemaOperationSearcher}
+	cfg := schemaCmdConfig{}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -132,7 +131,7 @@ func newCmdAPISchemaSearch(ctx *cmd.Context, opts ...schemaCmdOption) *cmd.Comma
 				Output:      ctx.Output,
 				ShutdownCtx: ctx.ShutdownCtx,
 				LoadSchema:  load,
-				Searcher:    cfg.searcher,
+				Searcher:    schemaOperationSearcher,
 				Query:       strings.Join(args, " "),
 			})
 		},
