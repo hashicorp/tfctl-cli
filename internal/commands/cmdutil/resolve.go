@@ -1,5 +1,6 @@
 // Copyright IBM Corp. 2026
 
+// Package cmdutil provides shared helpers for command implementations.
 package cmdutil
 
 import (

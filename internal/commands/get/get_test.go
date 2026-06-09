@@ -43,7 +43,7 @@ func TestRunGet(t *testing.T) {
 		}))
 		ctx.Profile.Organization = "my-org"
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{"workspaces"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspaces"})
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "alpha")
 	})
@@ -53,7 +53,7 @@ func TestRunGet(t *testing.T) {
 		io := iostreams.Test()
 		ctx := testContext(t, io, testServer(t, routeMap{}))
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{"workspaces"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspaces"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "organization is required but not set")
 	})
@@ -63,7 +63,7 @@ func TestRunGet(t *testing.T) {
 		io := iostreams.Test()
 		ctx := testContext(t, io, testServer(t, routeMap{}))
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{"runs"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"runs"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "listing runs is not supported at the top level")
 	})
@@ -73,7 +73,7 @@ func TestRunGet(t *testing.T) {
 		io := iostreams.Test()
 		ctx := testContext(t, io, testServer(t, routeMap{}))
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{"unknown"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"unknown"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown resource type or ID")
 		assert.Contains(t, err.Error(), "Available resources:")
@@ -96,7 +96,7 @@ func TestRunGet(t *testing.T) {
 			},
 		}))
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{"ws-abc123"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"ws-abc123"})
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "my-workspace")
 	})
@@ -118,7 +118,7 @@ func TestRunGet(t *testing.T) {
 			},
 		}))
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{"run-xyz"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"run-xyz"})
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "applied")
 	})
@@ -128,7 +128,7 @@ func TestRunGet(t *testing.T) {
 		io := iostreams.Test()
 		ctx := testContext(t, io, testServer(t, routeMap{}))
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{"xyz-123"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"xyz-123"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown resource type or ID")
 	})
@@ -150,7 +150,7 @@ func TestRunGet(t *testing.T) {
 			},
 		}))
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{"workspace", "ws-abc"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspace", "ws-abc"})
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "fetched-ws")
 	})
@@ -160,7 +160,7 @@ func TestRunGet(t *testing.T) {
 		io := iostreams.Test()
 		ctx := testContext(t, io, testServer(t, routeMap{}))
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{"blah", "ws-123"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"blah", "ws-123"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown resource type")
 	})
@@ -170,7 +170,7 @@ func TestRunGet(t *testing.T) {
 		io := iostreams.Test()
 		ctx := testContext(t, io, testServer(t, routeMap{}))
 
-		err := runGet(ctx, &GetOpts{}, hclog.NewNullLogger(), []string{})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{})
 		require.ErrorIs(t, err, cmd.ErrDisplayUsage)
 	})
 
@@ -219,7 +219,7 @@ func TestRunGet(t *testing.T) {
 		serverURL = ctx.Profile.Hostname
 		ctx.Profile.Organization = "my-org"
 
-		err := runGet(ctx, &GetOpts{All: true}, hclog.NewNullLogger(), []string{"workspaces"})
+		err := runGet(ctx, &Opts{All: true}, hclog.NewNullLogger(), []string{"workspaces"})
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "workspace-one")
 		assert.Contains(t, io.Output.String(), "workspace-two")
@@ -245,7 +245,7 @@ func TestRunGet(t *testing.T) {
 		}))
 		ctx.Profile.Organization = "profile-org"
 
-		err := runGet(ctx, &GetOpts{Organization: "flag-org"}, hclog.NewNullLogger(), []string{"workspaces"})
+		err := runGet(ctx, &Opts{Organization: "flag-org"}, hclog.NewNullLogger(), []string{"workspaces"})
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "from-flag-org")
 	})

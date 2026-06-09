@@ -19,8 +19,8 @@ import (
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
-// GetOpts defines the options for the `get` command.
-type GetOpts struct {
+// Opts defines the options for the `get` command.
+type Opts struct {
 	Organization string
 	All          bool
 	PageSize     int
@@ -30,7 +30,7 @@ type GetOpts struct {
 
 // NewCmdGet creates the `get` command.
 func NewCmdGet(ctx *cmd.Context) *cmd.Command {
-	opts := &GetOpts{}
+	opts := &Opts{}
 
 	return &cmd.Command{
 		Name:      "get",
@@ -100,7 +100,7 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 	}
 }
 
-func runGet(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, args []string) error {
+func runGet(ctx *cmd.Context, opts *Opts, logger hclog.Logger, args []string) error {
 	if len(args) == 0 {
 		return cmd.ErrDisplayUsage
 	}
@@ -112,7 +112,7 @@ func runGet(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, args []string)
 	return runGetTwoArgs(ctx, opts, logger, args[0], args[1])
 }
 
-func runGetSingleArg(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, arg string) error {
+func runGetSingleArg(ctx *cmd.Context, opts *Opts, logger hclog.Logger, arg string) error {
 	// Check if arg is a known resource type name (list mode).
 	if res := resource.ByName(arg); res != nil {
 		return runList(ctx, opts, logger, res)
@@ -127,7 +127,7 @@ func runGetSingleArg(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, arg s
 		arg, strings.Join(resource.Names(), ", "))
 }
 
-func runGetTwoArgs(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, resourceArg, id string) error {
+func runGetTwoArgs(ctx *cmd.Context, opts *Opts, logger hclog.Logger, resourceArg, id string) error {
 	res := resource.ByName(resourceArg)
 	if res == nil {
 		return fmt.Errorf("unknown resource type: %q\nAvailable resources: %s",
@@ -142,7 +142,7 @@ func runGetTwoArgs(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, resourc
 	return executeGetRequest(ctx, opts, logger, path)
 }
 
-func runList(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, res *resource.Resource) error {
+func runList(ctx *cmd.Context, opts *Opts, logger hclog.Logger, res *resource.Resource) error {
 	if res.PathList == "" {
 		return fmt.Errorf("listing %s is not supported at the top level", res.Type)
 	}
@@ -156,7 +156,7 @@ func runList(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, res *resource
 	return executeGetRequest(ctx, opts, logger, path)
 }
 
-func runGetByID(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, res *resource.Resource, id string) error {
+func runGetByID(ctx *cmd.Context, opts *Opts, logger hclog.Logger, res *resource.Resource, id string) error {
 	if res.PathGet == "" {
 		return fmt.Errorf("getting %s by ID is not supported", res.Type)
 	}
@@ -165,7 +165,7 @@ func runGetByID(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, res *resou
 	return executeGetRequest(ctx, opts, logger, path)
 }
 
-func executeGetRequest(ctx *cmd.Context, opts *GetOpts, logger hclog.Logger, path string) error {
+func executeGetRequest(ctx *cmd.Context, opts *Opts, logger hclog.Logger, path string) error {
 	apiClient, err := ctx.NewAPIClient(logger)
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
