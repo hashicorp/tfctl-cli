@@ -45,7 +45,7 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 		The input body can be inline JSON, a file path, {{ template "mdCodeOrBold" "@filename" }} to read from a file, or {{ template "mdCodeOrBold" "-" }} for stdin.
 
 		Note: {{ template "mdCodeOrBold" "-a" }} only sets data.attributes. Resources that require a relationships block
-		(e.g. variable sets, policy sets, variables) must use {{ template "mdCodeOrBold" "-i" }} with a full JSON:API request body.
+		(e.g. variable sets, policy sets) must use {{ template "mdCodeOrBold" "-i" }} with a full JSON:API request body.
 		`, version.Name),
 		Args: cmd.PositionalArguments{
 			Autocomplete: complete.PredictSet(resource.CreatableNames()...),
