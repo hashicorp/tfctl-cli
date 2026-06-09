@@ -8,25 +8,80 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
-
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
 	"github.com/hashicorp/tfctl-cli/version"
 )
-
-type schemaOperationsLoader func(ctx *cmd.Context, logger hclog.Logger) openapi.Schema
 
 type schemaSearcher interface {
 	Search(ctx context.Context, query string, operations []*openapi.Operation, limit int) ([]schemaSearchResult, error)
 }
 
-var (
-	loadSchemaOperationsForSchemaCommand schemaOperationsLoader = openapi.SchemaFactory
-	schemaOperationSearcher              schemaSearcher         = hybridSchemaSearcher{}
-)
+// schemaOperationSearcher is the default searcher used by the schema commands.
+// It is stateless and only ever read, so it is safe to share across commands.
+var schemaOperationSearcher schemaSearcher = hybridSchemaSearcher{}
+
+// schemaSearchOpts carries the dependencies and parsed inputs for the
+// `api schema search` command so that runSchemaSearch can be tested in
+// isolation without mutating any package-level state.
+type schemaSearchOpts struct {
+	IO          iostreams.IOStreams
+	Output      *format.Outputter
+	ShutdownCtx context.Context
+	LoadSchema  func() openapi.Schema
+	Searcher    schemaSearcher
+	Query       string
+}
+
+// schemaGetOpts carries the dependencies and parsed inputs for the
+// `api schema get` command so that runSchemaGet can be tested in isolation
+// without mutating any package-level state.
+type schemaGetOpts struct {
+	IO         iostreams.IOStreams
+	LoadSchema func() openapi.Schema
+	Target     string
+}
+
+// defaultSchemaLoader binds the command context and logger into a loader
+// closure that fetches the OpenAPI schema via the production SchemaFactory.
+func defaultSchemaLoader(ctx *cmd.Context, c *cmd.Command) func() openapi.Schema {
+	return func() openapi.Schema {
+		return openapi.SchemaFactory(ctx, c.Logger(ctx))
+	}
+}
+
+// schemaCmdConfig holds optional, construction-time overrides for the schema
+// subcommands. It lets tests drive the full command.Run path (flag parsing,
+// arg-count validation, exit-code mapping, IO wiring) with an injected loader
+// instead of mutating package-level state, keeping parallel tests race-free.
+type schemaCmdConfig struct {
+	// loadSchema, when non-nil, overrides the production schema loader. When
+	// nil, the command builds defaultSchemaLoader at run time.
+	loadSchema func() openapi.Schema
+}
+
+// schemaCmdOption customizes a schema subcommand at construction time.
+type schemaCmdOption func(*schemaCmdConfig)
+
+// newSchemaCmdConfig applies the given options over the production defaults.
+func newSchemaCmdConfig(opts ...schemaCmdOption) schemaCmdConfig {
+	cfg := schemaCmdConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return cfg
+}
+
+// withSchemaLoader overrides the schema loader, primarily for tests that want
+// to exercise the full command.Run path against a fixture schema.
+func withSchemaLoader(load func() openapi.Schema) schemaCmdOption {
+	return func(cfg *schemaCmdConfig) {
+		cfg.loadSchema = load
+	}
+}
 
 // NewCmdAPISchema creates the api schema command group.
 func NewCmdAPISchema(ctx *cmd.Context) *cmd.Command {
@@ -46,7 +101,8 @@ func NewCmdAPISchema(ctx *cmd.Context) *cmd.Command {
 	return c
 }
 
-func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
+func newCmdAPISchemaSearch(ctx *cmd.Context, opts ...schemaCmdOption) *cmd.Command {
+	cfg := newSchemaCmdConfig(opts...)
 	return &cmd.Command{
 		Name:           "search",
 		ShortHelp:      "Search API operations",
@@ -66,22 +122,37 @@ func newCmdAPISchemaSearch(ctx *cmd.Context) *cmd.Command {
 			Command:  fmt.Sprintf("$ %s api schema search workspace", version.Name),
 		}},
 		RunF: func(c *cmd.Command, args []string) error {
-			query := strings.Join(args, " ")
-			schema := loadSchemaOperationsForSchemaCommand(ctx, c.Logger(ctx))
-
-			results, err := schemaOperationSearcher.Search(ctx.ShutdownCtx, query, schema.Operations(), maxSchemaSearchResults)
-			if err != nil {
-				return err
+			load := cfg.loadSchema
+			if load == nil {
+				load = defaultSchemaLoader(ctx, c)
 			}
-			if len(results) == 0 {
-				return fmt.Errorf("%s No API operations matched %q", ctx.IO.ColorScheme().FailureIcon(), query)
-			}
-
-			return ctx.Output.Display(SchemaSearchResultsDisplayer{
-				results: results,
+			return runSchemaSearch(schemaSearchOpts{
+				IO:          ctx.IO,
+				Output:      ctx.Output,
+				ShutdownCtx: ctx.ShutdownCtx,
+				LoadSchema:  load,
+				Searcher:    schemaOperationSearcher,
+				Query:       strings.Join(args, " "),
 			})
 		},
 	}
+}
+
+// runSchemaSearch searches the loaded schema operations and renders the results.
+func runSchemaSearch(opts schemaSearchOpts) error {
+	schema := opts.LoadSchema()
+
+	results, err := opts.Searcher.Search(opts.ShutdownCtx, opts.Query, schema.Operations(), maxSchemaSearchResults)
+	if err != nil {
+		return err
+	}
+	if len(results) == 0 {
+		return fmt.Errorf("%s No API operations matched %q", opts.IO.ColorScheme().FailureIcon(), opts.Query)
+	}
+
+	return opts.Output.Display(SchemaSearchResultsDisplayer{
+		results: results,
+	})
 }
 
 // SchemaSearchResultsDisplayer is the displayer for schema search results.
@@ -124,7 +195,8 @@ func (d SchemaSearchResultsDisplayer) FieldTemplates() []format.Field {
 	}
 }
 
-func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
+func newCmdAPISchemaGet(ctx *cmd.Context, opts ...schemaCmdOption) *cmd.Command {
+	cfg := newSchemaCmdConfig(opts...)
 	return &cmd.Command{
 		Name:           "get",
 		ShortHelp:      "Show API operation schema by operation ID or path",
@@ -149,26 +221,40 @@ func newCmdAPISchemaGet(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		RunF: func(c *cmd.Command, args []string) error {
-			schema := loadSchemaOperationsForSchemaCommand(ctx, c.Logger(ctx))
-
-			var err error
-			var result openapi.Schema
-			if strings.HasPrefix(args[0], "/") {
-				result, err = schema.AtomizePath(args[0])
-			} else {
-				result, err = schema.AtomizeOperation(args[0])
+			load := cfg.loadSchema
+			if load == nil {
+				load = defaultSchemaLoader(ctx, c)
 			}
-			if err != nil {
-				return err
-			}
-
-			body, err := result.MarshalJSON()
-			if err != nil {
-				return fmt.Errorf("failed to marshal operation schema: %w", err)
-			}
-
-			fmt.Fprintln(ctx.IO.Out(), string(body))
-			return nil
+			return runSchemaGet(schemaGetOpts{
+				IO:         ctx.IO,
+				LoadSchema: load,
+				Target:     args[0],
+			})
 		},
 	}
+}
+
+// runSchemaGet renders a trimmed OpenAPI document for a single operationId or
+// all operations on an exact API path.
+func runSchemaGet(opts schemaGetOpts) error {
+	schema := opts.LoadSchema()
+
+	var err error
+	var result openapi.Schema
+	if strings.HasPrefix(opts.Target, "/") {
+		result, err = schema.AtomizePath(opts.Target)
+	} else {
+		result, err = schema.AtomizeOperation(opts.Target)
+	}
+	if err != nil {
+		return err
+	}
+
+	body, err := result.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("failed to marshal operation schema: %w", err)
+	}
+
+	fmt.Fprintln(opts.IO.Out(), string(body))
+	return nil
 }
