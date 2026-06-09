@@ -63,6 +63,30 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 	r.Empty(io.Error.String())
 }
 
+func TestCmdAPISchemaSearchNoResults(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	io := iostreams.Test()
+	cCtx := testCommandContext(io)
+
+	// An injected searcher that returns no matches drives runSchemaSearch's
+	// no-results branch deterministically, without depending on the production
+	// ranking behavior.
+	err := runSchemaSearch(schemaSearchOpts{
+		IO:          io,
+		Output:      cCtx.Output,
+		ShutdownCtx: cCtx.ShutdownCtx,
+		LoadSchema:  fixtureSchemaLoader(t),
+		Searcher:    emptySchemaSearcher{},
+		Query:       "no-such-operation",
+	})
+	r.Error(err)
+	r.Contains(err.Error(), "No API operations matched")
+	r.Contains(err.Error(), "no-such-operation")
+	r.Empty(io.Output.String())
+}
+
 func TestCmdAPISchemaGetRun(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
@@ -233,4 +257,12 @@ func containsOperation(operations []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// emptySchemaSearcher is a stub schemaSearcher that always returns no matches,
+// used to exercise runSchemaSearch's no-results error branch deterministically.
+type emptySchemaSearcher struct{}
+
+func (emptySchemaSearcher) Search(context.Context, string, []*openapi.Operation, int) ([]schemaSearchResult, error) {
+	return nil, nil
 }
