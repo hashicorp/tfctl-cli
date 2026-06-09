@@ -12,8 +12,6 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hashicorp/go-hclog"
-
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -47,22 +45,17 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 	r := require.New(t)
 
 	io := iostreams.Test()
-	originalLoader := loadSchemaOperationsForSchemaCommand
-	loadSchemaOperationsForSchemaCommand = func(*cmd.Context, hclog.Logger) openapi.Schema {
-		data, err := openapi.NewFromData(embeddedFixtureSpec)
-		if err != nil {
-			t.Fatalf("failed to load test schema: %v", err)
-		}
-		return data
-	}
-	t.Cleanup(func() {
-		loadSchemaOperationsForSchemaCommand = originalLoader
-	})
-
 	cCtx := testCommandContext(io)
-	command := newCmdAPISchemaSearch(cCtx)
-	command.SetIO(io)
-	r.Equal(0, command.Run([]string{"cancel", "run"}, cCtx))
+
+	err := runSchemaSearch(schemaSearchOpts{
+		IO:          io,
+		Output:      cCtx.Output,
+		ShutdownCtx: cCtx.ShutdownCtx,
+		LoadSchema:  fixtureSchemaLoader(t),
+		Searcher:    schemaOperationSearcher,
+		Query:       "cancel run",
+	})
+	r.NoError(err)
 
 	output := io.Output.String()
 	r.Contains(output, "getRun")
@@ -75,22 +68,13 @@ func TestCmdAPISchemaGetRun(t *testing.T) {
 	r := require.New(t)
 
 	io := iostreams.Test()
-	originalLoader := loadSchemaOperationsForSchemaCommand
-	loadSchemaOperationsForSchemaCommand = func(*cmd.Context, hclog.Logger) openapi.Schema {
-		result, err := openapi.NewFromData(embeddedFixtureSpec)
-		if err != nil {
-			t.Fatalf("failed to load test schema: %v", err)
-		}
-		return result
-	}
-	t.Cleanup(func() {
-		loadSchemaOperationsForSchemaCommand = originalLoader
-	})
 
-	cCtx := testCommandContext(io)
-	command := newCmdAPISchemaGet(cCtx)
-	command.SetIO(io)
-	r.Equal(0, command.Run([]string{"getWorkspace"}, cCtx))
+	err := runSchemaGet(schemaGetOpts{
+		IO:         io,
+		LoadSchema: fixtureSchemaLoader(t),
+		Target:     "getWorkspace",
+	})
+	r.NoError(err)
 
 	output := io.Output.String()
 	r.Contains(output, `"operationId":"getWorkspace"`)
@@ -99,25 +83,17 @@ func TestCmdAPISchemaGetRun(t *testing.T) {
 }
 
 func TestCmdAPISchemaGetByPath(t *testing.T) {
+	t.Parallel()
 	r := require.New(t)
 
 	io := iostreams.Test()
-	cCtx := testCommandContext(io)
-	originalLoader := loadSchemaOperationsForSchemaCommand
-	loadSchemaOperationsForSchemaCommand = func(ctx *cmd.Context, logger hclog.Logger) openapi.Schema {
-		result, err := openapi.NewFromData(embeddedFixtureSpec)
-		if err != nil {
-			t.Fatalf("failed to load test schema: %v", err)
-		}
-		return result
-	}
-	t.Cleanup(func() {
-		loadSchemaOperationsForSchemaCommand = originalLoader
-	})
 
-	command := newCmdAPISchemaGet(cCtx)
-	command.SetIO(io)
-	r.Equal(0, command.Run([]string{"/workspaces/{workspace_id}/vars"}, cCtx))
+	err := runSchemaGet(schemaGetOpts{
+		IO:         io,
+		LoadSchema: fixtureSchemaLoader(t),
+		Target:     "/workspaces/{workspace_id}/vars",
+	})
+	r.NoError(err)
 
 	output := io.Output.String()
 	r.Contains(output, `"listWorkspaceVars"`)
@@ -126,25 +102,30 @@ func TestCmdAPISchemaGetByPath(t *testing.T) {
 }
 
 func TestCmdAPISchemaGetByPathNotFound(t *testing.T) {
+	t.Parallel()
 	r := require.New(t)
 
 	io := iostreams.Test()
-	originalLoader := loadSchemaOperationsForSchemaCommand
-	loadSchemaOperationsForSchemaCommand = func(*cmd.Context, hclog.Logger) openapi.Schema {
-		result, err := openapi.NewFromData(embeddedFixtureSpec)
+
+	err := runSchemaGet(schemaGetOpts{
+		IO:         io,
+		LoadSchema: fixtureSchemaLoader(t),
+		Target:     "/nonexistent",
+	})
+	r.Error(err)
+}
+
+// fixtureSchemaLoader returns a loader closure backed by the embedded test
+// fixture spec, suitable for injecting into schemaSearchOpts/schemaGetOpts.
+func fixtureSchemaLoader(t *testing.T) func() openapi.Schema {
+	t.Helper()
+	return func() openapi.Schema {
+		schema, err := openapi.NewFromData(embeddedFixtureSpec)
 		if err != nil {
 			t.Fatalf("failed to load test schema: %v", err)
 		}
-		return result
+		return schema
 	}
-	t.Cleanup(func() {
-		loadSchemaOperationsForSchemaCommand = originalLoader
-	})
-
-	cCtx := testCommandContext(io)
-	command := newCmdAPISchemaGet(cCtx)
-	command.SetIO(io)
-	r.Equal(1, command.Run([]string{"/nonexistent"}, cCtx))
 }
 
 func testCommandContext(io *iostreams.Testing) *cmd.Context {

@@ -32,10 +32,11 @@ const (
 // NewCmdLogin returns the `auth login` command for authenticating.
 func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 	opts := &LoginOpts{
-		Ctx:     ctx.ShutdownCtx,
-		IO:      ctx.IO,
-		Profile: ctx.Profile,
-		Output:  ctx.Output,
+		Ctx:         ctx.ShutdownCtx,
+		IO:          ctx.IO,
+		Profile:     ctx.Profile,
+		Output:      ctx.Output,
+		OpenBrowser: openBrowser,
 	}
 
 	cmd := &cmd.Command{
@@ -91,6 +92,11 @@ type LoginOpts struct {
 	Profile *profile.Profile
 	Output  *format.Outputter
 	Logger  hclog.Logger
+
+	// OpenBrowser opens a URL in the user's default browser. When nil, the
+	// package default openBrowser is used. Tests inject a no-op opener to avoid
+	// launching a real browser and to keep parallel tests free of shared state.
+	OpenBrowser func(url string) error
 
 	Name   string
 	Token  bool
@@ -155,7 +161,11 @@ func readTokenInteractive(opts *LoginOpts, hostname string) (string, error) {
 	fmt.Fprintf(opts.IO.Err(), "Opening browser to create a token at:\n  %s\n\n",
 		cs.String(tokenURL).Bold().String())
 
-	if err := openBrowser(tokenURL); err != nil {
+	openURL := opts.OpenBrowser
+	if openURL == nil {
+		openURL = openBrowser
+	}
+	if err := openURL(tokenURL); err != nil {
 		fmt.Fprintf(opts.IO.Err(), "%s Could not open browser. Please open the URL above manually.\n\n",
 			cs.WarningLabel())
 	}

@@ -127,7 +127,7 @@ func TestSchemaSearchSummary(t *testing.T) {
 }
 
 func TestSpecBackedSchemaSearch(t *testing.T) {
-	schema := loadSchemaOperationsForSchemaCommand(testCommandContext(iostreams.Test()), hclog.NewNullLogger())
+	schema := openapi.SchemaFactory(testCommandContext(iostreams.Test()), hclog.NewNullLogger())
 	if schema == nil {
 		t.Fatal("failed to load schema")
 	}

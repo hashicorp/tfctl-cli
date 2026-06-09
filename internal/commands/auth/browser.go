@@ -5,11 +5,8 @@ package auth
 
 import "github.com/cli/browser"
 
-// openBrowserFn is the function used to open a URL in the default browser.
-// Tests can replace this to avoid launching a real browser.
-var openBrowserFn = browser.OpenURL
-
-// openBrowser attempts to open the given URL in the default browser.
+// openBrowser attempts to open the given URL in the default browser. It is the
+// production default for LoginOpts.OpenBrowser; tests inject their own opener.
 func openBrowser(url string) error {
-	return openBrowserFn(url)
+	return browser.OpenURL(url)
 }
