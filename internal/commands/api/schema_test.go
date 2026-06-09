@@ -115,6 +115,96 @@ func TestCmdAPISchemaGetByPathNotFound(t *testing.T) {
 	r.Error(err)
 }
 
+// The following tests drive the full command.Run path (flag parsing, arg-count
+// validation, exit-code mapping, IO wiring) with a per-command injected loader,
+// so they exercise the RunF closures and constructor wiring while staying free
+// of any shared package state.
+
+func TestCmdAPISchemaSearchCommandRun(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	io := iostreams.Test()
+	cCtx := testCommandContext(io)
+
+	command := newCmdAPISchemaSearch(cCtx, withSchemaLoader(fixtureSchemaLoader(t)))
+	command.SetIO(io)
+
+	// Multiple args exercise strings.Join and MinimumNArgs(1) validation.
+	r.Equal(0, command.Run([]string{"cancel", "run"}, cCtx))
+
+	output := io.Output.String()
+	r.Contains(output, "getRun")
+	r.Contains(output, "/runs/{run_id}")
+	r.Empty(io.Error.String())
+}
+
+func TestCmdAPISchemaSearchCommandRequiresArg(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	io := iostreams.Test()
+	cCtx := testCommandContext(io)
+
+	command := newCmdAPISchemaSearch(cCtx, withSchemaLoader(fixtureSchemaLoader(t)))
+	command.SetIO(io)
+
+	// MinimumNArgs(1): missing QUERY must fail before RunF runs.
+	r.Equal(1, command.Run([]string{}, cCtx))
+	r.NotEmpty(io.Error.String())
+}
+
+func TestCmdAPISchemaGetCommandRun(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	io := iostreams.Test()
+	cCtx := testCommandContext(io)
+
+	command := newCmdAPISchemaGet(cCtx, withSchemaLoader(fixtureSchemaLoader(t)))
+	command.SetIO(io)
+
+	r.Equal(0, command.Run([]string{"getWorkspace"}, cCtx))
+
+	output := io.Output.String()
+	r.Contains(output, `"operationId":"getWorkspace"`)
+	r.Contains(output, `"/workspaces/{workspace_id}"`)
+	r.Empty(io.Error.String())
+}
+
+func TestCmdAPISchemaGetCommandRequiresExactlyOneArg(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	// ExactArgs(1): both too few and too many args must fail in validation,
+	// before the RunF closure indexes args[0].
+	for _, args := range [][]string{{}, {"getWorkspace", "extra"}} {
+		io := iostreams.Test()
+		cCtx := testCommandContext(io)
+
+		command := newCmdAPISchemaGet(cCtx, withSchemaLoader(fixtureSchemaLoader(t)))
+		command.SetIO(io)
+
+		r.Equal(1, command.Run(args, cCtx))
+		r.NotEmpty(io.Error.String())
+		r.Empty(io.Output.String())
+	}
+}
+
+func TestCmdAPISchemaGetCommandNotFoundExitCode(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	io := iostreams.Test()
+	cCtx := testCommandContext(io)
+
+	command := newCmdAPISchemaGet(cCtx, withSchemaLoader(fixtureSchemaLoader(t)))
+	command.SetIO(io)
+
+	// A RunF error maps to a non-zero exit code via command.Run.
+	r.Equal(1, command.Run([]string{"/nonexistent"}, cCtx))
+}
+
 // fixtureSchemaLoader returns a loader closure backed by the embedded test
 // fixture spec, suitable for injecting into schemaSearchOpts/schemaGetOpts.
 func fixtureSchemaLoader(t *testing.T) func() openapi.Schema {
