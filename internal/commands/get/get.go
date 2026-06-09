@@ -138,6 +138,11 @@ func runGetTwoArgs(ctx *cmd.Context, opts *Opts, logger hclog.Logger, resourceAr
 		return fmt.Errorf("getting a single %s is not supported", res.Type)
 	}
 
+	// Validate that the ID prefix matches the resource type, if the resource has a known prefix.
+	if res.IDPrefix != "" && !strings.HasPrefix(id, res.IDPrefix) {
+		return fmt.Errorf("ID %q does not look like a %s (expected prefix %q)", id, res.Type, res.IDPrefix)
+	}
+
 	path := strings.ReplaceAll(res.PathGet, "{id}", id)
 	return executeGetRequest(ctx, opts, logger, path)
 }

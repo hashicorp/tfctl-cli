@@ -11,5 +11,4 @@ type Resource struct {
 	PathGet    string   // "/workspaces/{id}"
 	PathList   string   // "/organizations/{organization_name}/workspaces" (empty if not top-level listable)
 	PathCreate string   // "/organizations/{organization_name}/workspaces" (empty if not supported)
-	Columns    []string // preferred display columns for table output
 }

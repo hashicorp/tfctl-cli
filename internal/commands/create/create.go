@@ -117,6 +117,10 @@ func runCreate(ctx *cmd.Context, opts *Opts, logger hclog.Logger, args []string)
 		return fmt.Errorf("provide attributes with -a key=value or a request body with -i")
 	}
 
+	if len(opts.Attributes) > 0 && opts.InputBody != "" {
+		return fmt.Errorf("cannot use both -a (attributes) and -i (input body); choose one")
+	}
+
 	org := cmdutil.ResolveOrganization(ctx, opts.Organization)
 	path, err := cmdutil.ResolvePath(res.PathCreate, org)
 	if err != nil {

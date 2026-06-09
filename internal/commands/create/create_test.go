@@ -3,21 +3,17 @@
 package create
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hashicorp/tfctl-cli/internal/commands/cmdtest"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
-	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
-	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 func TestRunCreate(t *testing.T) {
@@ -27,10 +23,10 @@ func TestRunCreate(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
 		var receivedBody map[string]any
-		ctx := testContext(t, io, testServer(t, routeMap{
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"POST /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewDecoder(r.Body).Decode(&receivedBody)
-				jsonapi(w, map[string]any{
+				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
 						"id":   "ws-new123",
 						"type": "workspaces",
@@ -60,10 +56,10 @@ func TestRunCreate(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
 		var receivedBody map[string]any
-		ctx := testContext(t, io, testServer(t, routeMap{
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"POST /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewDecoder(r.Body).Decode(&receivedBody)
-				jsonapi(w, map[string]any{
+				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
 						"id":   "ws-input123",
 						"type": "workspaces",
@@ -87,7 +83,7 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create workspace dry run", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := testContext(t, io, testServer(t, routeMap{}))
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 		ctx.Profile.Organization = "my-org"
 
 		err := runCreate(ctx, &Opts{
@@ -102,7 +98,7 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create with no attrs and no input errors", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := testContext(t, io, testServer(t, routeMap{}))
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 		ctx.Profile.Organization = "my-org"
 
 		err := runCreate(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspace"})
@@ -113,7 +109,7 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create unsupported resource type", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := testContext(t, io, testServer(t, routeMap{}))
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
 		err := runCreate(ctx, &Opts{
 			Attributes: map[string]string{"x": "y"},
@@ -125,7 +121,7 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create unknown resource type", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := testContext(t, io, testServer(t, routeMap{}))
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
 		err := runCreate(ctx, &Opts{
 			Attributes: map[string]string{"x": "y"},
@@ -138,7 +134,7 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create workspace without org errors", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := testContext(t, io, testServer(t, routeMap{}))
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
 		err := runCreate(ctx, &Opts{
 			Attributes: map[string]string{"name": "foo"},
@@ -150,18 +146,32 @@ func TestRunCreate(t *testing.T) {
 	t.Run("no args returns usage", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := testContext(t, io, testServer(t, routeMap{}))
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
 		err := runCreate(ctx, &Opts{}, hclog.NewNullLogger(), []string{})
 		require.ErrorIs(t, err, cmd.ErrDisplayUsage)
 	})
 
+	t.Run("both attributes and input body errors", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		ctx.Profile.Organization = "my-org"
+
+		err := runCreate(ctx, &Opts{
+			Attributes: map[string]string{"name": "foo"},
+			InputBody:  `{"data":{"type":"workspaces"}}`,
+		}, hclog.NewNullLogger(), []string{"workspace"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot use both -a (attributes) and -i (input body)")
+	})
+
 	t.Run("explicit org flag overrides profile", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := testContext(t, io, testServer(t, routeMap{
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"POST /api/v2/organizations/flag-org/workspaces": func(w http.ResponseWriter, _ *http.Request) {
-				jsonapi(w, map[string]any{
+				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
 						"id":   "ws-flagorg",
 						"type": "workspaces",
@@ -181,41 +191,4 @@ func TestRunCreate(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "ws-flagorg")
 	})
-}
-
-// --- test helpers ---
-
-type routeMap map[string]http.HandlerFunc
-
-func (rm routeMap) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	key := fmt.Sprintf("%s %s", r.Method, r.URL.Path)
-	if h, ok := rm[key]; ok {
-		h(w, r)
-		return
-	}
-	http.Error(w, "unexpected: "+key, http.StatusInternalServerError)
-}
-
-func testServer(t *testing.T, routes routeMap) *httptest.Server {
-	t.Helper()
-	server := httptest.NewServer(routes)
-	t.Cleanup(server.Close)
-	return server
-}
-
-func testContext(t *testing.T, io *iostreams.Testing, server *httptest.Server) *cmd.Context {
-	t.Helper()
-	p := profile.TestProfile(t)
-	p.Hostname = server.URL
-	return &cmd.Context{
-		IO:          io,
-		Output:      format.New(io),
-		ShutdownCtx: context.Background(),
-		Profile:     p,
-	}
-}
-
-func jsonapi(w http.ResponseWriter, payload any) {
-	w.Header().Set("Content-Type", "application/vnd.api+json")
-	_ = json.NewEncoder(w).Encode(payload)
 }
