@@ -151,8 +151,9 @@ func runGetTwoArgs(ctx *cmd.Context, opts *Opts, logger hclog.Logger, resourceAr
 			resourceArg, strings.Join(resource.Names(), ", "))
 	}
 
+	// Defensive: all current registry entries have PathGet, but future ones may not.
 	if res.PathGet == "" {
-		return fmt.Errorf("getting a single %s is not supported", res.Type)
+		return fmt.Errorf("get is not supported for %s", res.Type)
 	}
 
 	// Validate that the ID prefix matches the resource type, if the resource has a known prefix.
@@ -166,7 +167,7 @@ func runGetTwoArgs(ctx *cmd.Context, opts *Opts, logger hclog.Logger, resourceAr
 
 func runList(ctx *cmd.Context, opts *Opts, logger hclog.Logger, res *resource.Resource) error {
 	if res.PathList == "" {
-		return fmt.Errorf("listing %s is not supported at the top level", res.Type)
+		return fmt.Errorf("listing is not supported for %s", res.Type)
 	}
 
 	org := cmdutil.ResolveOrganization(ctx, opts.Organization)
@@ -180,7 +181,7 @@ func runList(ctx *cmd.Context, opts *Opts, logger hclog.Logger, res *resource.Re
 
 func runGetByID(ctx *cmd.Context, opts *Opts, logger hclog.Logger, res *resource.Resource, id string) error {
 	if res.PathGet == "" {
-		return fmt.Errorf("getting %s by ID is not supported", res.Type)
+		return fmt.Errorf("get is not supported for %s", res.Type)
 	}
 
 	path := strings.ReplaceAll(res.PathGet, "{id}", id)

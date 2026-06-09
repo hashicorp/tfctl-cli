@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/commands/cmdtest"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
 func TestRunGet(t *testing.T) {
@@ -61,7 +62,7 @@ func TestRunGet(t *testing.T) {
 
 		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"runs"})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "listing runs is not supported at the top level")
+		assert.Contains(t, err.Error(), "listing is not supported for runs")
 	})
 
 	t.Run("unknown resource type", func(t *testing.T) {
@@ -256,6 +257,24 @@ func TestRunGet(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "from-flag-org")
 	})
+}
+
+// TestRunGetByID_NoPathGet covers the defensive guard in runGetByID for a
+// resource with no PathGet (currently unreachable from the registry, but
+// protects against future additions).
+func TestRunGetByID_NoPathGet(t *testing.T) {
+	t.Parallel()
+	io := iostreams.Test()
+	ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+
+	synthetic := &resource.Resource{
+		Type:     "widgets",
+		IDPrefix: "wgt-",
+	}
+
+	err := runGetByID(ctx, &Opts{}, hclog.NewNullLogger(), synthetic, "wgt-123")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "get is not supported for widgets")
 }
 
 // TestNewCmdGet_ArgValidation exercises the command through cmd.Command.Run to

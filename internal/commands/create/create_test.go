@@ -268,3 +268,66 @@ func TestRunCreate(t *testing.T) {
 		assert.Equal(t, "stdin-ws", attrs["name"])
 	})
 }
+
+// TestNewCmdCreate_ArgValidation exercises the command through cmd.Command.Run
+// to ensure the framework's arg-count validation accepts exactly 1 arg.
+func TestNewCmdCreate_ArgValidation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("one arg accepted by framework", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+			"POST /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, _ *http.Request) {
+				cmdtest.WriteJSONAPI(w, map[string]any{
+					"data": map[string]any{
+						"id":   "ws-created",
+						"type": "workspaces",
+						"attributes": map[string]any{
+							"name": "new-ws",
+						},
+					},
+				})
+			},
+		}))
+		ctx.Profile.Organization = "my-org"
+
+		c := NewCmdCreate(ctx)
+		root := &cmd.Command{Name: "tfctl"}
+		cmd.ConfigureRootCommand(ctx, root)
+		root.AddChild(c)
+
+		exitCode := c.Run([]string{"workspace", "-a", "name=new-ws"}, ctx)
+		assert.Equal(t, 0, exitCode)
+		assert.Contains(t, io.Output.String(), "ws-created")
+	})
+
+	t.Run("zero args rejected by framework", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+
+		c := NewCmdCreate(ctx)
+		root := &cmd.Command{Name: "tfctl"}
+		cmd.ConfigureRootCommand(ctx, root)
+		root.AddChild(c)
+
+		exitCode := c.Run([]string{}, ctx)
+		assert.NotEqual(t, 0, exitCode)
+	})
+
+	t.Run("two args rejected by framework", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+
+		c := NewCmdCreate(ctx)
+		root := &cmd.Command{Name: "tfctl"}
+		cmd.ConfigureRootCommand(ctx, root)
+		root.AddChild(c)
+
+		exitCode := c.Run([]string{"workspace", "extra"}, ctx)
+		assert.NotEqual(t, 0, exitCode)
+		assert.Contains(t, io.Error.String(), "accepts 1 arg(s)")
+	})
+}
