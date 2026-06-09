@@ -21,7 +21,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
-	tfe "github.com/hashicorp/go-tfe"
+	tfe "github.com/hashicorp/go-tfe/v2"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"

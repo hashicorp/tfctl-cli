@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-tfe/api/models"
-	"github.com/hashicorp/go-tfe/api/organizations"
+	"github.com/hashicorp/go-tfe/v2/api/models"
+	"github.com/hashicorp/go-tfe/v2/api/organizations"
 	abstractions "github.com/microsoft/kiota-abstractions-go"
 )
 

@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hashicorp/go-tfe/api/models"
+	"github.com/hashicorp/go-tfe/v2/api/models"
 	"github.com/microsoft/kiota-abstractions-go/serialization"
 )
 

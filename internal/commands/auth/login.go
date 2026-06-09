@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	tfe "github.com/hashicorp/go-tfe"
+	tfe "github.com/hashicorp/go-tfe/v2"
 
 	"github.com/hashicorp/go-hclog"
 

@@ -35,7 +35,7 @@ const (
 	serviceName = version.Name
 
 	// shutdownTimeout is the maximum time allowed for flushing spans on shutdown.
-	shutdownTimeout = 2 * time.Second
+	shutdownTimeout = 1 * time.Second
 
 	// batchTimeout is set high to ensure spans are only flushed on shutdown,
 	// not periodically during short-lived CLI execution.

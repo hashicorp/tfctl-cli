@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-tfe/api"
+	"github.com/hashicorp/go-tfe/v2/api"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"

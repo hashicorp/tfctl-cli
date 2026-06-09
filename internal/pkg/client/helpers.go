@@ -4,7 +4,7 @@
 package client
 
 import (
-	"github.com/hashicorp/go-tfe/api/models"
+	"github.com/hashicorp/go-tfe/v2/api/models"
 )
 
 // NewVar creates a new models.VarsEnvelope for creating a variable from parameters.

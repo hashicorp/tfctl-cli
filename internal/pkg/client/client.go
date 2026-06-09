@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	tfe "github.com/hashicorp/go-tfe"
+	tfe "github.com/hashicorp/go-tfe/v2"
 	abs "github.com/microsoft/kiota-abstractions-go"
 )
 
