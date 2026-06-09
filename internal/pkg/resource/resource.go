@@ -1,5 +1,6 @@
 // Copyright IBM Corp. 2026
 
+// Package resource provides a registry of known HCP Terraform API resource types.
 package resource
 
 // Resource describes a known API resource type.
