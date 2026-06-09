@@ -6,6 +6,7 @@ package create
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
@@ -42,6 +43,9 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 
 		Provide attributes using {{ template "mdCodeOrBold" "-a key=value" }} (repeatable) or a raw request body with {{ template "mdCodeOrBold" "-i" }}.
 		The input body can be inline JSON, a file path, {{ template "mdCodeOrBold" "@filename" }} to read from a file, or {{ template "mdCodeOrBold" "-" }} for stdin.
+
+		Note: {{ template "mdCodeOrBold" "-a" }} only sets data.attributes. Resources that require a relationships block
+		(e.g. variable sets, policy sets, variables) must use {{ template "mdCodeOrBold" "-i" }} with a full JSON:API request body.
 		`, version.Name),
 		Args: cmd.PositionalArguments{
 			Autocomplete: complete.PredictSet(resource.CreatableNames()...),
@@ -145,7 +149,7 @@ func runCreate(ctx *cmd.Context, opts *Opts, logger hclog.Logger, args []string)
 
 	apiOpts := api.NewOpts(ctx.ShutdownCtx, ctx.IO, ctx.Output, logger, apiClient)
 	apiOpts.URL = resolvedURL
-	apiOpts.Method = "POST"
+	apiOpts.Method = http.MethodPost
 	apiOpts.Quiet = opts.Quiet
 	apiOpts.DryRun = opts.DryRun
 	apiOpts.ResourceType = res.Type

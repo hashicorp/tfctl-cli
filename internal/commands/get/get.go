@@ -6,6 +6,7 @@ package get
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
@@ -156,7 +157,7 @@ func runGetTwoArgs(ctx *cmd.Context, opts *Opts, logger hclog.Logger, resourceAr
 
 	// Validate that the ID prefix matches the resource type, if the resource has a known prefix.
 	if res.IDPrefix != "" && !strings.HasPrefix(id, res.IDPrefix) {
-		return fmt.Errorf("ID %q does not look like a %s (expected prefix %q)", id, res.Type, res.IDPrefix)
+		return fmt.Errorf("ID %q does not look like a %s resource (expected prefix %q)", id, resourceArg, res.IDPrefix)
 	}
 
 	path := strings.ReplaceAll(res.PathGet, "{id}", id)
@@ -199,7 +200,7 @@ func executeGetRequest(ctx *cmd.Context, opts *Opts, logger hclog.Logger, path s
 
 	apiOpts := api.NewOpts(ctx.ShutdownCtx, ctx.IO, ctx.Output, logger, apiClient)
 	apiOpts.URL = resolvedURL
-	apiOpts.Method = "GET"
+	apiOpts.Method = http.MethodGet
 	apiOpts.Quiet = opts.Quiet
 	apiOpts.DryRun = opts.DryRun
 	apiOpts.All = opts.All

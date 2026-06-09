@@ -168,7 +168,7 @@ func TestRunGet(t *testing.T) {
 
 		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspace", "run-xyz"})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), `does not look like a workspaces`)
+		assert.Contains(t, err.Error(), `does not look like a workspace resource`)
 		assert.Contains(t, err.Error(), `expected prefix "ws-"`)
 	})
 
