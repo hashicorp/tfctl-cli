@@ -6,6 +6,8 @@ package client
 import (
 	"fmt"
 	"strings"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
 // ResolvePathParams replaces all {param} placeholders in a URL path with values
@@ -64,25 +66,15 @@ func ParsePathParams(path string) map[string]string {
 // IsResolvableSegment returns true if the segment is a resource type that
 // supports name-to-ID resolution via the API.
 func IsResolvableSegment(segment string) bool {
-	switch segment {
-	case "workspaces", "teams", "projects", "varsets":
-		return true
-	}
-	return false
+	return resource.IsResolvableType(segment)
 }
 
 // LooksLikeID returns true if the value already appears to be an
 // ID for the given resource segment, based on known prefixes.
 func LooksLikeID(segment, value string) bool {
-	switch segment {
-	case "workspaces":
-		return strings.HasPrefix(value, "ws-")
-	case "teams":
-		return strings.HasPrefix(value, "team-")
-	case "projects":
-		return strings.HasPrefix(value, "prj-")
-	case "varsets":
-		return strings.HasPrefix(value, "varset-")
+	prefix := resource.IDPrefixForType(segment)
+	if prefix == "" {
+		return false
 	}
-	return false
+	return strings.HasPrefix(value, prefix)
 }

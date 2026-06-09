@@ -1,4 +1,5 @@
 // Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
 
 // Package get implements the tfctl get command.
 package get
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/posener/complete"
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/api"
 	"github.com/hashicorp/tfctl-cli/internal/commands/cmdutil"
@@ -24,6 +26,7 @@ type Opts struct {
 	Organization string
 	All          bool
 	PageSize     int
+	PageNumber   int
 	DryRun       bool
 	Quiet        bool
 }
@@ -43,10 +46,16 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 		A two-argument form allows specifying both type and ID: {{ template "mdCodeOrBold" "get workspace ws-abc123" }}.
 		`, version.Name),
 		Args: cmd.PositionalArguments{
+			Autocomplete: complete.PredictSet(resource.CompletionNames()...),
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "RESOURCE_OR_ID",
 					Documentation: "resource type name or resource ID",
+				},
+				{
+					Name:          "ID",
+					Documentation: "resource ID (when first argument is the resource type)",
+					Optional:      true,
 				},
 			},
 		},
@@ -70,6 +79,13 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 					Description:  "Number of results per page",
 					DisplayValue: "SIZE",
 					Value:        flagvalue.Simple(0, &opts.PageSize),
+				},
+				{
+					Name:         "page-number",
+					Shorthand:    "n",
+					Description:  "Page number to fetch (1-indexed)",
+					DisplayValue: "NUMBER",
+					Value:        flagvalue.Simple(0, &opts.PageNumber),
 				},
 			},
 		},
@@ -181,23 +197,14 @@ func executeGetRequest(ctx *cmd.Context, opts *Opts, logger hclog.Logger, path s
 		return fmt.Errorf("invalid path %q: %w", path, err)
 	}
 
-	apiOpts := &api.Opts{
-		IO:          ctx.IO,
-		Output:      ctx.Output,
-		Logger:      logger,
-		ShutdownCtx: ctx.ShutdownCtx,
-		Client:      apiClient,
-		Quiet:       opts.Quiet,
-		DryRun:      opts.DryRun,
-		URL:         resolvedURL,
-		Method:      "GET",
-		All:         opts.All,
-		PageSize:    opts.PageSize,
-		Headers:     []string{},
-		Attributes:  map[string]string{},
-		Query:       map[string]string{},
-		PathParams:  map[string]string{},
-	}
+	apiOpts := api.NewOpts(ctx.ShutdownCtx, ctx.IO, ctx.Output, logger, apiClient)
+	apiOpts.URL = resolvedURL
+	apiOpts.Method = "GET"
+	apiOpts.Quiet = opts.Quiet
+	apiOpts.DryRun = opts.DryRun
+	apiOpts.All = opts.All
+	apiOpts.PageSize = opts.PageSize
+	apiOpts.PageNumber = opts.PageNumber
 
 	return api.RunAPI(apiOpts)
 }

@@ -1,4 +1,5 @@
 // Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
 
 package resource
 
@@ -15,6 +16,7 @@ var registry = []Resource{
 		PathGet:    "/workspaces/{id}",
 		PathList:   "/organizations/{organization_name}/workspaces",
 		PathCreate: "/organizations/{organization_name}/workspaces",
+		Resolvable: true,
 	},
 	{
 		Type:     "runs",
@@ -29,6 +31,7 @@ var registry = []Resource{
 		PathGet:    "/projects/{id}",
 		PathList:   "/organizations/{organization_name}/projects",
 		PathCreate: "/organizations/{organization_name}/projects",
+		Resolvable: true,
 	},
 	{
 		Type:       "teams",
@@ -37,6 +40,7 @@ var registry = []Resource{
 		PathGet:    "/teams/{id}",
 		PathList:   "/organizations/{organization_name}/teams",
 		PathCreate: "/organizations/{organization_name}/teams",
+		Resolvable: true,
 	},
 	{
 		Type:       "varsets",
@@ -45,6 +49,7 @@ var registry = []Resource{
 		PathGet:    "/varsets/{id}",
 		PathList:   "/organizations/{organization_name}/varsets",
 		PathCreate: "/organizations/{organization_name}/varsets",
+		Resolvable: true,
 	},
 	{
 		Type:     "organizations",
@@ -149,4 +154,50 @@ func Names() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// CompletionNames returns all type names and aliases (for shell autocompletion).
+func CompletionNames() []string {
+	var names []string
+	for _, r := range registry {
+		names = append(names, r.Type)
+		names = append(names, r.Aliases...)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// CreatableNames returns names and aliases of resource types that support creation.
+func CreatableNames() []string {
+	var names []string
+	for _, r := range registry {
+		if r.PathCreate == "" {
+			continue
+		}
+		names = append(names, r.Type)
+		names = append(names, r.Aliases...)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// IsResolvableType returns true if the given type name (e.g. "workspaces")
+// supports name-to-ID resolution via the API.
+func IsResolvableType(typeName string) bool {
+	for i := range registry {
+		if registry[i].Type == typeName && registry[i].Resolvable {
+			return true
+		}
+	}
+	return false
+}
+
+// IDPrefixForType returns the ID prefix for the given type name, or "" if unknown.
+func IDPrefixForType(typeName string) string {
+	for i := range registry {
+		if registry[i].Type == typeName {
+			return registry[i].IDPrefix
+		}
+	}
+	return ""
 }

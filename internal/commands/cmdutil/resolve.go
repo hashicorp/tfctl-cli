@@ -1,4 +1,5 @@
 // Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
 
 // Package cmdutil provides shared helpers for command implementations.
 package cmdutil

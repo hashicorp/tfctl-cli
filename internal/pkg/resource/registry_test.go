@@ -1,4 +1,5 @@
 // Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
 
 package resource
 
@@ -186,4 +187,40 @@ func TestNames(t *testing.T) {
 	assert.Contains(t, names, "workspaces")
 	assert.Contains(t, names, "runs")
 	assert.Contains(t, names, "organizations")
+}
+
+func TestCompletionNames(t *testing.T) {
+	t.Parallel()
+
+	names := CompletionNames()
+	assert.NotEmpty(t, names)
+	assert.True(t, sort.StringsAreSorted(names))
+
+	// Should include canonical types and aliases.
+	assert.Contains(t, names, "workspaces")
+	assert.Contains(t, names, "workspace")
+	assert.Contains(t, names, "ws")
+	assert.Contains(t, names, "runs")
+	assert.Contains(t, names, "run")
+
+	// Should be longer than Names() since it includes aliases.
+	assert.Greater(t, len(names), len(Names()))
+}
+
+func TestCreatableNames(t *testing.T) {
+	t.Parallel()
+
+	names := CreatableNames()
+	assert.NotEmpty(t, names)
+	assert.True(t, sort.StringsAreSorted(names))
+
+	// Should include types that have PathCreate.
+	assert.Contains(t, names, "workspaces")
+	assert.Contains(t, names, "workspace")
+	assert.Contains(t, names, "projects")
+
+	// Should NOT include types without PathCreate (e.g. runs, applies).
+	assert.NotContains(t, names, "runs")
+	assert.NotContains(t, names, "run")
+	assert.NotContains(t, names, "applies")
 }

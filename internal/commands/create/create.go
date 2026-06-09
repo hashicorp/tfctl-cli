@@ -1,4 +1,5 @@
 // Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
 
 // Package create implements the tfctl create command.
 package create
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/posener/complete"
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/api"
 	"github.com/hashicorp/tfctl-cli/internal/commands/cmdutil"
@@ -42,6 +44,7 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 		The input body can be inline JSON, a file path, {{ template "mdCodeOrBold" "@filename" }} to read from a file, or {{ template "mdCodeOrBold" "-" }} for stdin.
 		`, version.Name),
 		Args: cmd.PositionalArguments{
+			Autocomplete: complete.PredictSet(resource.CreatableNames()...),
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "RESOURCE",
@@ -140,22 +143,15 @@ func runCreate(ctx *cmd.Context, opts *Opts, logger hclog.Logger, args []string)
 	// Handle @filename syntax: strip the @ and let RunAPI read the file.
 	inputBody := strings.TrimPrefix(opts.InputBody, "@")
 
-	apiOpts := &api.Opts{
-		IO:           ctx.IO,
-		Output:       ctx.Output,
-		Logger:       logger,
-		ShutdownCtx:  ctx.ShutdownCtx,
-		Client:       apiClient,
-		Quiet:        opts.Quiet,
-		DryRun:       opts.DryRun,
-		URL:          resolvedURL,
-		Method:       "POST",
-		ResourceType: res.Type,
-		Attributes:   opts.Attributes,
-		InputRequest: inputBody,
-		Headers:      []string{},
-		Query:        map[string]string{},
-		PathParams:   map[string]string{},
+	apiOpts := api.NewOpts(ctx.ShutdownCtx, ctx.IO, ctx.Output, logger, apiClient)
+	apiOpts.URL = resolvedURL
+	apiOpts.Method = "POST"
+	apiOpts.Quiet = opts.Quiet
+	apiOpts.DryRun = opts.DryRun
+	apiOpts.ResourceType = res.Type
+	apiOpts.InputRequest = inputBody
+	if opts.Attributes != nil {
+		apiOpts.Attributes = opts.Attributes
 	}
 
 	return api.RunAPI(apiOpts)

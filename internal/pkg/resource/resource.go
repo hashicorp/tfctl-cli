@@ -1,4 +1,5 @@
 // Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
 
 // Package resource provides a registry of known HCP Terraform API resource types.
 package resource
@@ -11,4 +12,5 @@ type Resource struct {
 	PathGet    string   // "/workspaces/{id}"
 	PathList   string   // "/organizations/{organization_name}/workspaces" (empty if not top-level listable)
 	PathCreate string   // "/organizations/{organization_name}/workspaces" (empty if not supported)
+	Resolvable bool     // true if the API supports name-to-ID resolution for this type
 }

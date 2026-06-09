@@ -1,4 +1,5 @@
 // Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
 
 package get
 
@@ -254,5 +255,81 @@ func TestRunGet(t *testing.T) {
 		err := runGet(ctx, &Opts{Organization: "flag-org"}, hclog.NewNullLogger(), []string{"workspaces"})
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "from-flag-org")
+	})
+}
+
+// TestNewCmdGet_ArgValidation exercises the command through cmd.Command.Run to
+// ensure the framework's arg-count validation (derived from PositionalArguments)
+// allows 1 and 2 args but rejects 0 and 3.
+func TestNewCmdGet_ArgValidation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("two args accepted by framework", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+			"GET /api/v2/workspaces/ws-abc": func(w http.ResponseWriter, _ *http.Request) {
+				cmdtest.WriteJSONAPI(w, map[string]any{
+					"data": map[string]any{
+						"id":   "ws-abc",
+						"type": "workspaces",
+						"attributes": map[string]any{
+							"name": "fetched-ws",
+						},
+					},
+				})
+			},
+		}))
+
+		c := NewCmdGet(ctx)
+		root := &cmd.Command{Name: "tfctl"}
+		cmd.ConfigureRootCommand(ctx, root)
+		root.AddChild(c)
+
+		exitCode := c.Run([]string{"workspace", "ws-abc"}, ctx)
+		assert.Equal(t, 0, exitCode)
+		assert.Contains(t, io.Output.String(), "fetched-ws")
+	})
+
+	t.Run("one arg accepted by framework", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+			"GET /api/v2/workspaces/ws-one": func(w http.ResponseWriter, _ *http.Request) {
+				cmdtest.WriteJSONAPI(w, map[string]any{
+					"data": map[string]any{
+						"id":   "ws-one",
+						"type": "workspaces",
+						"attributes": map[string]any{
+							"name": "single-arg",
+						},
+					},
+				})
+			},
+		}))
+
+		c := NewCmdGet(ctx)
+		root := &cmd.Command{Name: "tfctl"}
+		cmd.ConfigureRootCommand(ctx, root)
+		root.AddChild(c)
+
+		exitCode := c.Run([]string{"ws-one"}, ctx)
+		assert.Equal(t, 0, exitCode)
+		assert.Contains(t, io.Output.String(), "single-arg")
+	})
+
+	t.Run("three args rejected by framework", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+
+		c := NewCmdGet(ctx)
+		root := &cmd.Command{Name: "tfctl"}
+		cmd.ConfigureRootCommand(ctx, root)
+		root.AddChild(c)
+
+		exitCode := c.Run([]string{"workspace", "ws-abc", "extra"}, ctx)
+		assert.NotEqual(t, 0, exitCode)
+		assert.Contains(t, io.Error.String(), "accepts between 1 and 2 arg(s)")
 	})
 }

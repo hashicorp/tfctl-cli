@@ -62,6 +62,22 @@ type Opts struct {
 	PageNumber   int
 }
 
+// NewOpts creates an Opts with required context fields set and nil-dangerous
+// maps/slices initialized to empty values.
+func NewOpts(shutdownCtx context.Context, io iostreams.IOStreams, output *format.Outputter, logger hclog.Logger, apiClient *client.Client) *Opts {
+	return &Opts{
+		IO:          io,
+		Output:      output,
+		Logger:      logger,
+		ShutdownCtx: shutdownCtx,
+		Client:      apiClient,
+		Headers:     []string{},
+		Attributes:  map[string]string{},
+		Query:       map[string]string{},
+		PathParams:  map[string]string{},
+	}
+}
+
 // NewCmdAPI creates the `api` command.
 func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	opts := &Opts{
