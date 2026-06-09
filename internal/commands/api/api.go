@@ -251,7 +251,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			opts.Quiet = ctx.Profile.IsQuiet()
 			opts.DryRun = ctx.IsDryRun()
 
-			return runAPI(opts)
+			return RunAPI(opts)
 		},
 	}
 
@@ -356,7 +356,8 @@ func lookupResource(goCtx context.Context, resolver *client.Resolver, segment, o
 	return *id, nil
 }
 
-func runAPI(opts *Opts) error {
+// RunAPI executes a low-level API request with the given options.
+func RunAPI(opts *Opts) error {
 	// Handle -f query fields
 	query := opts.URL.Query()
 	for key, value := range opts.Query {
