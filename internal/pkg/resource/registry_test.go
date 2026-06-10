@@ -224,3 +224,121 @@ func TestCreatableNames(t *testing.T) {
 	assert.NotContains(t, names, "run")
 	assert.NotContains(t, names, "applies")
 }
+
+// TestRegistryInvariants validates structural invariants that keep the registry
+// correct across get, create, and table rendering subsystems.
+func TestRegistryInvariants(t *testing.T) {
+	t.Parallel()
+
+	all := All()
+
+	t.Run("no duplicate types", func(t *testing.T) {
+		t.Parallel()
+		seen := make(map[string]bool, len(all))
+		for _, r := range all {
+			if seen[r.Type] {
+				t.Errorf("duplicate type: %q", r.Type)
+			}
+			seen[r.Type] = true
+		}
+	})
+
+	t.Run("no duplicate aliases", func(t *testing.T) {
+		t.Parallel()
+		seen := make(map[string]string) // alias -> owning type
+		for _, r := range all {
+			for _, alias := range r.Aliases {
+				if owner, ok := seen[alias]; ok {
+					t.Errorf("alias %q used by both %q and %q", alias, owner, r.Type)
+				}
+				seen[alias] = r.Type
+			}
+		}
+	})
+
+	t.Run("aliases do not collide with canonical types", func(t *testing.T) {
+		t.Parallel()
+		types := make(map[string]bool, len(all))
+		for _, r := range all {
+			types[r.Type] = true
+		}
+		for _, r := range all {
+			for _, alias := range r.Aliases {
+				if types[alias] && alias != r.Type {
+					t.Errorf("alias %q of %q collides with another resource's canonical type", alias, r.Type)
+				}
+			}
+		}
+	})
+
+	t.Run("PathGet contains {id}", func(t *testing.T) {
+		t.Parallel()
+		for _, r := range all {
+			if r.PathGet == "" {
+				continue
+			}
+			assert.Containsf(t, r.PathGet, "{id}",
+				"resource %q PathGet=%q must contain {id}", r.Type, r.PathGet)
+		}
+	})
+
+	t.Run("PathCreate contains {organization_name}", func(t *testing.T) {
+		t.Parallel()
+		for _, r := range all {
+			if r.PathCreate == "" {
+				continue
+			}
+			assert.Containsf(t, r.PathCreate, "{organization_name}",
+				"resource %q PathCreate=%q must contain {organization_name}", r.Type, r.PathCreate)
+		}
+	})
+
+	t.Run("PathCreate implies PathGet", func(t *testing.T) {
+		t.Parallel()
+		for _, r := range all {
+			if r.PathCreate == "" {
+				continue
+			}
+			assert.NotEmptyf(t, r.PathGet,
+				"resource %q has PathCreate but no PathGet", r.Type)
+		}
+	})
+
+	t.Run("Resolvable implies IDPrefix and PathList", func(t *testing.T) {
+		t.Parallel()
+		for _, r := range all {
+			if !r.Resolvable {
+				continue
+			}
+			assert.NotEmptyf(t, r.IDPrefix,
+				"resource %q is Resolvable but has no IDPrefix", r.Type)
+			assert.NotEmptyf(t, r.PathList,
+				"resource %q is Resolvable but has no PathList", r.Type)
+		}
+	})
+
+	t.Run("IDPrefix ends with dash", func(t *testing.T) {
+		t.Parallel()
+		for _, r := range all {
+			if r.IDPrefix == "" {
+				continue
+			}
+			assert.Truef(t, r.IDPrefix[len(r.IDPrefix)-1] == '-',
+				"resource %q IDPrefix=%q must end with '-'", r.Type, r.IDPrefix)
+		}
+	})
+
+	t.Run("no duplicate IDPrefixes", func(t *testing.T) {
+		t.Parallel()
+		seen := make(map[string]string) // prefix -> owning type
+		for _, r := range all {
+			if r.IDPrefix == "" {
+				continue
+			}
+			if owner, ok := seen[r.IDPrefix]; ok {
+				t.Errorf("IDPrefix %q used by both %q and %q", r.IDPrefix, owner, r.Type)
+			}
+			seen[r.IDPrefix] = r.Type
+		}
+	})
+}

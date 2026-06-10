@@ -72,7 +72,7 @@ func TestRunGet(t *testing.T) {
 
 		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"unknown"})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unknown resource type or ID")
+		assert.Contains(t, err.Error(), "unknown resource type")
 		assert.Contains(t, err.Error(), "Available resources:")
 	})
 
@@ -127,7 +127,7 @@ func TestRunGet(t *testing.T) {
 
 		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"xyz-123"})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unknown resource type or ID")
+		assert.Contains(t, err.Error(), "unrecognized ID prefix")
 	})
 
 	t.Run("two args type and ID", func(t *testing.T) {

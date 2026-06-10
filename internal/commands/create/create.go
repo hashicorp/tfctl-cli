@@ -149,10 +149,14 @@ func runCreate(ctx *cmd.Context, opts *Opts, logger hclog.Logger, args []string)
 	apiOpts.Method = http.MethodPost
 	apiOpts.Quiet = opts.Quiet
 	apiOpts.DryRun = opts.DryRun
-	apiOpts.ResourceType = res.Type
 	apiOpts.InputRequest = opts.InputBody
-	if opts.Attributes != nil {
-		apiOpts.Attributes = opts.Attributes
+	apiOpts.Attributes = opts.Attributes
+
+	// ResourceType is only needed for the attribute path (api builds the JSON:API
+	// envelope from it). On the -i branch the user supplies the full body, so the
+	// type is unused — but setting it is harmless and keeps diagnostic logging accurate.
+	if len(opts.Attributes) > 0 {
+		apiOpts.ResourceType = res.Type
 	}
 
 	return api.RunAPI(apiOpts)

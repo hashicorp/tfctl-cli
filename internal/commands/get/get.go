@@ -7,6 +7,7 @@ package get
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
@@ -21,6 +22,10 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 	"github.com/hashicorp/tfctl-cli/version"
 )
+
+// reIDShape matches strings that look like prefixed IDs: one or more letters
+// followed by a dash and at least one alphanumeric character (e.g. "ws-abc123").
+var reIDShape = regexp.MustCompile(`^[a-zA-Z]+-[a-zA-Z0-9]`)
 
 // Opts defines the options for the `get` command.
 type Opts struct {
@@ -140,7 +145,12 @@ func runGetSingleArg(ctx *cmd.Context, opts *Opts, logger hclog.Logger, arg stri
 		return runGetByID(ctx, opts, logger, res, arg)
 	}
 
-	return fmt.Errorf("unknown resource type or ID: %q\nAvailable resources: %s",
+	// Distinguish "looks like an ID but prefix is unknown" from "not a type name".
+	if reIDShape.MatchString(arg) {
+		return fmt.Errorf("unrecognized ID prefix in %q\nKnown prefixes resolve automatically — use `api /path/{id}` for other resource types", arg)
+	}
+
+	return fmt.Errorf("unknown resource type: %q\nAvailable resources: %s",
 		arg, strings.Join(resource.Names(), ", "))
 }
 

@@ -153,11 +153,13 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 				},
 				{
 					Name:        "page-size",
+					Shorthand:   "s",
 					Description: "Limit the number of records to return. Default varies by resource. Ignored if --all is set.",
 					Value:       flagvalue.Simple(0, &opts.PageSize), // page size is determined by the server, so we don't set it by default
 				},
 				{
 					Name:        "page-number",
+					Shorthand:   "n",
 					Description: "Page number to return. Ignored if --all is set. Default is 1.",
 					Value:       flagvalue.Simple(1, &opts.PageNumber),
 				},
