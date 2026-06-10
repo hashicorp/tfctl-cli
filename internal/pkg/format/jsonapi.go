@@ -15,6 +15,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
 // MaxTableColumns is the maximum number of columns shown in horizontal table output.
@@ -23,39 +25,6 @@ const MaxTableColumns = 6
 // ErrNotJSONAPI is the error returned by NewJSONAPIDisplayer when the raw data
 // does not conform to the expected JSON:API shape.
 var ErrNotJSONAPI = errors.New("not a JSON:API envelope")
-
-// typeColumns is a mapping of API resource types to their preferred columns for horizontal table rendering.
-var typeColumns = map[string][]string{
-	"agent-pools":                 {"name", "organization-scoped", "agent-count"},
-	"applies":                     {"status", "status-timestamps", "log-read-url"},
-	"configuration-versions":      {"status", "speculative", "provisional"},
-	"cost-estimates":              {"status", "delta-monthly-cost", "proposed-monthly-cost"},
-	"notification-configurations": {"name", "destination-type", "enabled", "triggers"},
-	"organization-memberships":    {"email", "status", "role"},
-	"organizations":               {"name", "email", "external-id", "access-beta-tools", "stacks-enabled"},
-	"plan-exports":                {"status", "data-type", "url"},
-	"plans":                       {"status", "has-changes", "generated-configuration"},
-	"policy-checks":               {"status", "scope", "actions", "permissions"},
-	"policy-evaluations":          {"status", "result-count", "passed"},
-	"policy-sets":                 {"name", "kind", "global", "overridable"},
-	"projects":                    {"name", "description", "organization-name"},
-	"run-tasks":                   {"name", "url", "category", "enabled"},
-	"run-triggers":                {"name", "sourceable-name", "workspace-name"},
-	"runs":                        {"message", "status", "is-destroy", "has-changes"},
-	"state-version-outputs":       {"name", "sensitive", "type"},
-	"state-versions":              {"serial", "status", "resource-count", "size"},
-	"subscriptions":               {"status", "plan-name", "quantity"},
-	"task-stages":                 {"status", "stage", "task-result-count"},
-	"varsets":                     {"name", "description", "global", "priority"},
-	"vars":                        {"key", "value", "category", "hcl", "sensitive"},
-	"workspaces":                  {"name", "description", "project", "execution-mode", "locked", "resource-count"},
-}
-
-var excludeColumns = map[string][]string{
-	"workspaces":            {"actions"},
-	"organizations":         {"id"},
-	"state-version-outputs": {"detailed-type"},
-}
 
 // acronyms are capitalized in field names, e.g. "VCS Repo.Repository HTTP URL" instead of "Vcs Repo.Repository Http Url".
 var acronyms = map[string]string{
@@ -122,10 +91,10 @@ func (d JSONAPIDisplayer) FieldTemplates() []Field {
 	var cols []string
 	if d.DefaultFormat() == Table {
 		rows := d.payload.([]map[string]any)
-		cols = collectColumns(rows, typeColumns[d.resourceType], excludeColumns[d.resourceType])
+		cols = collectColumns(rows, resource.ColumnsForType(d.resourceType), resource.ExcludeColumnsForType(d.resourceType))
 	} else {
 		rows := d.payload.(map[string]any)
-		cols = orderedFields(rows, typeColumns[d.resourceType], excludeColumns[d.resourceType])
+		cols = orderedFields(rows, resource.ColumnsForType(d.resourceType), resource.ExcludeColumnsForType(d.resourceType))
 	}
 
 	result := make([]Field, 0, len(cols))
