@@ -128,7 +128,10 @@ func realMain() int {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
 	}
 
-	tel.Shutdown(shutdownCtx, status)
+	// Don't worry about telemetry errors at all
+	if err = tel.Shutdown(shutdownCtx, status); err != nil {
+		logger.Debug("Error occurred while shutting down telemetry", "error", err)
+	}
 
 	return status
 }
