@@ -187,7 +187,10 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		logger.SetLevel(ctx.ResolveLogLevel())
 		logger.Debug("Log level set", "level", logger.GetLevel())
 
-		ctx.ShutdownCtx = logging.WithLogger(ctx.ShutdownCtx, logger.ResetNamed(c.commandPath()))
+		// Replace the context with a context containing a newly named logger for this command.
+		commandName := strings.TrimLeft(c.commandPath(), fmt.Sprintf("%s ", version.Name))
+		ctx.ShutdownCtx = logging.WithLogger(ctx.ShutdownCtx, logger.Named(commandName))
+
 		tel := telemetry.FromContext(ctx.ShutdownCtx)
 
 		telemetry.SetErrorHandler(func(err error) {
@@ -211,7 +214,7 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 				firstLine = fmt.Sprintf("%s (and %d more lines)", firstLine, additionalLines)
 			}
 
-			logger.Debug("Telemetry Error", "error", firstLine)
+			logger.Debug("Error", "error", firstLine)
 		})
 
 		// Start the telemetry span now that we know the command and flags.
