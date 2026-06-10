@@ -4,13 +4,13 @@
 package profiles
 
 import (
+	"context"
 	"fmt"
-
-	"github.com/hashicorp/go-hclog"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -59,16 +59,15 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 				},
 			},
 		},
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
 			}
 			opts.Profiles = l
 			opts.Names = args
-			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
-			return deleteRun(opts)
+			return deleteRun(ctx.ShutdownCtx, opts)
 		},
 	}
 
@@ -78,15 +77,14 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 // DeleteOpts defines the options for the `profile profiles delete` command.
 type DeleteOpts struct {
 	IO       iostreams.IOStreams
-	Logger   hclog.Logger
 	Profiles *profile.Loader
-
-	Names  []string
-	DryRun bool
+	Names    []string
+	DryRun   bool
 }
 
-func deleteRun(opts *DeleteOpts) error {
-	opts.Logger.Debug("deleting profiles", "names", opts.Names)
+func deleteRun(ctx context.Context, opts *DeleteOpts) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug("deleting profiles", "names", opts.Names)
 
 	// Get the active profile
 	active, err := opts.Profiles.GetActiveProfile()

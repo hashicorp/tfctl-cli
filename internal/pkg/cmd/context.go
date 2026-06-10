@@ -19,6 +19,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
 	"github.com/hashicorp/tfctl-cli/version"
@@ -36,10 +37,6 @@ type Context struct {
 	// command to be shutdown. If a command can block for an extended amount of
 	// time, the context should be used to exit early.
 	ShutdownCtx context.Context
-
-	// Telemetry is the telemetry instance for this CLI invocation. If nil,
-	// telemetry is not configured.
-	Telemetry *telemetry.Telemetry
 
 	// flags stores our global flags. Access must go through GetGlobalFlags()
 	// which ensures flags are only accessed after the flags have been parsed
@@ -186,9 +183,16 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		}
 
 		c.io = ctx.IO
+		logger := logging.FromContext(ctx.ShutdownCtx)
+		logger.SetLevel(ctx.ResolveLogLevel())
+		logger.Debug("Log level set", "level", logger.GetLevel())
+
+		ctx.ShutdownCtx = logging.WithLogger(ctx.ShutdownCtx, logger.ResetNamed(c.commandPath()))
+		tel := telemetry.FromContext(ctx.ShutdownCtx)
+
+		logger.Debug("Got telemetry context", "telemetry nil", tel == nil)
 
 		telemetry.SetErrorHandler(func(err error) {
-			logger := c.Logger(ctx)
 			logger = logger.ResetNamed(version.Name).Named("telemetry")
 
 			errorReader := strings.NewReader(err.Error())
@@ -213,8 +217,8 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		})
 
 		// Start the telemetry span now that we know the command and flags.
-		if ctx.Telemetry != nil {
-			ctx.Telemetry.StartCommand(ctx.ShutdownCtx, telemetry.CommandInfo{
+		if tel != nil {
+			ctx.ShutdownCtx = tel.StartCommand(ctx.ShutdownCtx, telemetry.CommandInfo{
 				Command: c.CommandPath(),
 				Profile: ctx.Profile,
 				Debug:   ctx.flags.debug > 0 || ctx.Profile.GetVerbosity() == "debug",
@@ -296,18 +300,18 @@ func (ctx *Context) applyGlobalFlags(_ *Command) error {
 // NewAPIClient returns a new API Client configured using the context Profile.
 // When debug output is enabled and a non-nil logger is provided, the client's
 // HTTP transport is wrapped to log requests and responses.
-func (ctx *Context) NewAPIClient(logger hclog.Logger) (*client.Client, error) {
+func (ctx *Context) NewAPIClient() (*client.Client, error) {
 	address := ctx.Profile.GetHostname()
 	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
 		address = "https://" + address
 	}
-	apiClient, err := client.New(address, ctx.Profile.GetToken(), http.Header{
+	apiClient, err := client.New(ctx.ShutdownCtx, address, ctx.Profile.GetToken(), http.Header{
 		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", version.Name, version.Version)},
-	}, logger)
+	})
 	if err != nil {
 		return nil, err
 	}
-	apiClient.SetLogger(logger)
+
 	return apiClient, nil
 }
 
@@ -327,6 +331,8 @@ func (ctx *Context) ParseFlags(c *Command, args []string) ([]string, error) {
 }
 
 func isAuthenticated(ctx *Context, c *Command, args []string) error {
+	logger := logging.FromContext(ctx.ShutdownCtx)
+
 	if isTopLevelCmd(args) || c.NoAuthRequired {
 		return nil
 	}
@@ -336,7 +342,7 @@ func isAuthenticated(ctx *Context, c *Command, args []string) error {
 	}
 
 	if ctx.Profile.Token == "" {
-		c.Logger(ctx).Debug("Token missing from profile; using token configured by environment")
+		logger.Debug("Token missing from profile; using token configured by environment")
 	}
 
 	return nil

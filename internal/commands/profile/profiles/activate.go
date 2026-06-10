@@ -4,14 +4,14 @@
 package profiles
 
 import (
+	"context"
 	"fmt"
 	"slices"
-
-	"github.com/hashicorp/go-hclog"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -45,16 +45,15 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			opts.Name = args[0]
-			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
 			}
 			opts.Profiles = l
-			return activateRun(opts)
+			return activateRun(ctx.ShutdownCtx, opts)
 		},
 	}
 
@@ -64,14 +63,14 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 // ActivateOpts defines the options for the `profile profiles activate` command.
 type ActivateOpts struct {
 	IO       iostreams.IOStreams
-	Logger   hclog.Logger
 	Profiles *profile.Loader
 	Name     string
 	DryRun   bool
 }
 
-func activateRun(opts *ActivateOpts) error {
-	opts.Logger.Debug("activating profile", "name", opts.Name)
+func activateRun(ctx context.Context, opts *ActivateOpts) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug("activating profile", "name", opts.Name)
 
 	// Get the active profile
 	active, err := opts.Profiles.GetActiveProfile()

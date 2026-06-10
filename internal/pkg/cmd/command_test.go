@@ -103,36 +103,6 @@ func TestCommand_Flags(t *testing.T) {
 	r.Equal("child-set", *childFlag)
 }
 
-func TestCommand_Logger(t *testing.T) {
-	t.Parallel()
-	r := require.New(t)
-
-	// Create the command tree
-	io := iostreams.Test()
-	cCtx := &Context{
-		IO: io,
-	}
-	root := &Command{
-		Name: "root",
-		io:   io,
-	}
-
-	ctx := &Context{
-		IO: io,
-	}
-
-	child := &Command{
-		Name: "child",
-		RunF: func(c *Command, args []string) error {
-			c.Logger(ctx).Error("hello, world!")
-			return nil
-		},
-	}
-	root.AddChild(child)
-	r.Zero(child.Run([]string{}, cCtx))
-	r.Contains(io.Error.String(), "tfctl.child: hello, world!")
-}
-
 func TestCommand_ExitCode(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)

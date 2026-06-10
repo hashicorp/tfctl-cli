@@ -8,15 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
-	hclog "github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 	flag "github.com/spf13/pflag"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
-	"github.com/hashicorp/tfctl-cli/version"
 )
 
 var (
@@ -127,9 +124,6 @@ type Command struct {
 
 	// io formats output
 	io iostreams.IOStreams
-
-	// logger is the logger for this command
-	logger hclog.Logger
 }
 
 // Example is an example of how to use a given command.
@@ -285,39 +279,6 @@ func (c *Command) CommandPath() string {
 // SetIO sets the commands IO for input and output.
 func (c *Command) SetIO(io iostreams.IOStreams) {
 	c.io = io
-}
-
-// Logger returns a logger named according to the command.
-func (c *Command) Logger(ctx *Context) hclog.Logger {
-	if c.logger != nil {
-		return c.logger
-	}
-
-	if c.parent != nil {
-		pl := c.parent.Logger(ctx)
-		c.logger = pl.Named(c.Name)
-		return c.logger
-	}
-
-	// Create the logger
-	io := ctx.IO
-
-	logOpt := &hclog.LoggerOptions{
-		Name:       version.Name,
-		Level:      ctx.ResolveLogLevel(),
-		Output:     io.Err(),
-		TimeFn:     time.Now,
-		TimeFormat: "15:04:05.000",
-		Color:      hclog.ColorOff, // Enabled next, maybe
-	}
-
-	if io.ColorEnabled() && io.IsErrorTTY() {
-		logOpt.Color = hclog.ForceColor
-		logOpt.ColorHeaderAndFields = true
-	}
-
-	c.logger = hclog.New(logOpt)
-	return c.logger
 }
 
 // ExitCodeError is an error that includes an exit code. If returned by a

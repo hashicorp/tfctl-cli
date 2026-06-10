@@ -4,15 +4,16 @@
 package profiles
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -64,16 +65,15 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			opts.Name = args[0]
-			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
 			}
 			opts.Profiles = l
-			return createRun(opts)
+			return createRun(ctx.ShutdownCtx, opts)
 		},
 	}
 
@@ -82,9 +82,7 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 
 // CreateOpts defines the options for the `profile profiles create` command.
 type CreateOpts struct {
-	IO     iostreams.IOStreams
-	Logger hclog.Logger
-
+	IO         iostreams.IOStreams
 	Profiles   *profile.Loader
 	Name       string
 	NoActivate bool
@@ -92,8 +90,9 @@ type CreateOpts struct {
 	DryRun     bool
 }
 
-func createRun(opts *CreateOpts) error {
-	opts.Logger.Debug("creating profile", "name", opts.Name, "hostname", opts.Hostname)
+func createRun(ctx context.Context, opts *CreateOpts) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug("creating profile", "name", opts.Name, "hostname", opts.Hostname)
 
 	// Get the existing profiles
 	profiles, err := opts.Profiles.ListProfiles()

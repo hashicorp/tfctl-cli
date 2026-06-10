@@ -4,11 +4,10 @@
 package profiles
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
-
-	"github.com/hashicorp/go-hclog"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -37,14 +36,13 @@ func NewCmdList(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, _ []string) error {
+		RunF: func(_ *cmd.Command, _ []string) error {
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
 			}
 			opts.Profiles = l
-			opts.Logger = c.Logger(ctx)
-			return listRun(opts)
+			return listRun(ctx.ShutdownCtx, opts)
 		},
 	}
 
@@ -55,11 +53,10 @@ func NewCmdList(ctx *cmd.Context) *cmd.Command {
 type ListOpts struct {
 	IO       iostreams.IOStreams
 	Output   *format.Outputter
-	Logger   hclog.Logger
 	Profiles *profile.Loader
 }
 
-func listRun(opts *ListOpts) error {
+func listRun(_ context.Context, opts *ListOpts) error {
 	profileNames, err := opts.Profiles.ListProfiles()
 	if err != nil {
 		return fmt.Errorf("failed to list profiles: %w", err)

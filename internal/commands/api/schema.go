@@ -16,6 +16,8 @@ import (
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
+type schemaOperationsLoader func(ctx *cmd.Context) openapi.Schema
+
 type schemaSearcher interface {
 	Search(ctx context.Context, query string, operations []*openapi.Operation, limit int) ([]schemaSearchResult, error)
 }
@@ -49,7 +51,7 @@ type schemaGetOpts struct {
 // closure that fetches the OpenAPI schema via the production SchemaFactory.
 func defaultSchemaLoader(ctx *cmd.Context, c *cmd.Command) func() openapi.Schema {
 	return func() openapi.Schema {
-		return openapi.SchemaFactory(ctx, c.Logger(ctx))
+		return openapi.SchemaFactory(ctx)
 	}
 }
 

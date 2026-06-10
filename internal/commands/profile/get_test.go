@@ -4,10 +4,10 @@
 package profile
 
 import (
+	"context"
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -34,12 +34,11 @@ func TestGet(t *testing.T) {
 	for k, v := range expect {
 		opts := &GetOpts{
 			IO:       io,
-			Logger:   hclog.NewNullLogger(),
 			Profile:  p,
 			Property: k,
 			Output:   format.New(io),
 		}
-		r.NoError(getRun(opts))
+		r.NoError(getRun(context.Background(), opts))
 		r.Equal(strings.TrimSpace(io.Output.String()), v)
 		io.Output.Reset()
 	}
@@ -47,12 +46,11 @@ func TestGet(t *testing.T) {
 	// Get an unset property
 	opts := &GetOpts{
 		IO:       io,
-		Logger:   hclog.NewNullLogger(),
 		Profile:  p,
 		Property: "verbosity",
 		Output:   format.New(io),
 	}
-	r.ErrorContains(getRun(opts), "property \"verbosity\" is not set")
+	r.ErrorContains(getRun(context.Background(), opts), "property \"verbosity\" is not set")
 }
 
 func TestGet_JSONOutput(t *testing.T) {
@@ -72,7 +70,6 @@ func TestGet_JSONOutput(t *testing.T) {
 	for k, v := range expect {
 		opts := &GetOpts{
 			IO:       io,
-			Logger:   hclog.NewNullLogger(),
 			Profile:  p,
 			Property: k,
 			Output:   format.New(io),
@@ -81,7 +78,7 @@ func TestGet_JSONOutput(t *testing.T) {
 
 		t.Log(io.Error)
 
-		r.NoError(getRun(opts))
+		r.NoError(getRun(context.Background(), opts))
 		r.Equal(v, strings.TrimSpace(io.Output.String()))
 		io.Output.Reset()
 	}

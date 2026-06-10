@@ -24,7 +24,6 @@ import (
 // StatusOpts stores the options parsed from flags for the run status command.
 type StatusOpts struct {
 	IO           iostreams.IOStreams
-	ShutdownCtx  context.Context
 	Output       *format.Outputter
 	Client       *client.Client
 	Organization string
@@ -76,7 +75,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status my-workspace --organization my-org`, version.Name),
 			},
 		},
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			if len(args) != 1 {
 				return cmd.ErrDisplayUsage
 			}
@@ -92,18 +91,17 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				}
 			}
 
-			apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
+			apiClient, err := ctx.NewAPIClient()
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
-			opts.ShutdownCtx = ctx.ShutdownCtx
 			opts.Output = ctx.Output
 			opts.Client = apiClient
 			opts.Organization = org
 			opts.ID = args[0]
 
-			return runStatus(opts)
+			return runStatus(ctx.ShutdownCtx, opts)
 		},
 	}
 
@@ -114,7 +112,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 // Several problems can contribute to a single failed run, and all are displayed in order of
 // severity: terraform diagnostics, policy check failures, policy evaluation failures, and
 // task failures.
-func runStatus(opts *StatusOpts) error {
+func runStatus(ctx context.Context, opts *StatusOpts) error {
 	resolver := client.NewResolver(opts.Client, false, false)
 
 	id := opts.ID
@@ -130,12 +128,12 @@ func runStatus(opts *StatusOpts) error {
 		}
 	}
 
-	runID, err := resolver.RunOrCurrentRun(opts.ShutdownCtx, opts.Organization, resourceType, id)
+	runID, err := resolver.RunOrCurrentRun(ctx, opts.Organization, resourceType, id)
 	if err != nil {
 		return err
 	}
 
-	summary, err := client.NewRunSummary(opts.ShutdownCtx, opts.Client, runID)
+	summary, err := client.NewRunSummary(ctx, opts.Client, runID)
 	if err != nil {
 		return err
 	}

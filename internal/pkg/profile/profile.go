@@ -5,6 +5,7 @@ package profile
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclwrite"
@@ -147,13 +147,13 @@ func (p *Profile) Predict(args complete.Args) []string {
 
 // HostCache returns a HostCacheLoader for the profile, which can be used to
 // read and write host-specific cache files.
-func (p *Profile) HostCache(logger hclog.Logger) (*HostCacheLoader, error) {
+func (p *Profile) HostCache(ctx context.Context) (*HostCacheLoader, error) {
 	hostname := p.GetHostname()
 	if hostname == "" {
 		return nil, fmt.Errorf("cannot get host cache with empty hostname")
 	}
 
-	return NewHostCacheLoader(p.hostCacheDir, hostname, logger)
+	return NewHostCacheLoader(ctx, p.hostCacheDir, hostname)
 }
 
 // Validate validates that the set values are valid. It validates parameters

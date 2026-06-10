@@ -4,9 +4,9 @@
 package profile
 
 import (
+	"context"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -70,13 +70,12 @@ func TestUnset(t *testing.T) {
 			io := iostreams.Test()
 			o := &UnsetOpts{
 				IO:       io,
-				Logger:   hclog.NewNullLogger(),
 				Profile:  p,
 				Profiles: l,
 				Property: c.Property,
 			}
 
-			err = unsetRun(o)
+			err = unsetRun(context.Background(), o)
 			if c.Error != "" {
 				r.ErrorContains(err, c.Error)
 				return
@@ -106,14 +105,13 @@ func TestUnsetDryRun(t *testing.T) {
 	io := iostreams.Test()
 	o := &UnsetOpts{
 		IO:       io,
-		Logger:   hclog.NewNullLogger(),
 		Profile:  p,
 		Profiles: l,
 		Property: "organization",
 	}
 
 	o.DryRun = true
-	r.NoError(unsetRun(o))
+	r.NoError(unsetRun(context.Background(), o))
 	r.Contains(io.Error.String(), `would unset profile property "organization"`)
 
 	reloaded, err := l.LoadProfile("test")

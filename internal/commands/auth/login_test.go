@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -43,17 +42,15 @@ func newFakeTFE(t *testing.T, username string) *httptest.Server {
 // under t.Parallel()).
 func runLogin(t *testing.T, opts *LoginOpts) error {
 	t.Helper()
-	if opts.Logger == nil {
-		opts.Logger = hclog.NewNullLogger()
-	}
 	if opts.OpenBrowser == nil {
 		opts.OpenBrowser = func(string) error { return nil }
 	}
 	cmdCtx := &cmd.Context{
-		IO:      opts.IO,
-		Profile: opts.Profile,
+		IO:          opts.IO,
+		Profile:     opts.Profile,
+		ShutdownCtx: context.Background(),
 	}
-	return loginRun(cmdCtx, opts)
+	return loginRun(cmdCtx.ShutdownCtx, cmdCtx, opts)
 }
 
 func TestLoginFromStdin(t *testing.T) {
@@ -70,7 +67,6 @@ func TestLoginFromStdin(t *testing.T) {
 	io.Input.WriteString("my-test-token\n")
 
 	opts := &LoginOpts{
-		Ctx:     context.Background(),
 		IO:      io,
 		Profile: p,
 		Token:   true,

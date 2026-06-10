@@ -6,6 +6,7 @@ package telemetry
 import (
 	"bytes"
 	"context"
+	"net/http"
 	"os"
 	"testing"
 
@@ -220,8 +221,6 @@ func TestStartCommand_CreatesSpanWithAttributes(t *testing.T) {
 	// Check attributes.
 	attrs := spanAttrMap(s)
 	assert.Equal(t, "run start", attrs["tfctl.command"])
-	assert.Equal(t, "test-organization", attrs["tfctl.default_organization"])
-	assert.Equal(t, "default", attrs["tfctl.profile_name"])
 	assert.Equal(t, true, attrs["tfctl.dry_run"])
 	assert.Equal(t, false, attrs["is_tty"])
 	assert.NotEmpty(t, attrs["os"])
@@ -260,6 +259,83 @@ func TestStartCommand_NoCIAttribute(t *testing.T) {
 
 	attrs := spanAttrMap(spans[0])
 	assert.Equal(t, false, attrs["ci"])
+}
+
+// ============================================================
+// StartNetwork Tests
+// ============================================================
+
+func TestStartNetwork_ParentIsCommandSpan(t *testing.T) {
+	clearEnv(t)
+
+	tel, exporter := newTestTelemetry(t)
+
+	// Start the command span — returns a context carrying the command span.
+	cmdCtx := tel.StartCommand(context.Background(), CommandInfo{
+		Command: "api get",
+		Profile: profile.TestProfile(t),
+	})
+
+	// Simulate an HTTP request using the command context.
+	req, err := http.NewRequestWithContext(cmdCtx, http.MethodGet, "https://app.terraform.io/api/v2/runs/run-abc123", nil)
+	require.NoError(t, err)
+
+	// StartNetwork should create a child span under the command span.
+	_, netSpan := tel.StartNetwork(cmdCtx, "HTTP GET", req)
+	netSpan.End()
+	tel.span.End()
+
+	require.NoError(t, tel.sdkTP.ForceFlush(context.Background()))
+
+	spans := exporter.GetSpans()
+	require.Len(t, spans, 2)
+
+	// Identify spans by name.
+	var cmdSpan, networkSpan tracetest.SpanStub
+	for _, s := range spans {
+		switch s.Name {
+		case "tfctl api get":
+			cmdSpan = s
+		case "HTTP GET":
+			networkSpan = s
+		}
+	}
+
+	require.NotEmpty(t, cmdSpan.Name, "command span not found")
+	require.NotEmpty(t, networkSpan.Name, "network span not found")
+
+	// The network span's parent span ID must equal the command span's span ID.
+	assert.Equal(t, cmdSpan.SpanContext.SpanID(), networkSpan.Parent.SpanID(),
+		"network span should be a child of the command span")
+
+	// Both spans must share the same trace ID.
+	assert.Equal(t, cmdSpan.SpanContext.TraceID(), networkSpan.SpanContext.TraceID(),
+		"network span must belong to the same trace as the command span")
+}
+
+func TestStartNetwork_WithoutCommandContext_NoParent(t *testing.T) {
+	clearEnv(t)
+
+	tel, exporter := newTestTelemetry(t)
+
+	// Use a bare context (no command span) — simulates the bug where the
+	// stale context is passed to StartNetwork.
+	bareCtx := context.Background()
+
+	req, err := http.NewRequestWithContext(bareCtx, http.MethodGet, "https://app.terraform.io/api/v2/workspaces", nil)
+	require.NoError(t, err)
+
+	_, netSpan := tel.StartNetwork(bareCtx, "HTTP GET", req)
+	netSpan.End()
+
+	require.NoError(t, tel.sdkTP.ForceFlush(context.Background()))
+
+	spans := exporter.GetSpans()
+	require.Len(t, spans, 1)
+
+	// With no parent context, the network span should have no valid parent.
+	assert.False(t, spans[0].Parent.IsValid(),
+		"network span should have no parent when created without the command context")
 }
 
 // ============================================================

@@ -6,8 +6,6 @@ package profile
 import (
 	"fmt"
 
-	"github.com/hashicorp/go-hclog"
-
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -24,7 +22,7 @@ func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
 		LongHelp: heredoc.New(ctx.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile display" }} command displays the active profile.
 		`, version.Name),
-		RunF: func(c *cmd.Command, _ []string) error {
+		RunF: func(_ *cmd.Command, _ []string) error {
 			profileNoToken := ctx.Profile
 			profileNoToken.Token = ""
 
@@ -32,7 +30,6 @@ func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
 				IO:      ctx.IO,
 				Output:  ctx.Output,
 				Profile: profileNoToken,
-				Logger:  c.Logger(ctx),
 			})
 		},
 		NoAuthRequired: true,
@@ -46,7 +43,6 @@ type DisplayOpts struct {
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
 	Output  *format.Outputter
-	Logger  hclog.Logger
 }
 
 func displayRun(opts *DisplayOpts) error {

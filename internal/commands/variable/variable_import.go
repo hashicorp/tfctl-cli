@@ -10,13 +10,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
-
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -24,8 +23,6 @@ import (
 // ImportOpts stores the options parsed from flags for the variable import command.
 type ImportOpts struct {
 	IO                 iostreams.IOStreams
-	Logger             hclog.Logger
-	ShutdownCtx        context.Context
 	TFVarsFileToImport string
 	Client             *client.Client
 	Env                []string
@@ -50,8 +47,7 @@ func (e existingVariables) Get(category, key string) (existingVariable, bool) {
 // NewCmdVariableImport creates the `variable import` command.
 func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 	opts := &ImportOpts{
-		IO:          ctx.IO,
-		ShutdownCtx: ctx.ShutdownCtx,
+		IO: ctx.IO,
 	}
 
 	cmd := &cmd.Command{
@@ -113,7 +109,7 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s variable import -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --variable-set-name my-variable-set`, version.Name),
 			},
 		},
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			if len(args) > 1 {
 				return cmd.ErrDisplayUsage
 			}
@@ -145,26 +141,26 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				return errors.New("could not resolve target workspace; set --organization and --workspace or run inside a repository with terraform cloud configuration") // this should be impossible to hit due to the previous block, but we'll check again before API calls just in case
 			}
 
-			apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
+			apiClient, err := ctx.NewAPIClient()
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
 			opts.Client = apiClient
-			opts.Logger = c.Logger(ctx)
 			opts.DryRun = ctx.IsDryRun()
 
-			return runVariableImport(opts)
+			return runVariableImport(ctx.ShutdownCtx, opts)
 		},
 	}
 
 	return cmd
 }
 
-func runVariableImport(opts *ImportOpts) error {
+func runVariableImport(ctx context.Context, opts *ImportOpts) error {
+	logger := logging.FromContext(ctx)
 	var imported []terraformcfg.ImportedVariable
 	if opts.TFVarsFileToImport != "" {
-		opts.Logger.Debug("parsing tfvars file", "path", opts.TFVarsFileToImport)
+		logger.Debug("parsing tfvars file", "path", opts.TFVarsFileToImport)
 		vars, err := terraformcfg.ParseTFVarsFile(opts.TFVarsFileToImport)
 		if err != nil {
 			return fmt.Errorf("failed parsing tfvars file: %w", err)
@@ -190,9 +186,9 @@ func runVariableImport(opts *ImportOpts) error {
 		return cmd.ErrDisplayUsage
 	}
 
-	opts.Logger.Debug("resolving target", "organization", opts.Organization, "workspace", opts.Workspace, "variable_set", opts.VariableSetName)
+	logger.Debug("resolving target", "organization", opts.Organization, "workspace", opts.Workspace, "variable_set", opts.VariableSetName)
 
-	target, err := resolveTarget(opts.ShutdownCtx, opts)
+	target, err := resolveTarget(ctx, opts)
 	if err != nil {
 		if opts.DryRun && opts.VariableSetName != "" {
 			// Variable set doesn't exist yet; report what would happen.
@@ -206,9 +202,9 @@ func runVariableImport(opts *ImportOpts) error {
 		return err
 	}
 
-	opts.Logger.Debug("importing variables", "count", len(imported), "target", target.String(), "overwrite", opts.Overwrite)
+	logger.Debug("importing variables", "count", len(imported), "target", target.String(), "overwrite", opts.Overwrite)
 
-	existing, err := target.listExistingVariables(opts.ShutdownCtx)
+	existing, err := target.listExistingVariables(ctx)
 	if err != nil {
 		return err
 	}
@@ -234,7 +230,7 @@ func runVariableImport(opts *ImportOpts) error {
 				updated++
 				continue
 			}
-			if err := target.updateVariable(opts.ShutdownCtx, current.ID, variable); err != nil {
+			if err := target.updateVariable(ctx, current.ID, variable); err != nil {
 				return err
 			}
 			updated++
@@ -245,7 +241,7 @@ func runVariableImport(opts *ImportOpts) error {
 			created++
 			continue
 		}
-		if err := target.createVariable(opts.ShutdownCtx, variable); err != nil {
+		if err := target.createVariable(ctx, variable); err != nil {
 			return err
 		}
 		created++

@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -63,19 +63,17 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 			availablePropertiesDoc(ctx.IO),
 		},
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			opts := &SetOpts{
-				Ctx:     ctx.ShutdownCtx,
 				IO:      ctx.IO,
 				Profile: ctx.Profile,
 				Output:  ctx.Output,
-				Logger:  c.Logger(ctx),
 			}
 
 			opts.Property = args[0]
 			opts.Value = args[1]
 			opts.DryRun = ctx.IsDryRun()
-			return setRun(opts)
+			return setRun(ctx.ShutdownCtx, opts)
 		},
 	}
 
@@ -84,11 +82,9 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 
 // SetOpts defines the options for the `profile set` command.
 type SetOpts struct {
-	Ctx     context.Context
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
 	Output  *format.Outputter
-	Logger  hclog.Logger
 
 	// Arguments
 	Property string
@@ -96,7 +92,7 @@ type SetOpts struct {
 	DryRun   bool
 }
 
-func setRun(opts *SetOpts) error {
+func setRun(ctx context.Context, opts *SetOpts) error {
 	// Validate we are not changing the name
 	if opts.Property == "name" {
 		return fmt.Errorf("to update a profile name use %s",
@@ -108,7 +104,8 @@ func setRun(opts *SetOpts) error {
 		return err
 	}
 
-	opts.Logger.Debug("setting property", "property", opts.Property, "profile", opts.Profile.Name)
+	logger := logging.FromContext(ctx)
+	logger.Debug("setting property", "property", opts.Property, "profile", opts.Profile.Name)
 
 	p := opts.Profile
 	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{

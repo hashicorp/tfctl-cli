@@ -4,12 +4,12 @@
 package client
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,10 +30,10 @@ func TestRetryServerErrors(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, err := New(srv.URL, "test-token", nil, hclog.NewNullLogger())
+	c, err := New(context.Background(), srv.URL, "test-token", nil)
 	require.NoError(t, err)
 
-	resp, err := c.TFE.GetStream(t.Context(), "/test", nil)
+	resp, err := c.TFE.GetStream(context.Background(), "/test", nil)
 	require.NoError(t, err)
 	resp.Body.Close()
 
@@ -59,10 +59,10 @@ func TestRetryRateLimited(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, err := New(srv.URL, "test-token", nil, hclog.NewNullLogger())
+	c, err := New(context.Background(), srv.URL, "test-token", nil)
 	require.NoError(t, err)
 
-	resp, err := c.TFE.GetStream(t.Context(), "/test", nil)
+	resp, err := c.TFE.GetStream(context.Background(), "/test", nil)
 	require.NoError(t, err)
 	resp.Body.Close()
 
@@ -87,11 +87,10 @@ func TestRetryLogHook(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
-	c, err := New(srv.URL, "test-token", nil, logger)
+	c, err := New(context.Background(), srv.URL, "test-token", nil)
 	require.NoError(t, err)
 
-	resp, err := c.TFE.GetStream(t.Context(), "/test", nil)
+	resp, err := c.TFE.GetStream(context.Background(), "/test", nil)
 	require.NoError(t, err)
 	resp.Body.Close()
 
@@ -115,10 +114,10 @@ func TestRetryInternalServerError(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, err := New(srv.URL, "test-token", nil, hclog.NewNullLogger())
+	c, err := New(context.Background(), srv.URL, "test-token", nil)
 	require.NoError(t, err)
 
-	resp, err := c.TFE.GetStream(t.Context(), "/test", nil)
+	resp, err := c.TFE.GetStream(context.Background(), "/test", nil)
 	require.NoError(t, err)
 	resp.Body.Close()
 

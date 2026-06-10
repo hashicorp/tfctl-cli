@@ -45,6 +45,21 @@ func TestCmdAPISchemaSearchRun(t *testing.T) {
 	r := require.New(t)
 
 	io := iostreams.Test()
+<<<<<<< HEAD
+=======
+	originalLoader := loadSchemaOperationsForSchemaCommand
+	loadSchemaOperationsForSchemaCommand = func(*cmd.Context) openapi.Schema {
+		data, err := openapi.NewFromData(embeddedFixtureSpec)
+		if err != nil {
+			t.Fatalf("failed to load test schema: %v", err)
+		}
+		return data
+	}
+	t.Cleanup(func() {
+		loadSchemaOperationsForSchemaCommand = originalLoader
+	})
+
+>>>>>>> e7be4e9 (store logger, telemetry in context)
 	cCtx := testCommandContext(io)
 
 	err := runSchemaSearch(schemaSearchOpts{

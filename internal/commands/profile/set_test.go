@@ -4,9 +4,9 @@
 package profile
 
 import (
+	"context"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -97,13 +97,12 @@ func TestSet(t *testing.T) {
 
 			o := &SetOpts{
 				IO:       io,
-				Logger:   hclog.NewNullLogger(),
 				Profile:  profile,
 				Property: c.Property,
 				Value:    c.Value,
 			}
 
-			err := setRun(o)
+			err := setRun(context.Background(), o)
 			if c.Error == "" {
 				r.NoError(err)
 				if c.CheckProfile != nil {
@@ -125,7 +124,6 @@ func TestSet_Organization(t *testing.T) {
 	r.NoError(p.Write())
 	o := &SetOpts{
 		IO:       io,
-		Logger:   hclog.NewNullLogger(),
 		Profile:  p,
 		Property: "organization",
 	}
@@ -149,7 +147,7 @@ func TestSet_Organization(t *testing.T) {
 	// Run with quiet off, TTY's, authenticated, and return that the user has access to the project
 	{
 		setup(false, true, true, "123")
-		r.NoError(setRun(o))
+		r.NoError(setRun(context.Background(), o))
 		checkOrg("123")
 	}
 
@@ -167,14 +165,13 @@ func TestSetDryRun(t *testing.T) {
 	r.NoError(p.Write())
 	o := &SetOpts{
 		IO:       io,
-		Logger:   hclog.NewNullLogger(),
 		Profile:  p,
 		Property: "organization",
 		Value:    "dry-run-org",
 	}
 
 	o.DryRun = true
-	r.NoError(setRun(o))
+	r.NoError(setRun(context.Background(), o))
 	r.Equal("dry-run-org", o.Profile.Organization)
 	r.Contains(io.Error.String(), `would set profile property "organization" to "dry-run-org"`)
 

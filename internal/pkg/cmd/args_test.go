@@ -6,7 +6,6 @@ package cmd
 import (
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -25,7 +24,6 @@ func TestPositionalArgs_validateFunc(t *testing.T) {
 			NoAuthRequired: true,
 			Args:           PositionalArguments{Validate: f},
 			io:             io,
-			logger:         hclog.NewNullLogger(),
 		}
 	}
 
@@ -152,7 +150,6 @@ func TestCommand_ArgsValidation(t *testing.T) {
 			NoAuthRequired: true,
 			Args:           PositionalArguments{Validate: f},
 			io:             io,
-			logger:         hclog.NewNullLogger(),
 		}
 	}
 

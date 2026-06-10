@@ -15,7 +15,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-tfe/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,7 +45,7 @@ func TestRunAPI_DefaultGet(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 	}))
 	require.NoError(t, err)
@@ -83,7 +82,7 @@ func TestRunAPI_GetContainingQuotes(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/thing")
 	}))
 	require.NoError(t, err)
@@ -114,7 +113,7 @@ func TestRunAPI_AttributesInferPostAndResourceType(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/projects")
 		opts.Attributes = map[string]string{
 			"name": "demo",
@@ -155,7 +154,7 @@ func TestRunAPI_AttributesInferResourceTypeFromMemberPath(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-123/vars")
 		opts.Attributes = map[string]string{"key": "region"}
 	}))
@@ -180,7 +179,7 @@ func TestRunAPI_ExplicitTypeOverridesInferredType(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-123/vars")
 		opts.Attributes = map[string]string{"key": "region"}
 		opts.ResourceType = "custom-vars"
@@ -207,7 +206,7 @@ func TestRunAPI_InputInlineInferPost(t *testing.T) {
 
 	io := iostreams.Test()
 	input := `{"data":{"type":"runs","attributes":{"message":"queued"}}}`
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/runs")
 		opts.InputRequest = input
 	}))
@@ -237,7 +236,7 @@ func TestRunAPI_InputFromStdin(t *testing.T) {
 
 	io := iostreams.Test()
 	io.Input.WriteString(`{"data":{"type":"vars","attributes":{"key":"AWS_REGION"}}}`)
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/vars")
 		opts.InputRequest = "-"
 	}))
@@ -262,7 +261,7 @@ func TestRunAPI_ExplicitMethodHeadersAndQuery(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
 		opts.Method = http.MethodPatch
 		opts.Query = map[string]string{"include": "organization"}
@@ -297,7 +296,7 @@ func TestRunAPI_InlineQueryParamsSparseFieldsets(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/organizations/my-org/workspaces?fields[workspaces]=name")
 	}))
 	require.NoError(t, err)
@@ -327,7 +326,7 @@ func TestRunAPI_InlineQueryParamsMergedWithFlags(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces?fields[workspaces]=name")
 		opts.Query = map[string]string{"include": "organization"}
 	}))
@@ -364,7 +363,7 @@ func TestRunAPI_Paginate(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 		opts.All = true
 	}))
@@ -392,7 +391,7 @@ func TestRunAPI_PageNumber(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 		opts.PageNumber = 2
 	}))
@@ -419,7 +418,7 @@ func TestRunAPI_PageSize(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 		opts.PageSize = 1
 	}))
@@ -475,7 +474,7 @@ func TestRunAPI_QuietSuppressesOutput(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 		opts.Quiet = true
 	}))
@@ -499,7 +498,7 @@ func TestRunAPI_EmptyBodyNoOutput(t *testing.T) {
 	io.InputTTY = true
 	io.Input.Write([]byte("y\n"))
 
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
 		opts.Method = http.MethodDelete
 	}))
@@ -524,7 +523,7 @@ func TestRunAPI_DeleteNoConfirmation(t *testing.T) {
 	io.InputTTY = true
 	io.Input.Write([]byte("n\n"))
 
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
 		opts.Method = http.MethodDelete
 	}))
@@ -549,7 +548,7 @@ func TestRunAPI_DeleteQuietMode(t *testing.T) {
 	io.SetQuiet(true)
 	io.Input.Write([]byte("y\n"))
 
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
 		opts.Method = http.MethodDelete
 		opts.Quiet = true
@@ -572,7 +571,7 @@ func TestRunAPI_ErrorResponseSummarizesJSONAPIErrors(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 	}))
 	assert.ErrorIs(t, err, tfe.ErrUnprocessableEntity)
@@ -595,7 +594,7 @@ func TestRunAPI_ErrorResponseFallsBackToRawBody(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 	}))
 	assert.ErrorIs(t, err, tfe.ErrBadRequest)
@@ -618,7 +617,7 @@ func TestRunAPI_ErrorResponseHTML(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 	}))
 	require.EqualError(t, err, "404 Not Found")
@@ -643,7 +642,7 @@ func TestRunAPI_PaginateReturnsErrorResponseFromLaterPage(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, server.URL, io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
 		opts.All = true
 	}))
@@ -658,7 +657,7 @@ func TestRunAPI_InvalidHeaderReturnsError(t *testing.T) {
 	t.Parallel()
 
 	io := iostreams.Test()
-	err := RunAPI(newTestOpts(t, "https://example.test", io, func(opts *Opts) {
+	err := RunAPI(context.Background(), newTestOpts(t, "https://example.test", io, func(opts *Opts) {
 		opts.URL = mustParseURL(t, "https://example.test/api/v2/workspaces")
 		opts.Headers = []string{"invalid-header"}
 	}))
@@ -743,21 +742,19 @@ func routeKey(r *http.Request) string {
 
 func newTestOpts(t *testing.T, address string, io *iostreams.Testing, mutate func(*Opts)) *Opts {
 	t.Helper()
-	apiClient, err := client.New(address, "test-token", http.Header{
+	apiClient, err := client.New(context.Background(), address, "test-token", http.Header{
 		"User-Agent": []string{"tfctl-cli/test"},
-	}, hclog.NewNullLogger())
+	})
 	require.NoError(t, err)
 
 	opts := &Opts{
-		IO:          io,
-		Logger:      hclog.NewNullLogger(),
-		Output:      format.New(io),
-		ShutdownCtx: context.Background(),
-		Client:      apiClient,
-		Headers:     []string{},
-		Attributes:  map[string]string{},
-		Query:       map[string]string{},
-		PathParams:  map[string]string{},
+		IO:         io,
+		Output:     format.New(io),
+		Client:     apiClient,
+		Headers:    []string{},
+		Attributes: map[string]string{},
+		Query:      map[string]string{},
+		PathParams: map[string]string{},
 	}
 	mutate(opts)
 	return opts
@@ -832,7 +829,7 @@ func TestLookupResource_ErrNotFound(t *testing.T) {
 	})
 	defer server.Close()
 
-	apiClient, err := client.New(server.URL, "test-token", http.Header{}, hclog.NewNullLogger())
+	apiClient, err := client.New(context.Background(), server.URL, "test-token", http.Header{})
 	require.NoError(t, err)
 
 	resolver := client.NewResolver(apiClient, false, false)

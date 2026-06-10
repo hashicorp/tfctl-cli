@@ -16,7 +16,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
@@ -47,7 +46,7 @@ func TestRunVariable_ImportWorkspaceFromTFVarsFile(t *testing.T) {
 	io := iostreams.Test()
 	tfvars := writeTestTFVarsFile(t, "example = \"value\"\ncount = 3\n")
 
-	err := runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err := runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.Workspace = "test-workspace"
 		opts.TFVarsFileToImport = tfvars
@@ -115,7 +114,7 @@ func TestRunVariable_ImportVariableSetFromEnv(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err := runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.VariableSetName = "my-set"
 		opts.Env = []string{"AWS_ACCESS_KEY_ID"}
@@ -143,7 +142,7 @@ func TestRunVariable_ImportReturnsUsageWhenNothingToImport(t *testing.T) {
 	t.Parallel()
 
 	io := iostreams.Test()
-	err := runVariableImport(&ImportOpts{IO: io, Logger: hclog.NewNullLogger()})
+	err := runVariableImport(context.Background(), &ImportOpts{IO: io})
 	require.ErrorIs(t, err, cmd.ErrDisplayUsage)
 	require.Empty(t, io.Error.String())
 }
@@ -152,10 +151,9 @@ func TestRunVariable_ImportErrorsWhenEnvVarMissing(t *testing.T) {
 	t.Parallel()
 
 	io := iostreams.Test()
-	err := runVariableImport(&ImportOpts{
-		IO:     io,
-		Logger: hclog.NewNullLogger(),
-		Env:    []string{"MISSING_ENV"},
+	err := runVariableImport(context.Background(), &ImportOpts{
+		IO:  io,
+		Env: []string{"MISSING_ENV"},
 	})
 	require.EqualError(t, err, "environment variable \"MISSING_ENV\" is not set")
 	require.Empty(t, io.Error.String())
@@ -188,7 +186,7 @@ func TestRunVariable_ImportErrorsOnDuplicateWithoutOverwrite(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err := runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.Workspace = "test-workspace"
 		opts.Env = []string{"DUPLICATE_ENV"}
@@ -236,7 +234,7 @@ func TestRunVariable_ImportOverwriteUpdatesExistingVariables(t *testing.T) {
 	defer server.Close()
 
 	io := iostreams.Test()
-	err := runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err := runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.VariableSetName = "my-set"
 		opts.Env = []string{"AWS_SECRET_ACCESS_KEY"}
@@ -325,16 +323,14 @@ func variableImportRouteKey(r *http.Request) string {
 
 func newImportTestOpts(t *testing.T, address string, io *iostreams.Testing, mutate func(*ImportOpts)) *ImportOpts {
 	t.Helper()
-	apiClient, err := client.New(address, "test-token", http.Header{
+	apiClient, err := client.New(context.Background(), address, "test-token", http.Header{
 		"User-Agent": []string{"tfctl-cli/test"},
 	}, hclog.NewNullLogger())
 	require.NoError(t, err)
 
 	opts := &ImportOpts{
-		IO:          io,
-		Logger:      hclog.NewNullLogger(),
-		ShutdownCtx: context.Background(),
-		Client:      apiClient,
+		IO:     io,
+		Client: apiClient,
 	}
 	if mutate != nil {
 		mutate(opts)
@@ -411,7 +407,7 @@ func TestRunVariable_ImportParsesJSONTFVarsFile(t *testing.T) {
 	require.NoError(t, err)
 
 	io := iostreams.Test()
-	err = runVariableImport(newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
+	err = runVariableImport(context.Background(), newImportTestOpts(t, server.URL, io, func(opts *ImportOpts) {
 		opts.Organization = "test-org"
 		opts.Workspace = "test-workspace"
 		opts.TFVarsFileToImport = path

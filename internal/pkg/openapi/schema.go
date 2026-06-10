@@ -15,9 +15,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
-	"github.com/hashicorp/go-hclog"
-
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
@@ -151,7 +150,9 @@ func LoadEmbeddedSchema() Schema {
 // and returns a Schema interface for accessing it. If any step of this process fails, it falls back
 // to loading the embedded specification and an error is logged. The result is cached for the
 // duration of the process run to avoid repeated fetch attempts.
-func SchemaFactory(cmdCtx *cmd.Context, logger hclog.Logger) Schema {
+func SchemaFactory(cmdCtx *cmd.Context) Schema {
+	logger := logging.FromContext(cmdCtx.ShutdownCtx)
+
 	// Per run, attempt to fetch the hosted OpenAPI spec and update the cache if it's newer than the
 	// cached version. If any step of this process fails, fall back to the embedded version. It's
 	// critical that this process set cachedSchema or panic.
@@ -162,7 +163,7 @@ func SchemaFactory(cmdCtx *cmd.Context, logger hclog.Logger) Schema {
 		}
 
 		p := cmdCtx.Profile
-		api, err := cmdCtx.NewAPIClient(logger)
+		api, err := cmdCtx.NewAPIClient()
 
 		if err != nil {
 			logger.Error("Failed to create API client for OpenAPI schema loading, falling back to embedded version", "error", err)
@@ -172,7 +173,7 @@ func SchemaFactory(cmdCtx *cmd.Context, logger hclog.Logger) Schema {
 
 		api.Adapter.Client.Timeout = 3 * time.Second // Don't wait too long for the API in case it's unresponsive
 
-		loader, err := p.HostCache(logger)
+		loader, err := p.HostCache(cmdCtx.ShutdownCtx)
 		if err != nil {
 			logger.Error("Failed to get host cache for OpenAPI schema loading, falling back to embedded version", "error", err)
 			cachedSchema = LoadEmbeddedSchema()

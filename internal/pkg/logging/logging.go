@@ -1,0 +1,49 @@
+// Package logging provides utilities for creating and accessing a logger within the application.
+package logging
+
+import (
+	"context"
+	"time"
+
+	"github.com/hashicorp/go-hclog"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/version"
+)
+
+type ctxKey struct{}
+
+var loggingKey = ctxKey{}
+
+// WithLogger returns a new context with the provided logger.
+func WithLogger(ctx context.Context, logger hclog.Logger) context.Context {
+	return context.WithValue(ctx, loggingKey, logger)
+}
+
+// FromContext extracts the logger from the context, or returns a null logger if not found.
+func FromContext(ctx context.Context) hclog.Logger {
+	if logger, ok := ctx.Value(loggingKey).(hclog.Logger); ok {
+		return logger
+	}
+	return hclog.NewNullLogger()
+}
+
+// NewLogger constructs a new logger configured based on the provided IOStreams.
+func NewLogger(io iostreams.IOStreams) hclog.Logger {
+	// Create the Logger
+	logOpt := &hclog.LoggerOptions{
+		Name:       version.Name,
+		Level:      hclog.Error,
+		Output:     io.Err(),
+		TimeFn:     time.Now,
+		TimeFormat: "15:04:05.000",
+		Color:      hclog.ColorOff, // Enabled later, maybe
+	}
+
+	if io.ColorEnabled() && io.IsErrorTTY() {
+		logOpt.Color = hclog.ForceColor
+		logOpt.ColorHeaderAndFields = true
+	}
+
+	return hclog.New(logOpt)
+}

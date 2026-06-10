@@ -4,9 +4,9 @@
 package profiles
 
 import (
+	"context"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -22,13 +22,12 @@ func TestCreate(t *testing.T) {
 	p1, p2 := "test", "test_other"
 	opts := &CreateOpts{
 		IO:         io,
-		Logger:     hclog.NewNullLogger(),
 		Profiles:   l,
 		Name:       p1,
 		NoActivate: false,
 	}
 
-	r.NoError(createRun(opts))
+	r.NoError(createRun(context.Background(), opts))
 	r.Contains(io.Error.String(), "created")
 	r.Contains(io.Error.String(), "activated")
 
@@ -36,7 +35,7 @@ func TestCreate(t *testing.T) {
 	opts.Name = p2
 	opts.NoActivate = true
 	io.Error.Reset()
-	r.NoError(createRun(opts))
+	r.NoError(createRun(context.Background(), opts))
 	r.Contains(io.Error.String(), "created")
 	r.NotContains(io.Error.String(), "activated")
 
@@ -56,13 +55,12 @@ func TestCreateDryRun(t *testing.T) {
 
 	opts := &CreateOpts{
 		IO:       io,
-		Logger:   hclog.NewNullLogger(),
 		Profiles: l,
 		Name:     "dry_run_profile",
 	}
 
 	opts.DryRun = true
-	r.NoError(createRun(opts))
+	r.NoError(createRun(context.Background(), opts))
 	r.Contains(io.Error.String(), `would create profile "dry_run_profile"`)
 	r.Contains(io.Error.String(), `would activate profile "dry_run_profile"`)
 

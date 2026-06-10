@@ -20,6 +20,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
 	"github.com/hashicorp/tfctl-cli/version"
@@ -54,6 +55,13 @@ func realMain() int {
 		}
 	}()
 
+	// The logger level will need to be set by the command after parsing flags.
+	logger := logging.NewLogger(io)
+
+	// Add the logger to the shutdown context because this is the context used throughout
+	// the command execution lifecycle.
+	shutdownCtx = logging.WithLogger(shutdownCtx, logger)
+
 	// TODO: check version for updates?
 
 	activeProfile, err := loadActiveProfile()
@@ -83,13 +91,14 @@ func realMain() int {
 		_ = tel.Shutdown(shutdownCtx)
 	}()
 
+	shutdownCtx = telemetry.WithTelemetry(shutdownCtx, tel)
+
 	// Create the command context
 	cCtx := &cmd.Context{
 		IO:          io,
 		Profile:     activeProfile,
 		Output:      format.New(io),
 		ShutdownCtx: shutdownCtx,
-		Telemetry:   tel,
 	}
 
 	// Get the HCP Root command

@@ -4,10 +4,10 @@
 package profiles
 
 import (
+	"context"
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -25,7 +25,6 @@ func TestList(t *testing.T) {
 
 	opts := &ListOpts{
 		IO:       io,
-		Logger:   hclog.NewNullLogger(),
 		Output:   output,
 		Profiles: l,
 	}
@@ -53,7 +52,7 @@ func TestList(t *testing.T) {
 	r.NoError(active.Write())
 
 	// Call list
-	r.NoError(listRun(opts))
+	r.NoError(listRun(context.Background(), opts))
 
 	// Check we got the output we expected
 	expected := [][]string{

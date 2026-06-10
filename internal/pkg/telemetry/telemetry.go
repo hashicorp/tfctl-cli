@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -180,7 +181,6 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 	t.provider = tp
 	t.sdkTP = tp
 	t.tracer = tp.Tracer(serviceName)
-	otel.SetTracerProvider(tp)
 
 	// Suppress OTel SDK internal errors (e.g. exporter connection failures)
 	// from being printed to stderr. Telemetry errors are non-fatal and should
@@ -206,7 +206,18 @@ func detectAgent() string {
 	return ""
 }
 
-// StartCommand begins a new span repr`esenting the CLI command invocation.
+// StartNetwork begins a new span representing an outgoing network request.
+func (t *Telemetry) StartNetwork(ctx context.Context, name string, req *http.Request) (context.Context, trace.Span) {
+	// Build attributes from Request
+	attrs := []attribute.KeyValue{
+		attribute.String("http.path", req.URL.Path),
+		attribute.String("http.method", req.Method),
+	}
+
+	return t.tracer.Start(ctx, name, trace.WithAttributes(attrs...))
+}
+
+// StartCommand begins a new span representing the CLI command invocation.
 // The span is stored internally and will be ended by Shutdown.
 func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.Context {
 	if t.mode == ModeDisabled {
@@ -214,9 +225,10 @@ func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.
 	}
 
 	// Use the parent context (which may contain a remote parent from TRACEPARENT)
-	spanCtx := t.parentCtx
-	if spanCtx == nil {
-		spanCtx = ctx
+	if t.parentCtx != nil {
+		if remoteSpanCtx := trace.SpanContextFromContext(t.parentCtx); remoteSpanCtx.IsValid() {
+			ctx = trace.ContextWithRemoteSpanContext(ctx, remoteSpanCtx)
+		}
 	}
 
 	// Build attributes from CommandInfo
@@ -234,14 +246,12 @@ func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.
 
 	if info.Profile != nil {
 		attrs = append(attrs,
-			attribute.String("tfctl.default_organization", info.Profile.Organization),
 			attribute.String("tfctl.hostname", info.Profile.GetHostname()),
-			attribute.String("tfctl.profile_name", info.Profile.Name),
 		)
 	}
 
 	spanName := fmt.Sprintf("tfctl %s", info.Command)
-	ctx, span := t.tracer.Start(spanCtx, spanName,
+	ctx, span := t.tracer.Start(ctx, spanName,
 		trace.WithAttributes(attrs...),
 		trace.WithSpanKind(trace.SpanKindClient),
 	)

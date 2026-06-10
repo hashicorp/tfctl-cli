@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
 	tfe "github.com/hashicorp/go-tfe/v2"
@@ -29,6 +28,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
 	"github.com/hashicorp/tfctl-cli/version"
@@ -44,8 +44,6 @@ const (
 type Opts struct {
 	IO           iostreams.IOStreams
 	Output       *format.Outputter
-	Logger       hclog.Logger
-	ShutdownCtx  context.Context
 	Client       *client.Client
 	Quiet        bool
 	DryRun       bool
@@ -64,26 +62,23 @@ type Opts struct {
 
 // NewOpts creates an Opts with required context fields set and nil-dangerous
 // maps/slices initialized to empty values.
-func NewOpts(shutdownCtx context.Context, io iostreams.IOStreams, output *format.Outputter, logger hclog.Logger, apiClient *client.Client) *Opts {
+func NewOpts(io iostreams.IOStreams, output *format.Outputter, apiClient *client.Client) *Opts {
 	return &Opts{
-		IO:          io,
-		Output:      output,
-		Logger:      logger,
-		ShutdownCtx: shutdownCtx,
-		Client:      apiClient,
-		Headers:     []string{},
-		Attributes:  map[string]string{},
-		Query:       map[string]string{},
-		PathParams:  map[string]string{},
+		IO:         io,
+		Output:     output,
+		Client:     apiClient,
+		Headers:    []string{},
+		Attributes: map[string]string{},
+		Query:      map[string]string{},
+		PathParams: map[string]string{},
 	}
 }
 
 // NewCmdAPI creates the `api` command.
 func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	opts := &Opts{
-		IO:          ctx.IO,
-		ShutdownCtx: ctx.ShutdownCtx,
-		Output:      ctx.Output,
+		IO:     ctx.IO,
+		Output: ctx.Output,
 	}
 
 	// The embedded schema is always used for autocomplete
@@ -236,22 +231,21 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 }}'`, version.Name),
 			},
 		},
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			if len(args) < 1 {
 				return cmd.ErrDisplayUsage
 			}
 
 			path := args[0]
 
-			logger := c.Logger(ctx)
-			apiClient, err := ctx.NewAPIClient(logger)
+			apiClient, err := ctx.NewAPIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create API client: %w", err)
 			}
 
 			// Resolve path params ({workspace}, {organization}, etc.) before URL resolution.
 			if strings.Contains(path, "{") {
-				resolvedPath, resolveErr := resolvePathParamsFromContext(ctx, apiClient, path, opts.PathParams)
+				resolvedPath, resolveErr := resolvePathParamsFromContext(ctx.ShutdownCtx, ctx.Profile.Organization, apiClient, path, opts.PathParams)
 				if resolveErr != nil {
 					return resolveErr
 				}
@@ -265,11 +259,10 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			opts.URL = resolvedURL
 			opts.Client = apiClient
-			opts.Logger = logger
 			opts.Quiet = ctx.Profile.IsQuiet()
 			opts.DryRun = ctx.IsDryRun()
 
-			return RunAPI(opts)
+			return RunAPI(ctx.ShutdownCtx, opts)
 		},
 	}
 
@@ -281,7 +274,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 // resolvePathParamsFromContext resolves {param} placeholders using the command context.
 // Params preceded by a known resource segment (workspaces, teams, projects, varsets)
 // are resolved from name to ID via the API.
-func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, path string, pathParams map[string]string) (string, error) {
+func resolvePathParamsFromContext(ctx context.Context, profileOrganization string, apiClient *client.Client, path string, pathParams map[string]string) (string, error) {
 	if pathParams == nil {
 		pathParams = make(map[string]string)
 	}
@@ -296,7 +289,7 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 		if segment == "organizations" {
 			if _, ok := pathParams[param]; !ok {
 				if org == "" {
-					org = resolveOrg(ctx, cloudCfg)
+					org = resolveOrg(profileOrganization, cloudCfg)
 				}
 				if org != "" {
 					pathParams[param] = org
@@ -307,7 +300,7 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 		}
 	}
 	if org == "" {
-		org = resolveOrg(ctx, cloudCfg)
+		org = resolveOrg(profileOrganization, cloudCfg)
 	}
 
 	// Auto-fill workspace from terraform config if not explicit.
@@ -337,7 +330,7 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 		if org == "" {
 			return "", fmt.Errorf("organization required to resolve %s name %q; configure a profile or use -p with an organization param", segment, value)
 		}
-		id, err := lookupResource(ctx.ShutdownCtx, resolver, segment, org, value)
+		id, err := lookupResource(ctx, resolver, segment, org, value)
 		if err != nil {
 			return "", err
 		}
@@ -348,9 +341,9 @@ func resolvePathParamsFromContext(ctx *cmd.Context, apiClient *client.Client, pa
 }
 
 // resolveOrg returns the organization from profile or terraform cloud config.
-func resolveOrg(ctx *cmd.Context, cloudCfg *terraformcfg.CloudConfig) string {
-	if ctx.Profile.Organization != "" {
-		return ctx.Profile.Organization
+func resolveOrg(profileOrganization string, cloudCfg *terraformcfg.CloudConfig) string {
+	if profileOrganization != "" {
+		return profileOrganization
 	}
 	if cloudCfg != nil && cloudCfg.Organization != "" {
 		return cloudCfg.Organization
@@ -359,8 +352,8 @@ func resolveOrg(ctx *cmd.Context, cloudCfg *terraformcfg.CloudConfig) string {
 }
 
 // lookupResource resolves a resource name to its ID via the API.
-func lookupResource(goCtx context.Context, resolver *client.Resolver, segment, org, name string) (string, error) {
-	id, err := resolver.ResolveFromName(goCtx, segment, org, name)
+func lookupResource(ctx context.Context, resolver *client.Resolver, segment, org, name string) (string, error) {
+	id, err := resolver.ResolveFromName(ctx, segment, org, name)
 	if err != nil {
 		if errors.Is(err, tfe.ErrNotFound) {
 			return "", fmt.Errorf("%s named %q not found in organization %q", segment, name, org)
@@ -375,7 +368,9 @@ func lookupResource(goCtx context.Context, resolver *client.Resolver, segment, o
 }
 
 // RunAPI executes a low-level API request with the given options.
-func RunAPI(opts *Opts) error {
+func RunAPI(ctx context.Context, opts *Opts) error {
+	logger := logging.FromContext(ctx)
+
 	// Handle -f query fields
 	query := opts.URL.Query()
 	for key, value := range opts.Query {
@@ -451,7 +446,7 @@ func RunAPI(opts *Opts) error {
 	}
 
 	// Make the request
-	response, err := opts.Client.Do(opts.ShutdownCtx, &client.Request{
+	response, err := opts.Client.Do(ctx, &client.Request{
 		Method:  method,
 		URL:     opts.URL,
 		Headers: requestHeaders,
@@ -468,7 +463,7 @@ func RunAPI(opts *Opts) error {
 	}
 
 	if opts.All && response.StatusCode >= 200 && response.StatusCode < 300 {
-		response, err = paginateResponse(opts.ShutdownCtx, opts.Client, response, requestHeaders)
+		response, err = paginateResponse(ctx, opts.Client, response, requestHeaders)
 		if err != nil {
 			return err
 		}
@@ -476,22 +471,22 @@ func RunAPI(opts *Opts) error {
 	}
 
 	if opts.Quiet {
-		opts.Logger.Debug("Quiet mode enabled or no content to display, rendering skipped")
+		logger.Debug("Quiet mode enabled or no content to display, rendering skipped")
 		return nil
 	}
 
 	if response.StatusCode == http.StatusNoContent {
-		opts.Logger.Debug("No Content response, nothing to display")
+		logger.Debug("No Content response, nothing to display")
 		return nil
 	}
 
 	if response.ContentLength == 0 {
-		opts.Logger.Debug("Empty response body, nothing to display")
+		logger.Debug("Empty response body, nothing to display")
 		return nil
 	}
 
 	if !strings.HasPrefix(response.Header.Get("Content-Type"), "application/vnd.api+json") {
-		opts.Logger.Debug("Response body was not application/vnd.api+json, rendering raw body")
+		logger.Debug("Response body was not application/vnd.api+json, rendering raw body")
 		_, _ = io.Copy(opts.IO.Out(), response.Body)
 		return nil
 	}
@@ -502,7 +497,7 @@ func RunAPI(opts *Opts) error {
 	}
 
 	// Render the result
-	disp, err := format.NewJSONAPIDisplayer(body, opts.Logger)
+	disp, err := format.NewJSONAPIDisplayer(body, logger)
 	if err != nil {
 		return err
 	}

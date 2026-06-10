@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -50,18 +49,16 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 			availablePropertiesDoc(ctx.IO),
 		},
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			opts := &GetOpts{
-				Ctx:     ctx.ShutdownCtx,
 				IO:      ctx.IO,
 				Output:  ctx.Output,
 				Profile: ctx.Profile,
-				Logger:  c.Logger(ctx),
 			}
 
 			opts.Property = args[0]
 
-			return getRun(opts)
+			return getRun(ctx.ShutdownCtx, opts)
 		},
 	}
 
@@ -70,16 +67,14 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 
 // GetOpts defines the options for the `profile get` command.
 type GetOpts struct {
-	Ctx     context.Context
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
 	Output  *format.Outputter
-	Logger  hclog.Logger
 
 	Property string
 }
 
-func getRun(opts *GetOpts) error {
+func getRun(_ context.Context, opts *GetOpts) error {
 	if err := IsValidProperty(opts.Property); err != nil {
 		return err
 	}
