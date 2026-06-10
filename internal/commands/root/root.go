@@ -20,7 +20,7 @@ import (
 )
 
 // NewCmdRoot creates the root command.
-func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
+func NewCmdRoot(inv *cmd.Invocation) *cmd.Command {
 	c := &cmd.Command{
 		Name:      version.Name,
 		ShortHelp: "Interact with HCP Terraform and Terraform Enterprise.",
@@ -37,17 +37,17 @@ func NewCmdRoot(ctx *cmd.Context) *cmd.Command {
 	// screenshot in the README by running `make gen/screenshot`.
 
 	// Add the subcommands
-	c.AddChild(api.NewCmdAPI(ctx))
-	c.AddChild(get.NewCmdGet(ctx))
-	c.AddChild(create.NewCmdCreate(ctx))
-	c.AddChild(run.NewCmdRun(ctx))
-	c.AddChild(auth.NewCmdAuth(ctx))
-	c.AddChild(variable.NewCmdVariable(ctx))
-	c.AddChild(profile.NewCmdProfile(ctx))
-	c.AddChild(harness.NewCmdHarness(ctx))
+	c.AddChild(api.NewCmdAPI(inv))
+	c.AddChild(get.NewCmdGet(inv))
+	c.AddChild(create.NewCmdCreate(inv))
+	c.AddChild(run.NewCmdRun(inv))
+	c.AddChild(auth.NewCmdAuth(inv))
+	c.AddChild(variable.NewCmdVariable(inv))
+	c.AddChild(profile.NewCmdProfile(inv))
+	c.AddChild(harness.NewCmdHarness(inv))
 
 	// Configure the command as the root command.
-	cmd.ConfigureRootCommand(ctx, c)
+	cmd.ConfigureRootCommand(inv, c)
 
 	return c
 }

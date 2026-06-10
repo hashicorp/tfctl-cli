@@ -45,15 +45,15 @@ func (e existingVariables) Get(category, key string) (existingVariable, bool) {
 }
 
 // NewCmdVariableImport creates the `variable import` command.
-func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
+func NewCmdVariableImport(inv *cmd.Invocation) *cmd.Command {
 	opts := &ImportOpts{
-		IO: ctx.IO,
+		IO: inv.IO,
 	}
 
 	cmd := &cmd.Command{
 		Name:      "import",
 		ShortHelp: "Import variables from .tfvars or current env into workspaces or variable sets.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s variable import" }} command lets you import Terraform
 		variables from .tfvars files or environment variables from the %s process environment into
 		Workspaces or Variable Sets.
@@ -102,11 +102,11 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "Import terraform variables from a .tfvars file into the current workspace",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s variable import variables.tfvars`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s variable import variables.tfvars`, version.Name),
 			},
 			{
 				Preamble: fmt.Sprintf("Import environment variables from the %s process into a variable set", version.Name),
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s variable import -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --variable-set-name my-variable-set`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s variable import -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY --variable-set-name my-variable-set`, version.Name),
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
@@ -119,7 +119,7 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 			}
 
 			if opts.Organization == "" {
-				opts.Organization = ctx.Profile.Organization
+				opts.Organization = inv.Profile.Organization
 			}
 
 			if opts.Organization == "" || opts.Workspace == "" {
@@ -141,15 +141,15 @@ func NewCmdVariableImport(ctx *cmd.Context) *cmd.Command {
 				return errors.New("could not resolve target workspace; set --organization and --workspace or run inside a repository with terraform cloud configuration") // this should be impossible to hit due to the previous block, but we'll check again before API calls just in case
 			}
 
-			apiClient, err := ctx.NewAPIClient()
+			apiClient, err := inv.NewAPIClient()
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
 			opts.Client = apiClient
-			opts.DryRun = ctx.IsDryRun()
+			opts.DryRun = inv.IsDryRun()
 
-			return runVariableImport(ctx.ShutdownCtx, opts)
+			return runVariableImport(inv.ShutdownCtx, opts)
 		},
 	}
 

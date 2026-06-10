@@ -28,7 +28,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
-func (c *Command) errorToExitCode(_ []string, cCtx *Context, err error) int {
+func (c *Command) errorToExitCode(_ []string, inv *Invocation, err error) int {
 	io := c.io
 	cs := io.ColorScheme()
 
@@ -45,10 +45,10 @@ func (c *Command) errorToExitCode(_ []string, cCtx *Context, err error) int {
 	} else if errors.Is(err, ErrUnderlyingError) {
 		return 6
 	} else if errors.Is(err, tfe.ErrNotFound) {
-		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), notFoundErrorHelp(io, cCtx.Profile.GetHostname()))
+		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), notFoundErrorHelp(io, inv.Profile.GetHostname()))
 		return 2
 	} else if errors.Is(err, tfe.ErrUnauthorized) {
-		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), authErrorHelp(io, cCtx.Profile.GetHostname()))
+		fmt.Fprintf(io.Err(), "%s %s\n\n", cs.ErrorLabel(), authErrorHelp(io, inv.Profile.GetHostname()))
 		return 3
 	} else if errors.As(err, &netErr) {
 		fmt.Fprintf(io.Err(), "%s Network error: %s\n", cs.ErrorLabel(), netErr)
@@ -78,7 +78,7 @@ func (c *Command) errorToExitCode(_ []string, cCtx *Context, err error) int {
 }
 
 // Run runs the given command.
-func (c *Command) Run(args []string, cCtx *Context) int {
+func (c *Command) Run(args []string, inv *Invocation) int {
 	// Get the colorscheme
 	io := c.getIO()
 	cs := io.ColorScheme()
@@ -152,7 +152,7 @@ func (c *Command) Run(args []string, cCtx *Context) int {
 
 	// Run the command
 	if err := c.RunF(c, parsedArgs); err != nil {
-		return c.errorToExitCode(args, cCtx, err)
+		return c.errorToExitCode(args, inv, err)
 	}
 
 	return 0

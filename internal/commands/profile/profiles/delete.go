@@ -16,14 +16,14 @@ import (
 )
 
 // NewCmdDelete returns the `profile profiles delete` command for deleting configuration profiles.
-func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
+func NewCmdDelete(inv *cmd.Invocation) *cmd.Command {
 	opts := &DeleteOpts{
-		IO: ctx.IO,
+		IO: inv.IO,
 	}
 	cmd := &cmd.Command{
 		Name:      "delete",
 		ShortHelp: "Delete an existing configuration profile.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles delete" }} command
 		deletes an existing configuration profile. If the profile is the active profile,
 		it may not be deleted.
@@ -42,7 +42,7 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 			},
 			{
 				Preamble: "Delete the active profile:",
-				Command: heredoc.New(ctx.IO).Mustf(`
+				Command: heredoc.New(inv.IO).Mustf(`
 				$ %s profile profiles active my-other-profile
 				$ %s profile profiles delete my-profile
 				`, version.Name, version.Name),
@@ -66,8 +66,8 @@ func NewCmdDelete(ctx *cmd.Context) *cmd.Command {
 			}
 			opts.Profiles = l
 			opts.Names = args
-			opts.DryRun = ctx.IsDryRun()
-			return deleteRun(ctx.ShutdownCtx, opts)
+			opts.DryRun = inv.IsDryRun()
+			return deleteRun(inv.ShutdownCtx, opts)
 		},
 	}
 

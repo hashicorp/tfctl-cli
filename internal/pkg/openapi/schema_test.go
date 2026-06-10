@@ -18,7 +18,7 @@ import (
 )
 
 func TestSchema_OperationById(t *testing.T) {
-	cmdContext := &cmd.Context{
+	cmdContext := &cmd.Invocation{
 		ShutdownCtx: context.Background(),
 		Profile:     profile.TestProfile(t),
 	}
@@ -86,7 +86,7 @@ func TestSchemaFactory(t *testing.T) {
 		})
 
 		p := testProfileWithServer(t, srv.URL)
-		cmdContext := &cmd.Context{
+		cmdContext := &cmd.Invocation{
 			ShutdownCtx: context.Background(),
 			Profile:     p,
 		}
@@ -115,7 +115,7 @@ func TestSchemaFactory(t *testing.T) {
 		})
 
 		p := testProfileWithServer(t, srv.URL)
-		cmdContext := &cmd.Context{
+		cmdContext := &cmd.Invocation{
 			ShutdownCtx: context.Background(),
 			Profile:     p,
 		}
@@ -155,7 +155,7 @@ func TestSchemaFactory(t *testing.T) {
 		})
 
 		p := testProfileWithServer(t, srv.URL)
-		cmdContext := &cmd.Context{
+		cmdContext := &cmd.Invocation{
 			ShutdownCtx: context.Background(),
 			Profile:     p,
 		}
@@ -190,7 +190,7 @@ func TestSchemaFactory(t *testing.T) {
 		})
 
 		p := testProfileWithServer(t, srv.URL)
-		cmdContext := &cmd.Context{
+		cmdContext := &cmd.Invocation{
 			ShutdownCtx: context.Background(),
 			Profile:     p,
 		}
@@ -207,7 +207,7 @@ func TestSchemaFactory(t *testing.T) {
 }
 
 func TestSchema_AtomizePath(t *testing.T) {
-	cmdContext := &cmd.Context{
+	cmdContext := &cmd.Invocation{
 		ShutdownCtx: context.Background(),
 		Profile:     profile.TestProfile(t),
 	}
@@ -272,7 +272,7 @@ func TestSchema_AtomizePath(t *testing.T) {
 }
 
 func TestSchema_AtomizeOperation(t *testing.T) {
-	cmdContext := &cmd.Context{
+	cmdContext := &cmd.Invocation{
 		ShutdownCtx: context.Background(),
 		Profile:     profile.TestProfile(t),
 	}

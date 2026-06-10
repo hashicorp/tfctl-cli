@@ -242,8 +242,8 @@ func fixtureSchemaLoader(t *testing.T) func() openapi.Schema {
 	}
 }
 
-func testCommandContext(io *iostreams.Testing) *cmd.Context {
-	return &cmd.Context{
+func testCommandContext(io *iostreams.Testing) *cmd.Invocation {
+	return &cmd.Invocation{
 		IO:          io,
 		Output:      format.New(io),
 		ShutdownCtx: context.Background(),

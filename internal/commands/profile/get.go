@@ -21,21 +21,21 @@ import (
 )
 
 // NewCmdGet returns the `profile get` command for getting a CLI configuration property.
-func NewCmdGet(ctx *cmd.Context) *cmd.Command {
+func NewCmdGet(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "get",
 		ShortHelp: fmt.Sprintf("Get a %s CLI configuration property.", version.Name),
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile get" }} command gets the specified property in your active profile.
 
 		To view all currently set properties, run {{ template "mdCodeOrBold" "%s profile display" }}.
 		`, version.Name, version.Name),
 		Args: cmd.PositionalArguments{
-			Autocomplete: ctx.Profile,
+			Autocomplete: inv.Profile,
 			Args: []cmd.PositionalArgument{
 				{
 					Name: "PROPERTY",
-					Documentation: heredoc.New(ctx.IO).Must(`
+					Documentation: heredoc.New(inv.IO).Must(`
 					Property to be get, such as
 					{{ template "mdCodeOrBold" "organization" }} and
 					{{ template "mdCodeOrBold" "hostname" }}.
@@ -46,19 +46,19 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		AdditionalDocs: []cmd.DocSection{
-			availablePropertiesDoc(ctx.IO),
+			availablePropertiesDoc(inv.IO),
 		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, args []string) error {
 			opts := &GetOpts{
-				IO:      ctx.IO,
-				Output:  ctx.Output,
-				Profile: ctx.Profile,
+				IO:      inv.IO,
+				Output:  inv.Output,
+				Profile: inv.Profile,
 			}
 
 			opts.Property = args[0]
 
-			return getRun(ctx.ShutdownCtx, opts)
+			return getRun(inv.ShutdownCtx, opts)
 		},
 	}
 

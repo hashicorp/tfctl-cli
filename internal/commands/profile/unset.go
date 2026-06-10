@@ -19,16 +19,16 @@ import (
 )
 
 // NewCmdUnset returns the `profile unset` command for unsetting a profile configuration property.
-func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
+func NewCmdUnset(inv *cmd.Invocation) *cmd.Command {
 	opts := &UnsetOpts{
-		IO:      ctx.IO,
-		Profile: ctx.Profile,
+		IO:      inv.IO,
+		Profile: inv.Profile,
 	}
 
 	cmd := &cmd.Command{
 		Name:      "unset",
 		ShortHelp: "Unset a profile configuration property.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile unset" }} command unsets the specified property in your active profile.
 
 		To view all currently set properties, run {{ template "mdCodeOrBold" "%s profile display" }}.
@@ -38,7 +38,7 @@ func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 			Args: []cmd.PositionalArgument{
 				{
 					Name: "PROPERTY",
-					Documentation: heredoc.New(ctx.IO).Must(`
+					Documentation: heredoc.New(inv.IO).Must(`
 					Property to be unset, such as
 					{{ template "mdCodeOrBold" "organization" }} and
 					{{ template "mdCodeOrBold" "hostname" }}.
@@ -49,7 +49,7 @@ func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		AdditionalDocs: []cmd.DocSection{
-			availablePropertiesDoc(ctx.IO),
+			availablePropertiesDoc(inv.IO),
 		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, args []string) error {
@@ -59,9 +59,9 @@ func NewCmdUnset(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 			opts.Profiles = l
-			opts.DryRun = ctx.IsDryRun()
+			opts.DryRun = inv.IsDryRun()
 
-			return unsetRun(ctx.ShutdownCtx, opts)
+			return unsetRun(inv.ShutdownCtx, opts)
 		},
 	}
 

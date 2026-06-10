@@ -29,18 +29,18 @@ const (
 )
 
 // NewCmdLogin returns the `auth login` command for authenticating.
-func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
+func NewCmdLogin(inv *cmd.Invocation) *cmd.Command {
 	opts := &LoginOpts{
-		IO:          ctx.IO,
-		Profile:     ctx.Profile,
-		Output:      ctx.Output,
+		IO:          inv.IO,
+		Profile:     inv.Profile,
+		Output:      inv.Output,
 		OpenBrowser: openBrowser,
 	}
 
 	cmd := &cmd.Command{
 		Name:      "login",
 		ShortHelp: "Authenticate with HCP Terraform or Terraform Enterprise.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%[1]s auth login" }} command authenticates
 		the %[1]s CLI with HCP Terraform or Terraform Enterprise.
 
@@ -74,8 +74,8 @@ func NewCmdLogin(ctx *cmd.Context) *cmd.Command {
 		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
-			opts.DryRun = ctx.IsDryRun()
-			return loginRun(ctx.ShutdownCtx, ctx, opts)
+			opts.DryRun = inv.IsDryRun()
+			return loginRun(inv.ShutdownCtx, inv, opts)
 		},
 	}
 
@@ -98,7 +98,7 @@ type LoginOpts struct {
 	DryRun bool
 }
 
-func loginRun(ctx context.Context, cmdCtx *cmd.Context, opts *LoginOpts) error {
+func loginRun(ctx context.Context, inv *cmd.Invocation, opts *LoginOpts) error {
 	hostname := opts.Profile.GetHostname()
 	logger := logging.FromContext(ctx)
 
@@ -119,7 +119,7 @@ func loginRun(ctx context.Context, cmdCtx *cmd.Context, opts *LoginOpts) error {
 	// Set the token on the profile and create a client to verify it.
 	opts.Profile.Token = token
 	logger.Debug("verifying token", "hostname", hostname)
-	apiClient, err := cmdCtx.NewAPIClient()
+	apiClient, err := inv.NewAPIClient()
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}

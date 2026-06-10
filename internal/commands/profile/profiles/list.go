@@ -18,15 +18,15 @@ import (
 )
 
 // NewCmdList returns the `profile profiles list` command for listing configuration profiles.
-func NewCmdList(ctx *cmd.Context) *cmd.Command {
+func NewCmdList(inv *cmd.Invocation) *cmd.Command {
 	opts := &ListOpts{
-		IO:     ctx.IO,
-		Output: ctx.Output,
+		IO:     inv.IO,
+		Output: inv.Output,
 	}
 	cmd := &cmd.Command{
 		Name:      "list",
 		ShortHelp: "List existing configuration profiles.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles list" }} command lists existing configuration profiles.
 		`, version.Name),
 		Examples: []cmd.Example{
@@ -42,7 +42,7 @@ func NewCmdList(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 			opts.Profiles = l
-			return listRun(ctx.ShutdownCtx, opts)
+			return listRun(inv.ShutdownCtx, opts)
 		},
 	}
 

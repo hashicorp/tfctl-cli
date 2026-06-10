@@ -21,17 +21,17 @@ import (
 )
 
 // NewCmdStatus returns the `auth status` command for displaying auth info.
-func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
+func NewCmdStatus(inv *cmd.Invocation) *cmd.Command {
 	opts := &StatusOpts{
-		IO:      ctx.IO,
-		Profile: ctx.Profile,
-		Output:  ctx.Output,
+		IO:      inv.IO,
+		Profile: inv.Profile,
+		Output:  inv.Output,
 	}
 
 	cmd := &cmd.Command{
 		Name:      "status",
 		ShortHelp: "Display information about the current authentication.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s auth status" }} command displays
 		information about the currently authenticated account and token,
 		including when the token expires if that information is available.
@@ -44,14 +44,14 @@ func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
 		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
-			if ctx.Profile.GetToken() != "" {
-				apiClient, err := ctx.NewAPIClient()
+			if inv.Profile.GetToken() != "" {
+				apiClient, err := inv.NewAPIClient()
 				if err != nil {
 					return fmt.Errorf("failed to create API client: %w", err)
 				}
 				opts.APIClient = apiClient
 			}
-			return runStatus(ctx.ShutdownCtx, opts)
+			return runStatus(inv.ShutdownCtx, opts)
 		},
 	}
 

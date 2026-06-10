@@ -17,19 +17,19 @@ import (
 )
 
 // NewCmdActivate returns the `profile profiles activate` command for activating a configuration profile.
-func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
+func NewCmdActivate(inv *cmd.Invocation) *cmd.Command {
 	opts := &ActivateOpts{
-		IO: ctx.IO,
+		IO: inv.IO,
 	}
 	cmd := &cmd.Command{
 		Name:      "activate",
 		ShortHelp: "Activates an existing profile.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles activate" }} command activates an existing profile.
 		`, version.Name),
 		Examples: []cmd.Example{
 			{
-				Preamble: heredoc.New(ctx.IO).Must(`
+				Preamble: heredoc.New(inv.IO).Must(`
 				To active profile {{ template "mdCodeOrBold" "my-profile" }}, run:
 				`),
 				Command: fmt.Sprintf("$ %s profile profiles activate my-profile", version.Name),
@@ -47,13 +47,13 @@ func NewCmdActivate(ctx *cmd.Context) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, args []string) error {
 			opts.Name = args[0]
-			opts.DryRun = ctx.IsDryRun()
+			opts.DryRun = inv.IsDryRun()
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
 			}
 			opts.Profiles = l
-			return activateRun(ctx.ShutdownCtx, opts)
+			return activateRun(inv.ShutdownCtx, opts)
 		},
 	}
 

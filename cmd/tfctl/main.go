@@ -90,8 +90,8 @@ func realMain() int {
 
 	shutdownCtx = telemetry.WithTelemetry(shutdownCtx, tel)
 
-	// Create the command context
-	cCtx := &cmd.Context{
+	// Create the command invocation
+	inv := &cmd.Invocation{
 		IO:          io,
 		Profile:     activeProfile,
 		Output:      format.New(io),
@@ -99,8 +99,8 @@ func realMain() int {
 	}
 
 	// Get the HCP Root command
-	tfctlCmd := root.NewCmdRoot(cCtx)
-	cmdMap := cmd.ToCommandMap(tfctlCmd, cCtx)
+	tfctlCmd := root.NewCmdRoot(inv)
+	cmdMap := cmd.ToCommandMap(tfctlCmd, inv)
 
 	c := cli.CLI{
 		Version:                    version.Version,

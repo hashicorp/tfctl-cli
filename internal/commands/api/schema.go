@@ -47,9 +47,9 @@ type schemaGetOpts struct {
 
 // defaultSchemaLoader binds the command context and logger into a loader
 // closure that fetches the OpenAPI schema via the production SchemaFactory.
-func defaultSchemaLoader(ctx *cmd.Context) func() openapi.Schema {
+func defaultSchemaLoader(inv *cmd.Invocation) func() openapi.Schema {
 	return func() openapi.Schema {
-		return openapi.SchemaFactory(ctx)
+		return openapi.SchemaFactory(inv)
 	}
 }
 
@@ -84,30 +84,30 @@ func withSchemaLoader(load func() openapi.Schema) schemaCmdOption {
 }
 
 // NewCmdAPISchema creates the api schema command group.
-func NewCmdAPISchema(ctx *cmd.Context) *cmd.Command {
+func NewCmdAPISchema(inv *cmd.Invocation) *cmd.Command {
 	c := &cmd.Command{
 		Name:           "schema",
 		ShortHelp:      "Search and inspect API operations",
 		NoAuthRequired: true,
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s api schema" }} command group lets you search
 		for API operations from the OpenAPI spec and inspect a single operation schema.
 		`, version.Name),
 	}
 
-	c.AddChild(newCmdAPISchemaSearch(ctx))
-	c.AddChild(newCmdAPISchemaGet(ctx))
+	c.AddChild(newCmdAPISchemaSearch(inv))
+	c.AddChild(newCmdAPISchemaGet(inv))
 
 	return c
 }
 
-func newCmdAPISchemaSearch(ctx *cmd.Context, opts ...schemaCmdOption) *cmd.Command {
+func newCmdAPISchemaSearch(inv *cmd.Invocation, opts ...schemaCmdOption) *cmd.Command {
 	cfg := newSchemaCmdConfig(opts...)
 	return &cmd.Command{
 		Name:           "search",
 		ShortHelp:      "Search API operations",
 		NoAuthRequired: true,
-		LongHelp: heredoc.New(ctx.IO).Must(`
+		LongHelp: heredoc.New(inv.IO).Must(`
 		Search API operations by keywords.
 		`),
 		Args: cmd.PositionalArguments{
@@ -124,12 +124,12 @@ func newCmdAPISchemaSearch(ctx *cmd.Context, opts ...schemaCmdOption) *cmd.Comma
 		RunF: func(_ *cmd.Command, args []string) error {
 			load := cfg.loadSchema
 			if load == nil {
-				load = defaultSchemaLoader(ctx)
+				load = defaultSchemaLoader(inv)
 			}
 			return runSchemaSearch(schemaSearchOpts{
-				IO:          ctx.IO,
-				Output:      ctx.Output,
-				ShutdownCtx: ctx.ShutdownCtx,
+				IO:          inv.IO,
+				Output:      inv.Output,
+				ShutdownCtx: inv.ShutdownCtx,
 				LoadSchema:  load,
 				Searcher:    schemaOperationSearcher,
 				Query:       strings.Join(args, " "),
@@ -195,13 +195,13 @@ func (d SchemaSearchResultsDisplayer) FieldTemplates() []format.Field {
 	}
 }
 
-func newCmdAPISchemaGet(ctx *cmd.Context, opts ...schemaCmdOption) *cmd.Command {
+func newCmdAPISchemaGet(inv *cmd.Invocation, opts ...schemaCmdOption) *cmd.Command {
 	cfg := newSchemaCmdConfig(opts...)
 	return &cmd.Command{
 		Name:           "get",
 		ShortHelp:      "Show API operation schema by operation ID or path",
 		NoAuthRequired: true,
-		LongHelp: heredoc.New(ctx.IO).Must(`
+		LongHelp: heredoc.New(inv.IO).Must(`
 		Show a trimmed OpenAPI document for a single operationId or all operations on an exact API path.
 		`),
 		Args: cmd.PositionalArguments{
@@ -223,10 +223,10 @@ func newCmdAPISchemaGet(ctx *cmd.Context, opts ...schemaCmdOption) *cmd.Command 
 		RunF: func(_ *cmd.Command, args []string) error {
 			load := cfg.loadSchema
 			if load == nil {
-				load = defaultSchemaLoader(ctx)
+				load = defaultSchemaLoader(inv)
 			}
 			return runSchemaGet(schemaGetOpts{
-				IO:         ctx.IO,
+				IO:         inv.IO,
 				LoadSchema: load,
 				Target:     args[0],
 			})

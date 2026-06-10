@@ -17,7 +17,7 @@ func TestToCommandMap(t *testing.T) {
 	r := require.New(t)
 	t.Parallel()
 
-	cCtx := &Context{
+	cCtx := &Invocation{
 		IO: iostreams.Test(),
 	}
 

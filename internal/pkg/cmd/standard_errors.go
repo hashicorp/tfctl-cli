@@ -13,12 +13,12 @@ import (
 )
 
 // RequireOrganization requires that the profile has a set organization.
-func RequireOrganization(ctx *Context) error {
-	if ctx.Profile.Organization != "" {
+func RequireOrganization(inv *Invocation) error {
+	if inv.Profile.Organization != "" {
 		return nil
 	}
 
-	cs := ctx.IO.ColorScheme()
+	cs := inv.IO.ColorScheme()
 	help := heredoc.Docf(`%v
 
 	Please run %v to interactively set the Organization, or run:
@@ -33,12 +33,12 @@ func RequireOrganization(ctx *Context) error {
 }
 
 // RequireOrg requires that the profile has a set organization.
-func RequireOrg(ctx *Context) error {
-	if ctx.Profile.Organization != "" {
+func RequireOrg(inv *Invocation) error {
+	if inv.Profile.Organization != "" {
 		return nil
 	}
 
-	cs := ctx.IO.ColorScheme()
+	cs := inv.IO.ColorScheme()
 	help := heredoc.Docf(`%v
 
 	Please run %s to interactively set the Organization, or run:

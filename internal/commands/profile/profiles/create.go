@@ -19,14 +19,14 @@ import (
 )
 
 // NewCmdCreate returns the `profile profiles create` command for creating a new configuration profile.
-func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
+func NewCmdCreate(inv *cmd.Invocation) *cmd.Command {
 	opts := &CreateOpts{
-		IO: ctx.IO,
+		IO: inv.IO,
 	}
 	cmd := &cmd.Command{
 		Name:      "create",
 		ShortHelp: "Create a new configuration profile.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles create" }} command creates a new named profile.
 
 		Profile names start with a letter and may contain lower case letters a-z,
@@ -67,13 +67,13 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, args []string) error {
 			opts.Name = args[0]
-			opts.DryRun = ctx.IsDryRun()
+			opts.DryRun = inv.IsDryRun()
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
 			}
 			opts.Profiles = l
-			return createRun(ctx.ShutdownCtx, opts)
+			return createRun(inv.ShutdownCtx, opts)
 		},
 	}
 

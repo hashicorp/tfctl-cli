@@ -11,17 +11,17 @@ import (
 )
 
 // NewCmdVariable creates the `variable` command.
-func NewCmdVariable(ctx *cmd.Context) *cmd.Command {
+func NewCmdVariable(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "variable",
 		ShortHelp: "Manage variables in workspaces or variable sets.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s variable" }} command group lets you manage Terraform or
 		environment variables belonging to Workspaces or Variable Sets.
 		`, version.Name),
 	}
 
-	cmd.AddChild(NewCmdVariableImport(ctx))
+	cmd.AddChild(NewCmdVariableImport(inv))
 
 	return cmd
 }

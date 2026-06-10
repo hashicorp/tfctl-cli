@@ -25,8 +25,8 @@ import (
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
-// Context passes global objects for constructing and invoking a command.
-type Context struct {
+// Invocation passes global objects for constructing and invoking a command.
+type Invocation struct {
 	// IO is used to interact directly with IO or the terminal.
 	IO iostreams.IOStreams
 
@@ -52,7 +52,7 @@ type GlobalFlags struct {
 	parsed bool
 
 	// Unexported global flags. These should generally be access via other
-	// helpers exported in the Context.
+	// helpers exported in the Invocation.
 	profile  string
 	json     bool
 	markdown bool
@@ -70,48 +70,48 @@ type GlobalFlags struct {
 
 // GetGlobalFlags returns the global flags. It panics if the flags have not been
 // parsed yet, which should only be the case if they are accessed outside of a run command.
-func (ctx *Context) GetGlobalFlags() GlobalFlags {
-	if !ctx.flags.parsed {
+func (i *Invocation) GetGlobalFlags() GlobalFlags {
+	if !i.flags.parsed {
 		panic("This is a programmer error. Only access global flags from within a run command. Otherwise flags haven't been parsed yet.")
 	}
 
-	return ctx.flags
+	return i.flags
 }
 
 // IsDryRun returns true when commands should avoid making mutating changes.
-func (ctx *Context) IsDryRun() bool {
-	return ctx.GetGlobalFlags().dryRun
+func (i *Invocation) IsDryRun() bool {
+	return i.GetGlobalFlags().dryRun
 }
 
 // ResolveLogLevel returns the resolved verbosity level, with the --debug
 // flag taking precedence over the profile setting.
-func (ctx *Context) ResolveLogLevel() hclog.Level {
-	if !ctx.flags.parsed {
+func (i *Invocation) ResolveLogLevel() hclog.Level {
+	if !i.flags.parsed {
 		return hclog.Warn
 	}
 
 	switch {
-	case ctx.GetGlobalFlags().debug >= 2:
+	case i.GetGlobalFlags().debug >= 2:
 		return hclog.Trace
-	case ctx.GetGlobalFlags().debug == 1:
+	case i.GetGlobalFlags().debug == 1:
 		return hclog.Debug
 	default:
-		return hclog.LevelFromString(ctx.Profile.GetVerbosity())
+		return hclog.LevelFromString(i.Profile.GetVerbosity())
 	}
 }
 
 // ConfigureRootCommand should be only called on the root command. It configures
-// global flags and ensures that the context is configured based on any flags
+// global flags and ensures that the invocation is configured based on any flags
 // set during a command invocation.
-func ConfigureRootCommand(ctx *Context, cmd *Command) {
+func ConfigureRootCommand(i *Invocation, cmd *Command) {
 	// Store the IO on the command, making it available to the entire tree.
-	cmd.io = ctx.IO
+	cmd.io = i.IO
 
 	cmd.Flags.Persistent = append(cmd.Flags.Persistent, &Flag{
 		Name:         "profile",
 		DisplayValue: "NAME",
 		Description:  "The profile to use. If omitted, the currently selected profile will be used.",
-		Value:        flagvalue.Simple("", &ctx.flags.profile),
+		Value:        flagvalue.Simple("", &i.flags.profile),
 		global:       true,
 		Autocomplete: complete.PredictFunc(func(_ complete.Args) []string {
 			l, err := profile.NewLoader()
@@ -130,68 +130,68 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		Name:         "jq",
 		DisplayValue: "EXPRESSION",
 		Description:  "A jq filter expression to apply to JSON output. Implies --json.",
-		Value:        flagvalue.Simple("", &ctx.flags.jq),
+		Value:        flagvalue.Simple("", &i.flags.jq),
 		global:       true,
 	}, &Flag{
 		Name:          "json",
 		Description:   "Sets the output format.",
-		Value:         flagvalue.Simple(false, &ctx.flags.json),
+		Value:         flagvalue.Simple(false, &i.flags.json),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
 		Name:          "markdown",
 		Description:   "Sets the output format to markdown.",
-		Value:         flagvalue.Simple(false, &ctx.flags.markdown),
+		Value:         flagvalue.Simple(false, &i.flags.markdown),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
 		Name:          "dry-run",
 		Description:   "Shows what would happen without actually changing anything.",
-		Value:         flagvalue.Simple(false, &ctx.flags.dryRun),
+		Value:         flagvalue.Simple(false, &i.flags.dryRun),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
 		Name:          "quiet",
 		Description:   "Minimizes output and disables interactive prompting.",
-		Value:         flagvalue.Simple(false, &ctx.flags.Quiet),
+		Value:         flagvalue.Simple(false, &i.flags.Quiet),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
 		Name:          "no-color",
 		Description:   "Disables color output.",
-		Value:         flagvalue.Simple(false, &ctx.flags.noColor),
+		Value:         flagvalue.Simple(false, &i.flags.noColor),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
 		Name:          "debug",
 		Description:   "Enable debug output.",
-		Value:         flagvalue.Counter(0, &ctx.flags.debug),
+		Value:         flagvalue.Counter(0, &i.flags.debug),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
 		Name:          "version",
 		Description:   fmt.Sprintf("Print the version of %s CLI.", version.Name),
-		Value:         flagvalue.Simple(false, &ctx.flags.Version),
+		Value:         flagvalue.Simple(false, &i.flags.Version),
 		IsBooleanFlag: true,
 		global:        true,
 	})
 
 	// Setup the pre-run command
 	cmd.PersistentPreRun = func(c *Command, args []string) error {
-		if err := ctx.applyGlobalFlags(c); err != nil {
+		if err := i.applyGlobalFlags(c); err != nil {
 			return err
 		}
 
-		c.io = ctx.IO
-		logger := logging.FromContext(ctx.ShutdownCtx)
-		logger.SetLevel(ctx.ResolveLogLevel())
+		c.io = i.IO
+		logger := logging.FromContext(i.ShutdownCtx)
+		logger.SetLevel(i.ResolveLogLevel())
 		logger.Debug("Log level set", "level", logger.GetLevel())
 
 		// Replace the context with a context containing a newly named logger for this command.
 		commandName := strings.TrimLeft(c.commandPath(), fmt.Sprintf("%s ", version.Name))
-		ctx.ShutdownCtx = logging.WithLogger(ctx.ShutdownCtx, logger.Named(commandName))
+		i.ShutdownCtx = logging.WithLogger(i.ShutdownCtx, logger.Named(commandName))
 
-		tel := telemetry.FromContext(ctx.ShutdownCtx)
+		tel := telemetry.FromContext(i.ShutdownCtx)
 
 		telemetry.SetErrorHandler(func(err error) {
 			logger = logger.ResetNamed(version.Name).Named("telemetry")
@@ -219,16 +219,16 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 
 		// Start the telemetry span now that we know the command and flags.
 		if tel != nil {
-			ctx.ShutdownCtx = tel.StartCommand(ctx.ShutdownCtx, telemetry.CommandInfo{
+			i.ShutdownCtx = tel.StartCommand(i.ShutdownCtx, telemetry.CommandInfo{
 				Command: c.CommandPath(),
-				Profile: ctx.Profile,
-				Debug:   ctx.flags.debug > 0 || ctx.Profile.GetVerbosity() == "debug",
-				JSON:    ctx.flags.json || ctx.flags.jq != "",
-				DryRun:  ctx.flags.dryRun,
+				Profile: i.Profile,
+				Debug:   i.flags.debug > 0 || i.Profile.GetVerbosity() == "debug",
+				JSON:    i.flags.json || i.flags.jq != "",
+				DryRun:  i.flags.dryRun,
 			})
 		}
 
-		err := isAuthenticated(ctx, c, args)
+		err := isAuthenticated(i, c, args)
 		if err != nil {
 			return err
 		}
@@ -238,31 +238,31 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 }
 
 // applyGlobalFlags applies the global flags.
-func (ctx *Context) applyGlobalFlags(_ *Command) error {
+func (i *Invocation) applyGlobalFlags(_ *Command) error {
 	// Mark that we have parsed flags
-	ctx.flags.parsed = true
+	i.flags.parsed = true
 
 	// Parse the profile first
-	if p := ctx.flags.profile; p != "" {
+	if p := i.flags.profile; p != "" {
 		l, err := profile.NewLoader()
 		if err != nil {
 			return err
 		}
 
-		p, err := l.LoadProfile(ctx.flags.profile)
+		p, err := l.LoadProfile(i.flags.profile)
 		if err != nil {
 			return err
 		}
 
-		*ctx.Profile = *p
+		*i.Profile = *p
 	}
 
 	// Set the output format if the flag is set.
 	f := format.Unset
-	if ctx.flags.json {
+	if i.flags.json {
 		f = format.JSON
 	}
-	if ctx.flags.markdown {
+	if i.flags.markdown {
 		if f == format.Unset {
 			f = format.Markdown
 		} else {
@@ -271,42 +271,42 @@ func (ctx *Context) applyGlobalFlags(_ *Command) error {
 	}
 
 	// --jq implies --json and is only compatible with --json
-	if ctx.flags.jq != "" {
+	if i.flags.jq != "" {
 		if f != format.Unset && f != format.JSON {
 			return fmt.Errorf("--jq cannot be used with --markdown; only --json output is supported")
 		}
 		if f == format.Unset {
 			f = format.JSON
 		}
-		ctx.Output.SetJQFilter(ctx.flags.jq)
+		i.Output.SetJQFilter(i.flags.jq)
 	}
 
 	if f != format.Unset {
-		ctx.Output.SetFormat(f)
+		i.Output.SetFormat(f)
 	}
 
 	// Disable color if set
-	if ctx.flags.noColor || (ctx.Profile != nil && ctx.Profile.NoColor != nil && *ctx.Profile.NoColor) {
-		ctx.IO.ForceNoColor()
+	if i.flags.noColor || (i.Profile != nil && i.Profile.NoColor != nil && *i.Profile.NoColor) {
+		i.IO.ForceNoColor()
 	}
 
 	// Set quiet on the IOStream if enabled by the flag or profile
-	if ctx.flags.Quiet || ctx.Profile.IsQuiet() {
-		ctx.IO.SetQuiet(true)
+	if i.flags.Quiet || i.Profile.IsQuiet() {
+		i.IO.SetQuiet(true)
 	}
 
 	return nil
 }
 
-// NewAPIClient returns a new API Client configured using the context Profile.
+// NewAPIClient returns a new API Client configured using the invocation Profile.
 // When debug output is enabled and a non-nil logger is provided, the client's
 // HTTP transport is wrapped to log requests and responses.
-func (ctx *Context) NewAPIClient() (*client.Client, error) {
-	address := ctx.Profile.GetHostname()
+func (i *Invocation) NewAPIClient() (*client.Client, error) {
+	address := i.Profile.GetHostname()
 	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
 		address = "https://" + address
 	}
-	apiClient, err := client.New(ctx.ShutdownCtx, address, ctx.Profile.GetToken(), http.Header{
+	apiClient, err := client.New(i.ShutdownCtx, address, i.Profile.GetToken(), http.Header{
 		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", version.Name, version.Version)},
 	})
 	if err != nil {
@@ -319,30 +319,30 @@ func (ctx *Context) NewAPIClient() (*client.Client, error) {
 // ParseFlags can be used to parse the flags for a given command before it is
 // run. This can be helpful in very specific cases such as accessing flags
 // during autocompletion. The return args are the non-flag arguments.
-func (ctx *Context) ParseFlags(c *Command, args []string) ([]string, error) {
+func (i *Invocation) ParseFlags(c *Command, args []string) ([]string, error) {
 	if err := c.parseFlags(args); err != nil {
 		return nil, err
 	}
 
-	if err := ctx.applyGlobalFlags(c); err != nil {
+	if err := i.applyGlobalFlags(c); err != nil {
 		return nil, err
 	}
 
 	return c.allCommandFlags.Args(), nil
 }
 
-func isAuthenticated(ctx *Context, c *Command, args []string) error {
-	logger := logging.FromContext(ctx.ShutdownCtx)
+func isAuthenticated(i *Invocation, c *Command, args []string) error {
+	logger := logging.FromContext(i.ShutdownCtx)
 
 	if isTopLevelCmd(args) || c.NoAuthRequired {
 		return nil
 	}
 
-	if ctx.Profile.GetToken() == "" {
+	if i.Profile.GetToken() == "" {
 		return authHelp(c.io)
 	}
 
-	if ctx.Profile.Token == "" {
+	if i.Profile.Token == "" {
 		logger.Debug("Token missing from profile; using token configured by environment")
 	}
 

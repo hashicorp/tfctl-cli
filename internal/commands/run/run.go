@@ -11,21 +11,21 @@ import (
 )
 
 // NewCmdRun creates the `run` command.
-func NewCmdRun(ctx *cmd.Context) *cmd.Command {
+func NewCmdRun(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "run",
 		ShortHelp: "Inspect and manage runs.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s run" }} command group lets you diagnose and start
 		Terraform runs in HCP Terraform and Terraform Enterprise.
 		`, version.Name),
 	}
 
-	cmd.AddChild(NewCmdRunStatus(ctx))
-	cmd.AddChild(NewCmdRunStart(ctx))
+	cmd.AddChild(NewCmdRunStatus(inv))
+	cmd.AddChild(NewCmdRunStart(inv))
 
 	// Hidden commands:
-	cmd.AddChild(NewCmdRunStatusSample(ctx))
+	cmd.AddChild(NewCmdRunStatusSample(inv))
 
 	return cmd
 }

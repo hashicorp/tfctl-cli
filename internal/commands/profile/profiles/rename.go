@@ -19,19 +19,19 @@ import (
 )
 
 // NewCmdRename returns the `profile profiles rename` command for renaming a configuration profile.
-func NewCmdRename(ctx *cmd.Context) *cmd.Command {
+func NewCmdRename(inv *cmd.Invocation) *cmd.Command {
 	opts := &RenameOpts{
-		IO: ctx.IO,
+		IO: inv.IO,
 	}
 	renameCmd := &cmd.Command{
 		Name:      "rename",
 		ShortHelp: "Rename an existing profile.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles rename" }} command renames an existing profile.
 		`, version.Name),
 		Examples: []cmd.Example{
 			{
-				Preamble: heredoc.New(ctx.IO).Must(`
+				Preamble: heredoc.New(inv.IO).Must(`
 				To rename profile {{ template "mdCodeOrBold" "my-profile" }} to
 				{{ template "mdCodeOrBold" "new-profile" }}, run:
 				`),
@@ -66,8 +66,8 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 				return err
 			}
 			opts.Profiles = l
-			opts.DryRun = ctx.IsDryRun()
-			return renameRun(ctx.ShutdownCtx, opts)
+			opts.DryRun = inv.IsDryRun()
+			return renameRun(inv.ShutdownCtx, opts)
 		},
 	}
 

@@ -75,10 +75,10 @@ func NewOpts(io iostreams.IOStreams, output *format.Outputter, apiClient *client
 }
 
 // NewCmdAPI creates the `api` command.
-func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
+func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 	opts := &Opts{
-		IO:     ctx.IO,
-		Output: ctx.Output,
+		IO:     inv.IO,
+		Output: inv.Output,
 	}
 
 	// The embedded schema is always used for autocomplete
@@ -87,7 +87,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "api",
 		ShortHelp: "Perform any API request",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s api" }} command performs any HCP Terraform API v2 request.
 
 		Use {name} placeholders for path parameters and -p to set their values:
@@ -187,23 +187,23 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "List workspaces in the active profile's organization",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /organizations/{organization}/workspaces`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /organizations/{organization}/workspaces`, version.Name),
 			},
 			{
 				Preamble: "List runs for a workspace by name (resolved to ID)",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /workspaces/{workspace}/runs -p workspace=my-workspace`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /workspaces/{workspace}/runs -p workspace=my-workspace`, version.Name),
 			},
 			{
 				Preamble: "Use a known ID directly (no resolution)",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /workspaces/{workspace}/runs -p workspace=ws-abc123`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /workspaces/{workspace}/runs -p workspace=ws-abc123`, version.Name),
 			},
 			{
 				Preamble: "Create a project using attributes",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /projects -a name=myproject`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /projects -a name=myproject`, version.Name),
 			},
 			{
 				Preamble: "Add remote state consumer",
-				Command: heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /workspaces/{workspace}/remote-state-consumers -p 'workspace=my-workspace' -i '{ "data": [
+				Command: heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /workspaces/{workspace}/remote-state-consumers -p 'workspace=my-workspace' -i '{ "data": [
 	{
 		"type":"remote-state-consumers",
 		"id": "ws-glkT5DSQKuY8pAJ"
@@ -212,7 +212,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			},
 			{
 				Preamble: "Create a workspace variable using a JSON:API request body",
-				Command: heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /vars -i '{ "data": {
+				Command: heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /vars -i '{ "data": {
 	"type":"vars",
 	"attributes": {
 		"key":"AWS_ACCESS_KEY_ID",
@@ -238,14 +238,14 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			path := args[0]
 
-			apiClient, err := ctx.NewAPIClient()
+			apiClient, err := inv.NewAPIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create API client: %w", err)
 			}
 
 			// Resolve path params ({workspace}, {organization}, etc.) before URL resolution.
 			if strings.Contains(path, "{") {
-				resolvedPath, resolveErr := resolvePathParamsFromContext(ctx.ShutdownCtx, ctx.Profile.Organization, apiClient, path, opts.PathParams)
+				resolvedPath, resolveErr := resolvePathParamsFromContext(inv.ShutdownCtx, inv.Profile.Organization, apiClient, path, opts.PathParams)
 				if resolveErr != nil {
 					return resolveErr
 				}
@@ -259,14 +259,14 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 
 			opts.URL = resolvedURL
 			opts.Client = apiClient
-			opts.Quiet = ctx.Profile.IsQuiet()
-			opts.DryRun = ctx.IsDryRun()
+			opts.Quiet = inv.Profile.IsQuiet()
+			opts.DryRun = inv.IsDryRun()
 
-			return RunAPI(ctx.ShutdownCtx, opts)
+			return RunAPI(inv.ShutdownCtx, opts)
 		},
 	}
 
-	cmd.AddChild(NewCmdAPISchema(ctx))
+	cmd.AddChild(NewCmdAPISchema(inv))
 
 	return cmd
 }

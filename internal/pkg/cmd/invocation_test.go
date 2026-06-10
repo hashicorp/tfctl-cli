@@ -10,14 +10,14 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
-func TestContextDryRunHelper(t *testing.T) {
+func TestInvocationDryRunHelper(t *testing.T) {
 	t.Parallel()
 
-	ctx := &Context{IO: iostreams.Test(), ShutdownCtx: context.Background()}
-	ctx.flags.parsed = true
-	ctx.flags.dryRun = true
+	inv := &Invocation{IO: iostreams.Test(), ShutdownCtx: context.Background()}
+	inv.flags.parsed = true
+	inv.flags.dryRun = true
 
-	if !ctx.IsDryRun() {
+	if !inv.IsDryRun() {
 		t.Fatal("expected dry-run to be enabled")
 	}
 }

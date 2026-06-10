@@ -11,17 +11,17 @@ import (
 )
 
 // NewCmdAuth returns the `auth` command for managing authentication.
-func NewCmdAuth(ctx *cmd.Context) *cmd.Command {
+func NewCmdAuth(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "auth",
 		ShortHelp: "Authenticate with HCP Terraform.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s auth" }} command group lets you
 		authenticate the tfcloud CLI with HCP Terraform or Terraform Enterprise.
 		`, version.Name),
 	}
 
-	cmd.AddChild(NewCmdLogin(ctx))
-	cmd.AddChild(NewCmdStatus(ctx))
+	cmd.AddChild(NewCmdLogin(inv))
+	cmd.AddChild(NewCmdStatus(inv))
 	return cmd
 }

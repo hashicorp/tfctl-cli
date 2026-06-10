@@ -24,7 +24,7 @@ func TestCommand_PersistentPrerun(t *testing.T) {
 
 	// Create the command tree
 	io := iostreams.Test()
-	cCtx := &Context{
+	cCtx := &Invocation{
 		IO: io,
 	}
 	root := &Command{
@@ -75,7 +75,7 @@ func TestCommand_Flags(t *testing.T) {
 
 	// Create the command tree
 	io := iostreams.Test()
-	cCtx := &Context{
+	cCtx := &Invocation{
 		IO: io,
 	}
 	root := &Command{
@@ -109,7 +109,7 @@ func TestCommand_ExitCode(t *testing.T) {
 
 	// Create the command tree
 	io := iostreams.Test()
-	cCtx := &Context{
+	cCtx := &Invocation{
 		IO: io,
 	}
 	code := 42
@@ -150,7 +150,7 @@ func TestCommand_GlobalExitCode(t *testing.T) {
 
 			// Create the command tree
 			io := iostreams.Test()
-			cCtx := &Context{
+			cCtx := &Invocation{
 				IO:      io,
 				Profile: profile.TestProfile(t),
 			}

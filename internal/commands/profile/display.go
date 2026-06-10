@@ -15,20 +15,20 @@ import (
 )
 
 // NewCmdDisplay returns the `profile display` command for displaying the active profile.
-func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
+func NewCmdDisplay(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "display",
 		ShortHelp: "Display the active profile.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile display" }} command displays the active profile.
 		`, version.Name),
 		RunF: func(_ *cmd.Command, _ []string) error {
-			profileNoToken := ctx.Profile
+			profileNoToken := inv.Profile
 			profileNoToken.Token = ""
 
 			return displayRun(&DisplayOpts{
-				IO:      ctx.IO,
-				Output:  ctx.Output,
+				IO:      inv.IO,
+				Output:  inv.Output,
 				Profile: profileNoToken,
 			})
 		},

@@ -36,7 +36,7 @@ func newFakeTFE(t *testing.T, username string) *httptest.Server {
 	return srv
 }
 
-// runLogin mimics the RunF flow by creating a cmd.Context and calling loginRun.
+// runLogin mimics the RunF flow by creating a cmd.Invocation and calling loginRun.
 // It injects a no-op browser opener into the options so tests never launch a
 // real browser and never mutate shared package state (keeping them race-free
 // under t.Parallel()).
@@ -45,12 +45,12 @@ func runLogin(t *testing.T, opts *LoginOpts) error {
 	if opts.OpenBrowser == nil {
 		opts.OpenBrowser = func(string) error { return nil }
 	}
-	cmdCtx := &cmd.Context{
+	inv := &cmd.Invocation{
 		IO:          opts.IO,
 		Profile:     opts.Profile,
 		ShutdownCtx: context.Background(),
 	}
-	return loginRun(cmdCtx.ShutdownCtx, cmdCtx, opts)
+	return loginRun(inv.ShutdownCtx, inv, opts)
 }
 
 func TestLoginFromStdin(t *testing.T) {

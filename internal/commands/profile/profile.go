@@ -20,11 +20,11 @@ import (
 )
 
 // NewCmdProfile returns the `profile` command for managing configuration profiles.
-func NewCmdProfile(ctx *cmd.Context) *cmd.Command {
+func NewCmdProfile(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "profile",
 		ShortHelp: fmt.Sprintf("View and edit %s CLI configuration properties.", version.Name),
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile" }} command group lets you initialize,
 		set, view and unset properties used by the %s CLI.
 
@@ -48,11 +48,11 @@ func NewCmdProfile(ctx *cmd.Context) *cmd.Command {
 		`, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name),
 	}
 
-	cmd.AddChild(NewCmdDisplay(ctx))
-	cmd.AddChild(NewCmdSet(ctx))
-	cmd.AddChild(NewCmdUnset(ctx))
-	cmd.AddChild(NewCmdGet(ctx))
-	cmd.AddChild(profiles.NewCmdProfiles(ctx))
+	cmd.AddChild(NewCmdDisplay(inv))
+	cmd.AddChild(NewCmdSet(inv))
+	cmd.AddChild(NewCmdUnset(inv))
+	cmd.AddChild(NewCmdGet(inv))
+	cmd.AddChild(profiles.NewCmdProfiles(inv))
 	return cmd
 }
 

@@ -21,11 +21,11 @@ import (
 )
 
 // NewCmdSet returns the `profile set` command for setting a profile configuration property.
-func NewCmdSet(ctx *cmd.Context) *cmd.Command {
+func NewCmdSet(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "set",
 		ShortHelp: "Set a profile configuration property.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile set" }} command sets the specified property in your
 		active profile. A property governs the behavior of a specific aspect of the %s CLI.
 		This could be setting the hostname and organization to target, or configuring the default
@@ -41,11 +41,11 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 		and {{ template "mdCodeOrBold" "%s profile profiles activate" }} to switch between them.
 		`, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name),
 		Args: cmd.PositionalArguments{
-			Autocomplete: ctx.Profile,
+			Autocomplete: inv.Profile,
 			Args: []cmd.PositionalArgument{
 				{
 					Name: "PROPERTY",
-					Documentation: heredoc.New(ctx.IO).Must(`
+					Documentation: heredoc.New(inv.IO).Must(`
 					Property to be set, such as
 					{{ template "mdCodeOrBold" "organization" }} and
 					{{ template "mdCodeOrBold" "hostname" }}.
@@ -60,20 +60,20 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		AdditionalDocs: []cmd.DocSection{
-			availablePropertiesDoc(ctx.IO),
+			availablePropertiesDoc(inv.IO),
 		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, args []string) error {
 			opts := &SetOpts{
-				IO:      ctx.IO,
-				Profile: ctx.Profile,
-				Output:  ctx.Output,
+				IO:      inv.IO,
+				Profile: inv.Profile,
+				Output:  inv.Output,
 			}
 
 			opts.Property = args[0]
 			opts.Value = args[1]
-			opts.DryRun = ctx.IsDryRun()
-			return setRun(ctx.ShutdownCtx, opts)
+			opts.DryRun = inv.IsDryRun()
+			return setRun(inv.ShutdownCtx, opts)
 		},
 	}
 
