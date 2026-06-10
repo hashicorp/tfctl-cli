@@ -262,13 +262,14 @@ func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.
 
 // Shutdown ends the active span, emits the traceparent to stderr, and flushes
 // all buffered spans. It should be called once at the end of CLI execution.
-func (t *Telemetry) Shutdown(ctx context.Context) error {
+func (t *Telemetry) Shutdown(ctx context.Context, exitStatus int) error {
 	if t.mode == ModeDisabled {
 		return nil
 	}
 
 	// End the command span
 	if t.span != nil {
+		t.span.SetAttributes(attribute.Int64("exit_status", int64(exitStatus)))
 		t.span.End()
 	}
 

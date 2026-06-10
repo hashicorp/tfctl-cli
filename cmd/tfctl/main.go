@@ -87,9 +87,6 @@ func realMain() int {
 		ErrWriter:        io.Err(),
 		IsTTY:            io.IsOutputTTY(),
 	})
-	defer func() {
-		_ = tel.Shutdown(shutdownCtx)
-	}()
 
 	shutdownCtx = telemetry.WithTelemetry(shutdownCtx, tel)
 
@@ -130,6 +127,8 @@ func realMain() int {
 	if err != nil {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
 	}
+
+	tel.Shutdown(shutdownCtx, status)
 
 	return status
 }

@@ -411,7 +411,7 @@ func TestShutdown_DisabledMode_NoOutput(t *testing.T) {
 	})
 
 	tel.StartCommand(context.Background(), CommandInfo{Command: "run start"})
-	err := tel.Shutdown(context.Background())
+	err := tel.Shutdown(context.Background(), 0)
 	require.NoError(t, err)
 
 	assert.Empty(t, buf.String())
@@ -438,8 +438,27 @@ func TestShutdown_EndsSpanAndFlushes(t *testing.T) {
 	// Shutdown should still emit traceparent and not error.
 	var buf bytes.Buffer
 	tel.errWriter = &buf
-	err := tel.Shutdown(context.Background())
+	err := tel.Shutdown(context.Background(), 0)
 	require.NoError(t, err)
+}
+
+func TestShutdown_AddsExitStatus(t *testing.T) {
+	clearEnv(t)
+
+	t.Setenv(EnvTelemetry, "log")
+	var buf bytes.Buffer
+	tel := Init(context.Background(), Config{
+		ErrWriter: &buf,
+		Version:   "0.1.0",
+	})
+
+	tel.StartCommand(context.Background(), CommandInfo{Command: "run start"})
+
+	// Shutdown should add the exit status attribute to the span and flush.
+	err := tel.Shutdown(context.Background(), 0)
+	require.NoError(t, err)
+
+	assert.Contains(t, buf.String(), "exit_status")
 }
 
 // ============================================================
@@ -460,7 +479,7 @@ func TestLogMode_WritesSpanToWriter(t *testing.T) {
 
 	tel.StartCommand(context.Background(), CommandInfo{Command: "variable import"})
 
-	err := tel.Shutdown(context.Background())
+	err := tel.Shutdown(context.Background(), 0)
 	require.NoError(t, err)
 
 	output := buf.String()
