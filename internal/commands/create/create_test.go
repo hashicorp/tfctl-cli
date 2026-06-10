@@ -6,8 +6,6 @@ package create
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
@@ -193,43 +191,6 @@ func TestRunCreate(t *testing.T) {
 		}, hclog.NewNullLogger(), []string{"workspace"})
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "ws-flagorg")
-	})
-
-	t.Run("create workspace with @filename input", func(t *testing.T) {
-		t.Parallel()
-		io := iostreams.Test()
-		var receivedBody map[string]any
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
-			"POST /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, r *http.Request) {
-				_ = json.NewDecoder(r.Body).Decode(&receivedBody)
-				cmdtest.WriteJSONAPI(w, map[string]any{
-					"data": map[string]any{
-						"id":   "ws-fromfile",
-						"type": "workspaces",
-						"attributes": map[string]any{
-							"name": "file-ws",
-						},
-					},
-				})
-			},
-		}))
-		ctx.Profile.Organization = "my-org"
-
-		// Write a temp file with the request body.
-		dir := t.TempDir()
-		bodyFile := filepath.Join(dir, "body.json")
-		bodyJSON := `{"data":{"type":"workspaces","attributes":{"name":"file-ws"}}}`
-		require.NoError(t, os.WriteFile(bodyFile, []byte(bodyJSON), 0o644))
-
-		err := runCreate(ctx, &Opts{
-			InputBody: "@" + bodyFile,
-		}, hclog.NewNullLogger(), []string{"workspace"})
-		require.NoError(t, err)
-		assert.Contains(t, io.Output.String(), "ws-fromfile")
-
-		// Verify the server received the file contents.
-		data := receivedBody["data"].(map[string]any)
-		assert.Equal(t, "workspaces", data["type"])
 	})
 
 	t.Run("create workspace with stdin input", func(t *testing.T) {

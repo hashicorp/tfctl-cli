@@ -42,7 +42,7 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 		The {{ template "mdCodeOrBold" "%s create" }} command creates a new resource via the API.
 
 		Provide attributes using {{ template "mdCodeOrBold" "-a key=value" }} (repeatable) or a raw request body with {{ template "mdCodeOrBold" "-i" }}.
-		The input body can be inline JSON, a file path, {{ template "mdCodeOrBold" "@filename" }} to read from a file, or {{ template "mdCodeOrBold" "-" }} for stdin.
+		Use {{ template "mdCodeOrBold" "-i -" }} to read the request body from stdin.
 
 		Note: {{ template "mdCodeOrBold" "-a" }} only sets data.attributes. Resources that require a relationships block
 		(e.g. variable sets, policy sets) must use {{ template "mdCodeOrBold" "-i" }} with a full JSON:API request body.
@@ -76,7 +76,7 @@ func NewCmdCreate(ctx *cmd.Context) *cmd.Command {
 					Name:         "input",
 					Shorthand:    "i",
 					DisplayValue: "BODY",
-					Description:  "Raw JSON request body, file path, @filename, or - for stdin",
+					Description:  "Raw JSON request body (or - to read from stdin)",
 					Value:        flagvalue.Simple("", &opts.InputBody),
 				},
 			},
@@ -144,16 +144,13 @@ func runCreate(ctx *cmd.Context, opts *Opts, logger hclog.Logger, args []string)
 		return fmt.Errorf("invalid path %q: %w", path, err)
 	}
 
-	// Handle @filename syntax: strip the @ and let RunAPI read the file.
-	inputBody := strings.TrimPrefix(opts.InputBody, "@")
-
 	apiOpts := api.NewOpts(ctx.ShutdownCtx, ctx.IO, ctx.Output, logger, apiClient)
 	apiOpts.URL = resolvedURL
 	apiOpts.Method = http.MethodPost
 	apiOpts.Quiet = opts.Quiet
 	apiOpts.DryRun = opts.DryRun
 	apiOpts.ResourceType = res.Type
-	apiOpts.InputRequest = inputBody
+	apiOpts.InputRequest = opts.InputBody
 	if opts.Attributes != nil {
 		apiOpts.Attributes = opts.Attributes
 	}
