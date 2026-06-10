@@ -325,7 +325,7 @@ func newImportTestOpts(t *testing.T, address string, io *iostreams.Testing, muta
 	t.Helper()
 	apiClient, err := client.New(context.Background(), address, "test-token", http.Header{
 		"User-Agent": []string{"tfctl-cli/test"},
-	}, hclog.NewNullLogger())
+	})
 	require.NoError(t, err)
 
 	opts := &ImportOpts{
