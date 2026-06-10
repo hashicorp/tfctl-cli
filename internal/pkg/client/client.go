@@ -80,8 +80,6 @@ func New(ctx context.Context, address, token string, defaultHeaders http.Header)
 	logger := logging.FromContext(ctx)
 	tel := telemetry.FromContext(ctx)
 
-	logger.Debug("Got telemetry context for network", "telemetry nil", tel == nil)
-
 	adapter := tfeClient.API.RequestAdapter
 	native, ok := adapter.(*tfe.TFERequestAdapter)
 	if !ok {
@@ -249,7 +247,7 @@ type telemetryTransport struct {
 
 func (t *telemetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	startTime := time.Now()
-	spanCtx, span := t.telemetry.StartNetwork(req.Context(), "TFE Client Request", req)
+	spanCtx, span := t.telemetry.StartNetwork(req.Context(), "client req", req)
 	defer span.End()
 
 	resp, err := t.inner.RoundTrip(req.WithContext(spanCtx))

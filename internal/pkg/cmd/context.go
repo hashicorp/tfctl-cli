@@ -190,8 +190,6 @@ func ConfigureRootCommand(ctx *Context, cmd *Command) {
 		ctx.ShutdownCtx = logging.WithLogger(ctx.ShutdownCtx, logger.ResetNamed(c.commandPath()))
 		tel := telemetry.FromContext(ctx.ShutdownCtx)
 
-		logger.Debug("Got telemetry context", "telemetry nil", tel == nil)
-
 		telemetry.SetErrorHandler(func(err error) {
 			logger = logger.ResetNamed(version.Name).Named("telemetry")
 

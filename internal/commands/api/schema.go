@@ -16,8 +16,6 @@ import (
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
-type schemaOperationsLoader func(ctx *cmd.Context) openapi.Schema
-
 type schemaSearcher interface {
 	Search(ctx context.Context, query string, operations []*openapi.Operation, limit int) ([]schemaSearchResult, error)
 }
@@ -49,7 +47,7 @@ type schemaGetOpts struct {
 
 // defaultSchemaLoader binds the command context and logger into a loader
 // closure that fetches the OpenAPI schema via the production SchemaFactory.
-func defaultSchemaLoader(ctx *cmd.Context, c *cmd.Command) func() openapi.Schema {
+func defaultSchemaLoader(ctx *cmd.Context) func() openapi.Schema {
 	return func() openapi.Schema {
 		return openapi.SchemaFactory(ctx)
 	}
@@ -123,10 +121,10 @@ func newCmdAPISchemaSearch(ctx *cmd.Context, opts ...schemaCmdOption) *cmd.Comma
 			Preamble: "Search for workspace operations",
 			Command:  fmt.Sprintf("$ %s api schema search workspace", version.Name),
 		}},
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			load := cfg.loadSchema
 			if load == nil {
-				load = defaultSchemaLoader(ctx, c)
+				load = defaultSchemaLoader(ctx)
 			}
 			return runSchemaSearch(schemaSearchOpts{
 				IO:          ctx.IO,
@@ -222,10 +220,10 @@ func newCmdAPISchemaGet(ctx *cmd.Context, opts ...schemaCmdOption) *cmd.Command 
 				Command:  fmt.Sprintf("$ %s api schema get /organizations/{organization}/workspaces", version.Name),
 			},
 		},
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			load := cfg.loadSchema
 			if load == nil {
-				load = defaultSchemaLoader(ctx, c)
+				load = defaultSchemaLoader(ctx)
 			}
 			return runSchemaGet(schemaGetOpts{
 				IO:         ctx.IO,
