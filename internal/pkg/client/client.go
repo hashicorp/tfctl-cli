@@ -230,7 +230,7 @@ func SummarizeAPIErrors(body []byte) string {
 // SetTelemetry wraps the HTTP transport to emit network telemetry about outgoing requests.
 func (c *Client) SetTelemetry(tel *telemetry.Telemetry) {
 	// Wrap the HTTP transport to inject telemetry context and attributes.
-	if tel == nil {
+	if tel == nil || tel.Mode() == telemetry.ModeDisabled {
 		return
 	}
 
@@ -253,11 +253,18 @@ func (t *telemetryTransport) RoundTrip(req *http.Request) (*http.Response, error
 	resp, err := t.inner.RoundTrip(req.WithContext(spanCtx))
 	duration := time.Since(startTime)
 
-	span.SetAttributes(
-		attribute.Int64("http.status_code", int64(resp.StatusCode)),
-		attribute.Int64("http.content_length", resp.ContentLength),
-		attribute.Int64("http.duration_ms", duration.Milliseconds()),
-	)
+	if resp != nil {
+		span.SetAttributes(
+			attribute.Int64("http.status_code", int64(resp.StatusCode)),
+			attribute.Int64("http.content_length", resp.ContentLength),
+			attribute.Int64("http.duration_ms", duration.Milliseconds()),
+		)
+	}
+
+	if err != nil {
+		span.RecordError(err)
+	}
+
 	return resp, err
 }
 
