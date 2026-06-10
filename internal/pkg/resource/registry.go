@@ -91,7 +91,7 @@ var registry = []Resource{
 	},
 	{
 		Type:       "agent-pools",
-		Aliases:    []string{"agent-pool"},
+		Aliases:    []string{"apool", "agent-pool"},
 		IDPrefix:   "apool-",
 		PathGet:    "/agent-pools/{id}",
 		PathList:   "/organizations/{organization_name}/agent-pools",
