@@ -25,7 +25,7 @@ import (
 
 // reIDShape matches strings that look like prefixed IDs: one or more letters
 // followed by a dash and at least one alphanumeric character (e.g. "ws-abc123").
-var reIDShape = regexp.MustCompile(`^[a-zA-Z]+-[a-zA-Z0-9]`)
+var reIDShape = regexp.MustCompile(`^[a-z]{2,10}+-[a-zA-Z0-9]{6,}`)
 
 // Opts defines the options for the `get` command.
 type Opts struct {
