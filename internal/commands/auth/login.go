@@ -28,6 +28,11 @@ const (
 	tokenPagePath = "/app/settings/tokens?source=" + version.Name + "-login"
 )
 
+// errLoginCanceled signals that the user declined the interactive confirmation
+// prompt shown before the browser is opened. loginRun treats it as a clean,
+// non-error exit rather than a failure.
+var errLoginCanceled = errors.New("login canceled")
+
 // NewCmdLogin returns the `auth login` command for authenticating.
 func NewCmdLogin(inv *cmd.Invocation) *cmd.Command {
 	opts := &LoginOpts{
@@ -113,6 +118,10 @@ func loginRun(ctx context.Context, inv *cmd.Invocation, opts *LoginOpts) error {
 		token, err = readTokenInteractive(opts, hostname)
 	}
 	if err != nil {
+		// A declined confirmation is a clean, user-initiated exit, not a failure.
+		if errors.Is(err, errLoginCanceled) {
+			return nil
+		}
 		return err
 	}
 
@@ -145,7 +154,9 @@ func readTokenFromStdin(opts *LoginOpts) (string, error) {
 	return token, nil
 }
 
-// readTokenInteractive opens the browser to the token page and prompts the user.
+// readTokenInteractive explains the flow, asks the user to confirm, opens the
+// browser to the token page, and prompts for the generated token. The user must
+// confirm before the browser is opened; declining is a clean exit.
 func readTokenInteractive(opts *LoginOpts, hostname string) (string, error) {
 	if !opts.IO.CanPrompt() {
 		return "", fmt.Errorf("interactive login requires a terminal; use --token to read from stdin")
@@ -154,19 +165,41 @@ func readTokenInteractive(opts *LoginOpts, hostname string) (string, error) {
 	tokenURL := fmt.Sprintf("https://%s%s", hostname, tokenPagePath)
 	cs := opts.IO.ColorScheme()
 
-	fmt.Fprintf(opts.IO.Err(), "Opening browser to create a token at:\n  %s\n\n",
-		cs.String(tokenURL).Bold().String())
+	// Explain what is about to happen and confirm before opening the browser.
+	fmt.Fprintf(opts.IO.Err(),
+		"%s will open the following URL in your browser to create an API token for %s:\n\n  %s\n\n",
+		version.Name,
+		cs.String(hostname).Bold().String(),
+		cs.String(tokenURL).Bold().String(),
+	)
+
+	proceed, err := opts.IO.PromptConfirm("Do you want to proceed")
+	if err != nil {
+		return "", fmt.Errorf("failed to read confirmation: %w", err)
+	}
+	if !proceed {
+		fmt.Fprintln(opts.IO.Err(), "Login canceled.")
+		return "", errLoginCanceled
+	}
+
+	// Open the browser to the token creation page.
+	fmt.Fprint(opts.IO.Err(), "\nOpening your browser to create a token...\n\n")
 
 	openURL := opts.OpenBrowser
 	if openURL == nil {
 		openURL = openBrowser
 	}
 	if err := openURL(tokenURL); err != nil {
-		fmt.Fprintf(opts.IO.Err(), "%s Could not open browser. Please open the URL above manually.\n\n",
+		fmt.Fprintf(opts.IO.Err(),
+			"%s Could not open the browser automatically. Open the URL above manually.\n\n",
 			cs.WarningLabel())
 	}
 
-	fmt.Fprint(opts.IO.Err(), "Paste your token: ")
+	// Prompt for the token and read it without echoing.
+	fmt.Fprintf(opts.IO.Err(),
+		"After creating the token, copy it and paste it below.\n%s will store it for %s.\n\nPaste your token: ",
+		version.Name, cs.String(hostname).Bold().String())
+
 	secret, err := opts.IO.ReadSecret()
 	if err != nil {
 		return "", fmt.Errorf("failed to read token: %w", err)

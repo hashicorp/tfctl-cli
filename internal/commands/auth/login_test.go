@@ -230,6 +230,9 @@ func TestLoginInteractive_Success(t *testing.T) {
 	io := iostreams.Test()
 	io.InputTTY = true
 	io.ErrorTTY = true
+	// PromptConfirm (Testing) consumes a single "y" byte; ReadSecret then reads
+	// the remaining bytes as the pasted token.
+	io.Input.WriteString("y")
 	io.Input.WriteString("interactive-token\n")
 
 	opts := &LoginOpts{
@@ -239,7 +242,7 @@ func TestLoginInteractive_Success(t *testing.T) {
 	}
 
 	r.NoError(runLogin(t, opts))
-	r.Contains(io.Error.String(), "Opening browser")
+	r.Contains(io.Error.String(), "Opening your browser")
 	r.Contains(io.Error.String(), "Successfully logged in")
 	r.Contains(io.Error.String(), "interactive-user")
 
@@ -337,6 +340,7 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 	io := iostreams.Test()
 	io.InputTTY = true
 	io.ErrorTTY = true
+	io.Input.WriteString("y")
 	io.Input.WriteString("interactive-token\n")
 
 	opts := &LoginOpts{
@@ -409,4 +413,116 @@ func TestLoginFromStdin_VerifyFails(t *testing.T) {
 	loaded, err := l.LoadProfile(p.Name)
 	r.NoError(err)
 	r.NotEqual("bad-token", loaded.Token)
+}
+
+func TestLoginInteractive_ConfirmOpensBrowserWithSource(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	srv := newFakeTFE(t, "interactive-user")
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	p.Hostname = srv.URL
+	r.NoError(p.Write())
+
+	io := iostreams.Test()
+	io.InputTTY = true
+	io.ErrorTTY = true
+	// Confirm with a single "y" byte (consumed by PromptConfirm), then the token
+	// (read by ReadSecret).
+	io.Input.WriteString("y")
+	io.Input.WriteString("interactive-token\n")
+
+	var openedURL string
+	opened := false
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   false,
+		OpenBrowser: func(u string) error {
+			opened = true
+			openedURL = u
+			return nil
+		},
+	}
+
+	r.NoError(runLogin(t, opts))
+
+	r.True(opened, "browser is opened after the user confirms")
+	r.Contains(openedURL, "/app/settings/tokens")
+	r.Contains(openedURL, "?source=tfctl-login")
+	r.Contains(io.Error.String(), "Do you want to proceed")
+
+	loaded, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	r.Equal("interactive-token", loaded.Token)
+}
+
+func TestLoginInteractive_DeclineDoesNotOpenBrowser(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	r.NoError(p.Write())
+
+	initial, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	initialToken := initial.Token
+
+	io := iostreams.Test()
+	io.InputTTY = true
+	io.ErrorTTY = true
+	// Decline with a single "n" byte.
+	io.Input.WriteString("n")
+
+	opened := false
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   false,
+		OpenBrowser: func(string) error {
+			opened = true
+			return nil
+		},
+	}
+
+	// Declining is a clean, non-error exit and must not open the browser or
+	// mutate the stored token.
+	r.NoError(runLogin(t, opts))
+	r.False(opened, "browser must not open when the user declines")
+	r.Contains(io.Error.String(), "Login canceled.")
+
+	loaded, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	r.Equal(initialToken, loaded.Token, "token is unchanged when login is declined")
+}
+
+func TestLoginFromStdin_DoesNotPromptOrOpenBrowser(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	srv := newFakeTFE(t, "testuser")
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	p.Hostname = srv.URL
+	r.NoError(p.Write())
+
+	io := iostreams.Test()
+	io.Input.WriteString("my-test-token\n")
+
+	opened := false
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   true,
+		OpenBrowser: func(string) error {
+			opened = true
+			return nil
+		},
+	}
+
+	r.NoError(runLogin(t, opts))
+	r.False(opened, "stdin/--token mode must not open a browser")
+	r.NotContains(io.Error.String(), "Do you want to proceed")
 }
