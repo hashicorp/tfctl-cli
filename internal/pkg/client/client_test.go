@@ -327,7 +327,7 @@ func TestClientSetTelemetry_Response(t *testing.T) {
 	require.Contains(t, output, "client req")
 	require.Contains(t, output, "http.status_code")
 	require.Contains(t, output, requestURL.Path)
-	}
+}
 
 func TestClientSetTelemetry_Error(t *testing.T) {
 	var traceOutput bytes.Buffer
