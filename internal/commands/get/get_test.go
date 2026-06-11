@@ -125,7 +125,7 @@ func TestRunGet(t *testing.T) {
 		io := iostreams.Test()
 		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"xyz-123"})
+		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"xyz-abcdef123456"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unrecognized ID prefix")
 	})

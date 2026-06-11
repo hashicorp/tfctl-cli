@@ -23,9 +23,9 @@ import (
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
-// reIDShape matches strings that look like prefixed IDs: one or more letters
-// followed by a dash and at least one alphanumeric character (e.g. "ws-abc123").
-var reIDShape = regexp.MustCompile(`^[a-z]{2,10}+-[a-zA-Z0-9]{6,}`)
+// reIDShape matches strings that look like prefixed IDs: 2-10 lowercase letters,
+// a dash, and at least 6 alphanumeric characters (e.g. "ws-abc123def456gh").
+var reIDShape = regexp.MustCompile(`^[a-z]{2,10}-[a-zA-Z0-9]{6,}`)
 
 // Opts defines the options for the `get` command.
 type Opts struct {
