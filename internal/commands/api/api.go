@@ -62,6 +62,22 @@ type Opts struct {
 	PageNumber   int
 }
 
+// NewOpts creates an Opts with required context fields set and nil-dangerous
+// maps/slices initialized to empty values.
+func NewOpts(shutdownCtx context.Context, io iostreams.IOStreams, output *format.Outputter, logger hclog.Logger, apiClient *client.Client) *Opts {
+	return &Opts{
+		IO:          io,
+		Output:      output,
+		Logger:      logger,
+		ShutdownCtx: shutdownCtx,
+		Client:      apiClient,
+		Headers:     []string{},
+		Attributes:  map[string]string{},
+		Query:       map[string]string{},
+		PathParams:  map[string]string{},
+	}
+}
+
 // NewCmdAPI creates the `api` command.
 func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 	opts := &Opts{
@@ -137,11 +153,13 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 				},
 				{
 					Name:        "page-size",
+					Shorthand:   "s",
 					Description: "Limit the number of records to return. Default varies by resource. Ignored if --all is set.",
 					Value:       flagvalue.Simple(0, &opts.PageSize), // page size is determined by the server, so we don't set it by default
 				},
 				{
 					Name:        "page-number",
+					Shorthand:   "n",
 					Description: "Page number to return. Ignored if --all is set. Default is 1.",
 					Value:       flagvalue.Simple(1, &opts.PageNumber),
 				},
@@ -251,7 +269,7 @@ func NewCmdAPI(ctx *cmd.Context) *cmd.Command {
 			opts.Quiet = ctx.Profile.IsQuiet()
 			opts.DryRun = ctx.IsDryRun()
 
-			return runAPI(opts)
+			return RunAPI(opts)
 		},
 	}
 
@@ -356,7 +374,8 @@ func lookupResource(goCtx context.Context, resolver *client.Resolver, segment, o
 	return *id, nil
 }
 
-func runAPI(opts *Opts) error {
+// RunAPI executes a low-level API request with the given options.
+func RunAPI(opts *Opts) error {
 	// Handle -f query fields
 	query := opts.URL.Query()
 	for key, value := range opts.Query {

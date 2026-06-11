@@ -128,10 +128,12 @@ func TestLooksLikeID(t *testing.T) {
 	assert.True(t, LooksLikeID("teams", "team-abc123"))
 	assert.True(t, LooksLikeID("projects", "prj-abc123"))
 	assert.True(t, LooksLikeID("varsets", "varset-abc123"))
+	assert.True(t, LooksLikeID("runs", "run-abc123"))
 
 	assert.False(t, LooksLikeID("workspaces", "my-workspace"))
 	assert.False(t, LooksLikeID("teams", "owners"))
 	assert.False(t, LooksLikeID("projects", "default"))
 	assert.False(t, LooksLikeID("varsets", "my-varset"))
-	assert.False(t, LooksLikeID("runs", "run-abc123"))
+	assert.False(t, LooksLikeID("runs", "my-run"))
+	assert.False(t, LooksLikeID("unknown-type", "foo-bar"))
 }
