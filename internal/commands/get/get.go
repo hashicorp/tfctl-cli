@@ -5,12 +5,12 @@
 package get
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/api"
@@ -29,22 +29,24 @@ var reIDShape = regexp.MustCompile(`^[a-z]{2,10}-[a-zA-Z0-9]{6,}`)
 
 // Opts defines the options for the `get` command.
 type Opts struct {
-	Organization string
-	All          bool
-	PageSize     int
-	PageNumber   int
-	DryRun       bool
-	Quiet        bool
+	api.Opts
+	ProfileOrganization string
+	Args                []string
+	Organization        string
+
+	client *client.Client
 }
 
 // NewCmdGet creates the `get` command.
-func NewCmdGet(ctx *cmd.Context) *cmd.Command {
+func NewCmdGet(inv *cmd.Invocation) *cmd.Command {
 	opts := &Opts{}
+	opts.IO = inv.IO
+	opts.Output = inv.Output
 
 	return &cmd.Command{
 		Name:      "get",
 		ShortHelp: "Get or list a resource",
-		LongHelp: heredoc.New(ctx.IO, heredoc.WithPreserveNewlines()).Mustf(`
+		LongHelp: heredoc.New(inv.IO, heredoc.WithPreserveNewlines()).Mustf(`
 		The {{ template "mdCodeOrBold" "%s get" }} command fetches a single resource by ID or lists resources by type.
 
 		When given a resource type name (e.g. {{ template "mdCodeOrBold" "workspaces" }}), the command lists all resources of that type.
@@ -98,51 +100,61 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "List all workspaces in the active organization",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s get workspaces`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s get workspaces`, version.Name),
 			},
 			{
 				Preamble: "Fetch a single workspace by ID",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s get ws-abc123`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s get ws-abc123`, version.Name),
 			},
 			{
 				Preamble: "Fetch a workspace by type and ID",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s get workspace ws-abc123`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s get workspace ws-abc123`, version.Name),
 			},
 			{
 				Preamble: "List all workspaces (paginate through all pages)",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s get workspaces --all`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s get workspaces --all`, version.Name),
 			},
 		},
-		RunF: func(c *cmd.Command, args []string) error {
-			opts.DryRun = ctx.IsDryRun()
-			opts.Quiet = ctx.Profile.IsQuiet()
-			logger := c.Logger(ctx)
-			return runGet(ctx, opts, logger, args)
+		RunF: func(_ *cmd.Command, args []string) error {
+			opts.DryRun = inv.IsDryRun()
+			opts.ProfileOrganization = inv.Profile.Organization
+			opts.Quiet = inv.Profile.IsQuiet()
+			opts.Args = args
+			opts.IO = inv.IO
+			opts.Output = inv.Output
+			opts.Method = http.MethodGet
+			client, err := inv.NewAPIClient()
+			if err != nil {
+				return fmt.Errorf("failed to create API client: %w", err)
+			}
+			opts.client = client
+
+			return runGet(inv.ShutdownCtx, opts)
 		},
 	}
 }
 
-func runGet(ctx *cmd.Context, opts *Opts, logger hclog.Logger, args []string) error {
-	if len(args) == 0 {
+func runGet(ctx context.Context, opts *Opts) error {
+	if len(opts.Args) == 0 {
 		return cmd.ErrDisplayUsage
 	}
 
-	if len(args) == 1 {
-		return runGetSingleArg(ctx, opts, logger, args[0])
+	if len(opts.Args) == 1 {
+		return runGetSingleArg(ctx, opts, opts.Args[0])
 	}
 
-	return runGetTwoArgs(ctx, opts, logger, args[0], args[1])
+	return runGetTwoArgs(ctx, opts, opts.Args[0], opts.Args[1])
 }
 
-func runGetSingleArg(ctx *cmd.Context, opts *Opts, logger hclog.Logger, arg string) error {
+func runGetSingleArg(ctx context.Context, opts *Opts, arg string) error {
 	// Check if arg is a known resource type name (list mode).
 	if res := resource.ByName(arg); res != nil {
-		return runList(ctx, opts, logger, res)
+		return runList(ctx, opts, res)
 	}
 
 	// Check if arg looks like a known resource ID (get by ID mode).
 	if res := resource.ByIDPrefix(arg); res != nil {
-		return runGetByID(ctx, opts, logger, res, arg)
+		return runGetByID(ctx, opts, res, arg)
 	}
 
 	// Distinguish "looks like an ID but prefix is unknown" from "not a type name".
@@ -154,7 +166,7 @@ func runGetSingleArg(ctx *cmd.Context, opts *Opts, logger hclog.Logger, arg stri
 		arg, strings.Join(resource.Names(), ", "))
 }
 
-func runGetTwoArgs(ctx *cmd.Context, opts *Opts, logger hclog.Logger, resourceArg, id string) error {
+func runGetTwoArgs(ctx context.Context, opts *Opts, resourceArg, id string) error {
 	res := resource.ByName(resourceArg)
 	if res == nil {
 		return fmt.Errorf("unknown resource type: %q\nAvailable resources: %s",
@@ -172,51 +184,46 @@ func runGetTwoArgs(ctx *cmd.Context, opts *Opts, logger hclog.Logger, resourceAr
 	}
 
 	path := strings.ReplaceAll(res.PathGet, "{id}", id)
-	return executeGetRequest(ctx, opts, logger, path)
+	return executeGetRequest(ctx, opts, path)
 }
 
-func runList(ctx *cmd.Context, opts *Opts, logger hclog.Logger, res *resource.Resource) error {
+func runList(ctx context.Context, opts *Opts, res *resource.Resource) error {
 	if res.PathList == "" {
 		return fmt.Errorf("listing is not supported for %s", res.Type)
 	}
 
-	org := cmdutil.ResolveOrganization(ctx, opts.Organization)
+	org := cmdutil.ResolveOrganization(opts.ProfileOrganization, opts.Organization)
 	path, err := cmdutil.ResolvePath(res.PathList, org)
 	if err != nil {
 		return err
 	}
 
-	return executeGetRequest(ctx, opts, logger, path)
+	return executeGetRequest(ctx, opts, path)
 }
 
-func runGetByID(ctx *cmd.Context, opts *Opts, logger hclog.Logger, res *resource.Resource, id string) error {
+func runGetByID(ctx context.Context, opts *Opts, res *resource.Resource, id string) error {
 	if res.PathGet == "" {
 		return fmt.Errorf("get is not supported for %s", res.Type)
 	}
 
 	path := strings.ReplaceAll(res.PathGet, "{id}", id)
-	return executeGetRequest(ctx, opts, logger, path)
+	return executeGetRequest(ctx, opts, path)
 }
 
-func executeGetRequest(ctx *cmd.Context, opts *Opts, logger hclog.Logger, path string) error {
-	apiClient, err := ctx.NewAPIClient(logger)
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	resolvedURL, err := client.ResolveURL(*apiClient.BaseURL, path)
+func executeGetRequest(ctx context.Context, opts *Opts, path string) error {
+	resolvedURL, err := client.ResolveURL(*opts.client.BaseURL, path)
 	if err != nil {
 		return fmt.Errorf("invalid path %q: %w", path, err)
 	}
 
-	apiOpts := api.NewOpts(ctx.ShutdownCtx, ctx.IO, ctx.Output, logger, apiClient)
+	apiOpts := api.NewOpts(opts.IO, opts.Output, opts.client)
 	apiOpts.URL = resolvedURL
 	apiOpts.Method = http.MethodGet
-	apiOpts.Quiet = opts.Quiet
-	apiOpts.DryRun = opts.DryRun
 	apiOpts.All = opts.All
 	apiOpts.PageSize = opts.PageSize
 	apiOpts.PageNumber = opts.PageNumber
+	apiOpts.DryRun = opts.DryRun
+	apiOpts.Quiet = opts.Quiet
 
-	return api.RunAPI(apiOpts)
+	return api.RunAPI(ctx, apiOpts)
 }

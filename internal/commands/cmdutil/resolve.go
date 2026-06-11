@@ -8,17 +8,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
 )
 
 // ResolveOrganization returns org from: explicit flag > profile > terraform cloud config.
-func ResolveOrganization(ctx *cmd.Context, explicit string) string {
+func ResolveOrganization(profileOrganization string, explicit string) string {
 	if explicit != "" {
 		return explicit
 	}
-	if ctx.Profile.Organization != "" {
-		return ctx.Profile.Organization
+	if profileOrganization != "" {
+		return profileOrganization
 	}
 	cfg, err := terraformcfg.FindCloudConfig(".")
 	if err == nil && cfg != nil && cfg.Organization != "" {

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,7 +22,7 @@ func TestRunGet(t *testing.T) {
 	t.Run("list workspaces with org", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"GET /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, _ *http.Request) {
 				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": []any{
@@ -38,9 +37,15 @@ func TestRunGet(t *testing.T) {
 				})
 			},
 		}))
-		ctx.Profile.Organization = "my-org"
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspaces"})
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+
+		opts := &Opts{Args: []string{"workspaces"}, ProfileOrganization: "my-org", client: client}
+		opts.IO = inv.IO
+		opts.Output = inv.Output
+
+		err = runGet(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "alpha")
 	})
@@ -48,9 +53,9 @@ func TestRunGet(t *testing.T) {
 	t.Run("list workspaces without org errors", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspaces"})
+		err := runGet(inv.ShutdownCtx, &Opts{Args: []string{"workspaces"}})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "organization is required but not set")
 	})
@@ -58,9 +63,9 @@ func TestRunGet(t *testing.T) {
 	t.Run("list runs not supported at top level", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"runs"})
+		err := runGet(inv.ShutdownCtx, &Opts{Args: []string{"runs"}})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "listing is not supported for runs")
 	})
@@ -68,9 +73,9 @@ func TestRunGet(t *testing.T) {
 	t.Run("unknown resource type", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"unknown"})
+		err := runGet(inv.ShutdownCtx, &Opts{Args: []string{"unknown"}})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown resource type")
 		assert.Contains(t, err.Error(), "Available resources:")
@@ -79,7 +84,7 @@ func TestRunGet(t *testing.T) {
 	t.Run("get workspace by ID", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"GET /api/v2/workspaces/ws-abc123": func(w http.ResponseWriter, _ *http.Request) {
 				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
@@ -93,7 +98,14 @@ func TestRunGet(t *testing.T) {
 			},
 		}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"ws-abc123"})
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+
+		opts := &Opts{Args: []string{"ws-abc123"}, client: client}
+		opts.IO = io
+		opts.Output = inv.Output
+
+		err = runGet(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "my-workspace")
 	})
@@ -101,7 +113,7 @@ func TestRunGet(t *testing.T) {
 	t.Run("get run by ID", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"GET /api/v2/runs/run-xyz": func(w http.ResponseWriter, _ *http.Request) {
 				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
@@ -115,7 +127,14 @@ func TestRunGet(t *testing.T) {
 			},
 		}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"run-xyz"})
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+
+		opts := &Opts{Args: []string{"run-xyz"}, client: client}
+		opts.IO = io
+		opts.Output = inv.Output
+
+		err = runGet(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "applied")
 	})
@@ -123,9 +142,9 @@ func TestRunGet(t *testing.T) {
 	t.Run("unknown ID prefix", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"xyz-abcdef123456"})
+		err := runGet(inv.ShutdownCtx, &Opts{Args: []string{"xyz-abcdef123456"}})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unrecognized ID prefix")
 	})
@@ -133,7 +152,7 @@ func TestRunGet(t *testing.T) {
 	t.Run("two args type and ID", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"GET /api/v2/workspaces/ws-abc": func(w http.ResponseWriter, _ *http.Request) {
 				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
@@ -147,7 +166,14 @@ func TestRunGet(t *testing.T) {
 			},
 		}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspace", "ws-abc"})
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+
+		opts := &Opts{Args: []string{"workspace", "ws-abc"}, client: client}
+		opts.IO = io
+		opts.Output = inv.Output
+
+		err = runGet(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "fetched-ws")
 	})
@@ -155,9 +181,9 @@ func TestRunGet(t *testing.T) {
 	t.Run("two args unknown type", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"blah", "ws-123"})
+		err := runGet(inv.ShutdownCtx, &Opts{Args: []string{"blah", "ws-123"}})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown resource type")
 	})
@@ -165,9 +191,9 @@ func TestRunGet(t *testing.T) {
 	t.Run("two args mismatched ID prefix", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspace", "run-xyz"})
+		err := runGet(inv.ShutdownCtx, &Opts{Args: []string{"workspace", "run-xyz"}})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `does not look like a workspace resource`)
 		assert.Contains(t, err.Error(), `expected prefix "ws-"`)
@@ -176,9 +202,9 @@ func TestRunGet(t *testing.T) {
 	t.Run("no args returns usage", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runGet(ctx, &Opts{}, hclog.NewNullLogger(), []string{})
+		err := runGet(inv.ShutdownCtx, &Opts{Args: []string{}})
 		require.ErrorIs(t, err, cmd.ErrDisplayUsage)
 	})
 
@@ -186,7 +212,7 @@ func TestRunGet(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
 		var serverURL string
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"GET /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, r *http.Request) {
 				// Only serve page 1 when no page param is set.
 				if r.URL.Query().Get("page[number]") == "2" {
@@ -224,11 +250,24 @@ func TestRunGet(t *testing.T) {
 				})
 			},
 		}))
-		serverURL = ctx.Profile.Hostname
-		ctx.Profile.Organization = "my-org"
 
-		err := runGet(ctx, &Opts{All: true}, hclog.NewNullLogger(), []string{"workspaces"})
+		serverURL = inv.Profile.Hostname
+
+		client, err := inv.NewAPIClient()
 		require.NoError(t, err)
+
+		opts := &Opts{
+			Organization: "my-org",
+			client:       client,
+		}
+		opts.IO = inv.IO
+		opts.Output = inv.Output
+		opts.All = true
+		opts.Args = []string{"workspaces"}
+
+		err = runGet(inv.ShutdownCtx, opts)
+		require.NoError(t, err)
+
 		assert.Contains(t, io.Output.String(), "workspace-one")
 		assert.Contains(t, io.Output.String(), "workspace-two")
 	})
@@ -236,7 +275,7 @@ func TestRunGet(t *testing.T) {
 	t.Run("explicit organization flag overrides profile", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"GET /api/v2/organizations/flag-org/workspaces": func(w http.ResponseWriter, _ *http.Request) {
 				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": []any{
@@ -251,9 +290,15 @@ func TestRunGet(t *testing.T) {
 				})
 			},
 		}))
-		ctx.Profile.Organization = "profile-org"
 
-		err := runGet(ctx, &Opts{Organization: "flag-org"}, hclog.NewNullLogger(), []string{"workspaces"})
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+
+		opts := &Opts{Organization: "flag-org", Args: []string{"workspaces"}, client: client}
+		opts.IO = io
+		opts.Output = inv.Output
+
+		err = runGet(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "from-flag-org")
 	})
@@ -265,14 +310,14 @@ func TestRunGet(t *testing.T) {
 func TestRunGetByID_NoPathGet(t *testing.T) {
 	t.Parallel()
 	io := iostreams.Test()
-	ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+	inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
 	synthetic := &resource.Resource{
 		Type:     "widgets",
 		IDPrefix: "wgt-",
 	}
 
-	err := runGetByID(ctx, &Opts{}, hclog.NewNullLogger(), synthetic, "wgt-123")
+	err := runGetByID(inv.ShutdownCtx, &Opts{}, synthetic, "wgt-123")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "get is not supported for widgets")
 }
@@ -286,7 +331,7 @@ func TestNewCmdGet_ArgValidation(t *testing.T) {
 	t.Run("two args accepted by framework", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"GET /api/v2/workspaces/ws-abc": func(w http.ResponseWriter, _ *http.Request) {
 				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
@@ -300,12 +345,12 @@ func TestNewCmdGet_ArgValidation(t *testing.T) {
 			},
 		}))
 
-		c := NewCmdGet(ctx)
+		c := NewCmdGet(inv)
 		root := &cmd.Command{Name: "tfctl"}
-		cmd.ConfigureRootCommand(ctx, root)
+		cmd.ConfigureRootCommand(inv, root)
 		root.AddChild(c)
 
-		exitCode := c.Run([]string{"workspace", "ws-abc"}, ctx)
+		exitCode := c.Run([]string{"workspace", "ws-abc"}, inv)
 		assert.Equal(t, 0, exitCode)
 		assert.Contains(t, io.Output.String(), "fetched-ws")
 	})
@@ -313,7 +358,7 @@ func TestNewCmdGet_ArgValidation(t *testing.T) {
 	t.Run("one arg accepted by framework", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"GET /api/v2/workspaces/ws-one": func(w http.ResponseWriter, _ *http.Request) {
 				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
@@ -327,12 +372,12 @@ func TestNewCmdGet_ArgValidation(t *testing.T) {
 			},
 		}))
 
-		c := NewCmdGet(ctx)
+		c := NewCmdGet(inv)
 		root := &cmd.Command{Name: "tfctl"}
-		cmd.ConfigureRootCommand(ctx, root)
+		cmd.ConfigureRootCommand(inv, root)
 		root.AddChild(c)
 
-		exitCode := c.Run([]string{"ws-one"}, ctx)
+		exitCode := c.Run([]string{"ws-one"}, inv)
 		assert.Equal(t, 0, exitCode)
 		assert.Contains(t, io.Output.String(), "single-arg")
 	})
@@ -340,14 +385,14 @@ func TestNewCmdGet_ArgValidation(t *testing.T) {
 	t.Run("three args rejected by framework", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		c := NewCmdGet(ctx)
+		c := NewCmdGet(inv)
 		root := &cmd.Command{Name: "tfctl"}
-		cmd.ConfigureRootCommand(ctx, root)
+		cmd.ConfigureRootCommand(inv, root)
 		root.AddChild(c)
 
-		exitCode := c.Run([]string{"workspace", "ws-abc", "extra"}, ctx)
+		exitCode := c.Run([]string{"workspace", "ws-abc", "extra"}, inv)
 		assert.NotEqual(t, 0, exitCode)
 		assert.Contains(t, io.Error.String(), "accepts between 1 and 2 arg(s)")
 	})

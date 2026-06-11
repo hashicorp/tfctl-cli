@@ -49,13 +49,13 @@ func NewServer(t *testing.T, routes RouteMap) *httptest.Server {
 	return server
 }
 
-// NewContext creates a cmd.Context suitable for testing, with a profile
+// NewInvocation creates a cmd.Invocation suitable for testing, with a profile
 // pointed at the given test server.
-func NewContext(t *testing.T, io *iostreams.Testing, server *httptest.Server) *cmd.Context {
+func NewInvocation(t *testing.T, io *iostreams.Testing, server *httptest.Server) *cmd.Invocation {
 	t.Helper()
 	p := profile.TestProfile(t)
 	p.Hostname = server.URL
-	return &cmd.Context{
+	return &cmd.Invocation{
 		IO:          io,
 		Output:      format.New(io),
 		ShutdownCtx: context.Background(),

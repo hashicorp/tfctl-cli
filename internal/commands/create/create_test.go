@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -24,7 +23,7 @@ func TestRunCreate(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
 		var receivedBody map[string]any
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"POST /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewDecoder(r.Body).Decode(&receivedBody)
 				cmdtest.WriteJSONAPI(w, map[string]any{
@@ -38,11 +37,18 @@ func TestRunCreate(t *testing.T) {
 				})
 			},
 		}))
-		ctx.Profile.Organization = "my-org"
+		inv.Profile.Organization = "my-org"
 
-		err := runCreate(ctx, &Opts{
-			Attributes: map[string]string{"name": "foo"},
-		}, hclog.NewNullLogger(), []string{"workspace"})
+		opts := &Opts{Args: []string{"workspace"}, ProfileOrganization: "my-org"}
+		opts.Attributes = map[string]string{"name": "foo"}
+		opts.IO = io
+		opts.Output = inv.Output
+
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+		opts.client = client
+
+		err = runCreate(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "ws-new123")
 
@@ -57,7 +63,7 @@ func TestRunCreate(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
 		var receivedBody map[string]any
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"POST /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewDecoder(r.Body).Decode(&receivedBody)
 				cmdtest.WriteJSONAPI(w, map[string]any{
@@ -71,12 +77,20 @@ func TestRunCreate(t *testing.T) {
 				})
 			},
 		}))
-		ctx.Profile.Organization = "my-org"
 
-		inputJSON := `{"data":{"type":"workspaces","attributes":{"name":"from-input"}}}`
-		err := runCreate(ctx, &Opts{
-			InputBody: inputJSON,
-		}, hclog.NewNullLogger(), []string{"workspace"})
+		opts := &Opts{
+			Args:                []string{"workspace"},
+			ProfileOrganization: "my-org",
+		}
+		opts.IO = io
+		opts.Output = inv.Output
+
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+		opts.client = client
+		opts.InputRequest = `{"data":{"type":"workspaces","attributes":{"name":"from-input"}}}`
+
+		err = runCreate(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "ws-input123")
 	})
@@ -84,13 +98,22 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create workspace dry run", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
-		ctx.Profile.Organization = "my-org"
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runCreate(ctx, &Opts{
-			Attributes: map[string]string{"name": "foo"},
-			DryRun:     true,
-		}, hclog.NewNullLogger(), []string{"workspace"})
+		opts := &Opts{
+			ProfileOrganization: "my-org",
+			Args:                []string{"workspace"},
+		}
+		opts.Attributes = map[string]string{"name": "foo"}
+		opts.DryRun = true
+		opts.IO = io
+		opts.Output = inv.Output
+
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+		opts.client = client
+
+		err = runCreate(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		// Dry run should show the request info on stderr
 		assert.Contains(t, io.Error.String(), "POST")
@@ -99,10 +122,12 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create with no attrs and no input errors", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
-		ctx.Profile.Organization = "my-org"
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		opts := &Opts{ProfileOrganization: "my-org", Args: []string{"workspace"}}
+		opts.IO = io
+		opts.Output = inv.Output
 
-		err := runCreate(ctx, &Opts{}, hclog.NewNullLogger(), []string{"workspace"})
+		err := runCreate(inv.ShutdownCtx, opts)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "provide attributes with -a key=value or a request body with -i")
 	})
@@ -110,11 +135,14 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create unsupported resource type", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runCreate(ctx, &Opts{
-			Attributes: map[string]string{"x": "y"},
-		}, hclog.NewNullLogger(), []string{"apply"})
+		opts := &Opts{
+			Args: []string{"apply"},
+		}
+		opts.Attributes = map[string]string{"name": "foo"}
+
+		err := runCreate(inv.ShutdownCtx, opts)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "create is not supported for applies")
 	})
@@ -122,11 +150,16 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create unknown resource type", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runCreate(ctx, &Opts{
-			Attributes: map[string]string{"x": "y"},
-		}, hclog.NewNullLogger(), []string{"blah"})
+		opts := &Opts{
+			Args: []string{"blah"},
+		}
+		opts.IO = io
+		opts.Output = inv.Output
+		opts.Attributes = map[string]string{"x": "y"}
+
+		err := runCreate(inv.ShutdownCtx, opts)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown resource type")
 		assert.Contains(t, err.Error(), "Available resources:")
@@ -135,11 +168,15 @@ func TestRunCreate(t *testing.T) {
 	t.Run("create workspace without org errors", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runCreate(ctx, &Opts{
-			Attributes: map[string]string{"name": "foo"},
-		}, hclog.NewNullLogger(), []string{"workspace"})
+		opts := &Opts{}
+		opts.IO = io
+		opts.Output = inv.Output
+		opts.Attributes = map[string]string{"name": "foo"}
+		opts.Args = []string{"workspace"}
+
+		err := runCreate(inv.ShutdownCtx, opts)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "organization is required but not set")
 	})
@@ -147,22 +184,25 @@ func TestRunCreate(t *testing.T) {
 	t.Run("no args returns usage", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runCreate(ctx, &Opts{}, hclog.NewNullLogger(), []string{})
+		err := runCreate(inv.ShutdownCtx, &Opts{})
 		require.ErrorIs(t, err, cmd.ErrDisplayUsage)
 	})
 
 	t.Run("both attributes and input body errors", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
-		ctx.Profile.Organization = "my-org"
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		err := runCreate(ctx, &Opts{
-			Attributes: map[string]string{"name": "foo"},
-			InputBody:  `{"data":{"type":"workspaces"}}`,
-		}, hclog.NewNullLogger(), []string{"workspace"})
+		opts := &Opts{
+			ProfileOrganization: "my-org",
+			Args:                []string{"workspace"},
+		}
+		opts.Attributes = map[string]string{"name": "foo"}
+		opts.InputRequest = `{"data":{"type":"workspaces"}}`
+
+		err := runCreate(inv.ShutdownCtx, opts)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot use both -a (attributes) and -i (input body)")
 	})
@@ -170,7 +210,7 @@ func TestRunCreate(t *testing.T) {
 	t.Run("explicit org flag overrides profile", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"POST /api/v2/organizations/flag-org/workspaces": func(w http.ResponseWriter, _ *http.Request) {
 				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
@@ -183,12 +223,22 @@ func TestRunCreate(t *testing.T) {
 				})
 			},
 		}))
-		ctx.Profile.Organization = "profile-org"
 
-		err := runCreate(ctx, &Opts{
-			Organization: "flag-org",
-			Attributes:   map[string]string{"name": "created-in-flag-org"},
-		}, hclog.NewNullLogger(), []string{"workspace"})
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+
+		opts := &Opts{
+			ProfileOrganization: "profile-org",
+			Organization:        "flag-org",
+			Args:                []string{"workspace"},
+			client:              client,
+		}
+
+		opts.IO = io
+		opts.Output = inv.Output
+		opts.Attributes = map[string]string{"name": "created-in-flag-org"}
+
+		err = runCreate(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "ws-flagorg")
 	})
@@ -197,7 +247,7 @@ func TestRunCreate(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
 		var receivedBody map[string]any
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"POST /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewDecoder(r.Body).Decode(&receivedBody)
 				cmdtest.WriteJSONAPI(w, map[string]any{
@@ -211,15 +261,23 @@ func TestRunCreate(t *testing.T) {
 				})
 			},
 		}))
-		ctx.Profile.Organization = "my-org"
+
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+
+		opts := &Opts{}
+		opts.IO = io
+		opts.Output = inv.Output
+		opts.InputRequest = "-"
+		opts.ProfileOrganization = "my-org"
+		opts.Args = []string{"workspace"}
+		opts.client = client
 
 		// Write request body to stdin buffer.
 		stdinJSON := `{"data":{"type":"workspaces","attributes":{"name":"stdin-ws"}}}`
 		io.Input.WriteString(stdinJSON)
 
-		err := runCreate(ctx, &Opts{
-			InputBody: "-",
-		}, hclog.NewNullLogger(), []string{"workspace"})
+		err = runCreate(inv.ShutdownCtx, opts)
 		require.NoError(t, err)
 		assert.Contains(t, io.Output.String(), "ws-stdin")
 
@@ -238,7 +296,7 @@ func TestNewCmdCreate_ArgValidation(t *testing.T) {
 	t.Run("one arg accepted by framework", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
 			"POST /api/v2/organizations/my-org/workspaces": func(w http.ResponseWriter, _ *http.Request) {
 				cmdtest.WriteJSONAPI(w, map[string]any{
 					"data": map[string]any{
@@ -251,43 +309,44 @@ func TestNewCmdCreate_ArgValidation(t *testing.T) {
 				})
 			},
 		}))
-		ctx.Profile.Organization = "my-org"
+		inv.Profile.Organization = "my-org"
 
-		c := NewCmdCreate(ctx)
+		c := NewCmdCreate(inv)
 		root := &cmd.Command{Name: "tfctl"}
-		cmd.ConfigureRootCommand(ctx, root)
+		cmd.ConfigureRootCommand(inv, root)
 		root.AddChild(c)
 
-		exitCode := c.Run([]string{"workspace", "-a", "name=new-ws"}, ctx)
+		exitCode := c.Run([]string{"workspace", "-a", "name=new-ws"}, inv)
 		assert.Equal(t, 0, exitCode)
+		assert.Empty(t, io.Error.String())
 		assert.Contains(t, io.Output.String(), "ws-created")
 	})
 
 	t.Run("zero args rejected by framework", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		c := NewCmdCreate(ctx)
+		c := NewCmdCreate(inv)
 		root := &cmd.Command{Name: "tfctl"}
-		cmd.ConfigureRootCommand(ctx, root)
+		cmd.ConfigureRootCommand(inv, root)
 		root.AddChild(c)
 
-		exitCode := c.Run([]string{}, ctx)
+		exitCode := c.Run([]string{}, inv)
 		assert.NotEqual(t, 0, exitCode)
 	})
 
 	t.Run("two args rejected by framework", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()
-		ctx := cmdtest.NewContext(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{}))
 
-		c := NewCmdCreate(ctx)
+		c := NewCmdCreate(inv)
 		root := &cmd.Command{Name: "tfctl"}
-		cmd.ConfigureRootCommand(ctx, root)
+		cmd.ConfigureRootCommand(inv, root)
 		root.AddChild(c)
 
-		exitCode := c.Run([]string{"workspace", "extra"}, ctx)
+		exitCode := c.Run([]string{"workspace", "extra"}, inv)
 		assert.NotEqual(t, 0, exitCode)
 		assert.Contains(t, io.Error.String(), "accepts 1 arg(s)")
 	})
