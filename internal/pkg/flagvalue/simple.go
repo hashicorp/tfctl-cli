@@ -42,8 +42,16 @@ func Simple[T SimpleValue](val T, p *T) Value {
 
 // Set implements the pflag.Value interface.
 func (i *simpleValue[T]) Set(s string) error {
+	return setValue(i.value, s)
+}
+
+// setValue parses s into the value pointed to by p. Strings are assigned
+// verbatim so that values containing whitespace are preserved; all other types
+// fall back to fmt.Sscanf. This is shared by the Simple and SimpleMap values so
+// that they parse scalar values identically.
+func setValue[T any](p *T, s string) error {
 	var err error
-	switch v := any(i.value).(type) {
+	switch v := any(p).(type) {
 	case **string:
 		*v = new(string)
 		**v = s
