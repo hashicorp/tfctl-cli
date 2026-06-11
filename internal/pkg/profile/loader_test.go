@@ -174,7 +174,7 @@ func TestLoader_LoadProfile(t *testing.T) {
 		name := "test"
 		path := filepath.Join(l.configDir, ProfileDir, fmt.Sprintf("%s.hcl", name))
 		r.NoError(os.WriteFile(path, []byte(`name = "other"
-organization = "123"`,
+default_organization = "123"`,
 		), 0x777))
 
 		p, err := l.LoadProfile(name)
@@ -189,13 +189,13 @@ organization = "123"`,
 
 		p, err := l.NewProfile("test")
 		r.NoError(err)
-		p.Organization = "123"
+		p.DefaultOrganization = "123"
 		r.NoError(p.Write())
 
 		out, err := l.LoadProfile(p.Name)
 		r.NotNil(out)
 		r.Equal(p.Name, out.Name)
-		r.Equal(p.Organization, out.Organization)
+		r.Equal(p.DefaultOrganization, out.DefaultOrganization)
 		r.NoError(err)
 	})
 
@@ -211,7 +211,6 @@ organization = "123"`,
 
 //nolint:paralleltest
 func TestLoader_LoadProfileEnv(t *testing.T) {
-
 	// These tests aren't parallel because they manipulate the environment
 	// and can't run concurrently.
 
@@ -226,7 +225,7 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 		r.NoError(err)
 		prof := l.DefaultProfile()
 
-		r.Equal("xyz", prof.Organization)
+		r.Equal("xyz", prof.DefaultOrganization)
 	})
 
 	//nolint:paralleltest
@@ -245,7 +244,7 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 		out, err := l.LoadProfile(p.Name)
 		r.NoError(err)
 		r.NotNil(out)
-		r.Equal("xyz", out.Organization)
+		r.Equal("xyz", out.DefaultOrganization)
 	})
 }
 
@@ -269,14 +268,14 @@ func TestLoader_LoadProfiles(t *testing.T) {
 
 		p, err := l.NewProfile("test")
 		r.NoError(err)
-		p.Organization = "123"
+		p.DefaultOrganization = "123"
 		r.NoError(p.Write())
 
 		out, err := l.LoadProfiles()
 		r.NoError(err)
 		r.Len(out, 1)
 		r.Equal(p.Name, out[0].Name)
-		r.Equal(p.Organization, out[0].Organization)
+		r.Equal(p.DefaultOrganization, out[0].DefaultOrganization)
 		r.NoError(err)
 	})
 
@@ -287,21 +286,21 @@ func TestLoader_LoadProfiles(t *testing.T) {
 
 		p, err := l.NewProfile("test")
 		r.NoError(err)
-		p.Organization = "123"
+		p.DefaultOrganization = "123"
 		r.NoError(p.Write())
 
 		p2, err := l.NewProfile("test2")
 		r.NoError(err)
-		p2.Organization = "456"
+		p2.DefaultOrganization = "456"
 		r.NoError(p2.Write())
 
 		out, err := l.LoadProfiles()
 		r.NoError(err)
 		r.NotNil(out)
 		r.Equal(p.Name, out[0].Name)
-		r.Equal(p.Organization, out[0].Organization)
+		r.Equal(p.DefaultOrganization, out[0].DefaultOrganization)
 		r.Equal(p2.Name, out[1].Name)
-		r.Equal(p2.Organization, out[1].Organization)
+		r.Equal(p2.DefaultOrganization, out[1].DefaultOrganization)
 	})
 }
 
@@ -315,7 +314,7 @@ func TestLoader_DeleteProfile(t *testing.T) {
 
 		p, err := l.NewProfile("test")
 		r.NoError(err)
-		p.Organization = "123"
+		p.DefaultOrganization = "123"
 		r.NoError(p.Write())
 
 		r.NoError(l.DeleteProfile("test"))

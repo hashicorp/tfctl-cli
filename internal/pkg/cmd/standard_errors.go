@@ -12,41 +12,18 @@ import (
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
-// RequireOrganization requires that the profile has a set organization.
-func RequireOrganization(inv *Invocation) error {
-	if inv.Profile.Organization != "" {
+// RequireDefaultOrganization requires that the profile has a set default organization.
+func RequireDefaultOrganization(inv *Invocation) error {
+	if inv.Profile.DefaultOrganization != "" {
 		return nil
 	}
 
 	cs := inv.IO.ColorScheme()
 	help := heredoc.Docf(`%v
 
-	Please run %v to interactively set the Organization, or run:
-
-	%v`,
-		cs.String("Organization must be configured before running the command.").Color(cs.Orange()),
-		cs.String(fmt.Sprintf("%s config init", version.Name)).Bold(),
-		cs.String(fmt.Sprintf("$ %s config set organization <organization>", version.Name)).Bold(),
-	)
-
-	return errors.New(help)
-}
-
-// RequireOrg requires that the profile has a set organization.
-func RequireOrg(inv *Invocation) error {
-	if inv.Profile.Organization != "" {
-		return nil
-	}
-
-	cs := inv.IO.ColorScheme()
-	help := heredoc.Docf(`%v
-
-	Please run %s to interactively set the Organization, or run:
-
-	%v`,
-		cs.String("Organization must be configured before running the command.").Color(cs.Orange()),
-		cs.String(fmt.Sprintf("%s config init", version.Name)).Bold(),
-		cs.String(fmt.Sprintf("$ %s config set organization <organization>", version.Name)).Bold(),
+	Please run %v to set the default organization`,
+		cs.String("Default organization must be configured before running the command.").Color(cs.Orange()),
+		cs.String(fmt.Sprintf("$ %s config set default_organization <organization>", version.Name)).Bold(),
 	)
 
 	return errors.New(help)

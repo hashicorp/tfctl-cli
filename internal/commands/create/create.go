@@ -99,8 +99,8 @@ func NewCmdCreate(inv *cmd.Invocation) *cmd.Command {
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
 			opts.DryRun = inv.IsDryRun()
-			opts.Quiet = inv.Profile.IsQuiet()
-			opts.ProfileOrganization = inv.Profile.Organization
+			opts.Quiet = inv.GetGlobalFlags().Quiet
+			opts.ProfileOrganization = inv.Profile.DefaultOrganization
 			opts.Args = args
 
 			client, err := inv.NewAPIClient()

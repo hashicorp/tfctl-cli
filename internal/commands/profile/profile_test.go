@@ -12,6 +12,6 @@ import (
 func TestProfile_IsValidProperty(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
-	r.ErrorContains(IsValidProperty("organisation"), "organization")
+	r.ErrorContains(IsValidProperty("defealt_organization"), "default_organization")
 	r.ErrorContains(IsValidProperty("no_colr"), "no_color")
 }

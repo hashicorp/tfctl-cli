@@ -82,7 +82,7 @@ func NewCmdRunStatus(inv *cmd.Invocation) *cmd.Command {
 
 			org := organization
 			if org == "" {
-				org = inv.Profile.Organization
+				org = inv.Profile.DefaultOrganization
 			}
 			if org == "" {
 				cfg, err := terraformcfg.FindCloudConfig(".")

@@ -21,14 +21,14 @@ func TestGet(t *testing.T) {
 
 	io := iostreams.Test()
 	p := profile.TestProfile(t)
-	p.Organization = "123"
+	p.DefaultOrganization = "123"
 	p.NoColor = new(bool)
 
 	*p.NoColor = true
 
 	expect := map[string]string{
-		"organization": "123",
-		"no_color":     "true",
+		"default_organization": "123",
+		"no_color":             "true",
 	}
 
 	for k, v := range expect {
@@ -47,10 +47,10 @@ func TestGet(t *testing.T) {
 	opts := &GetOpts{
 		IO:       io,
 		Profile:  p,
-		Property: "verbosity",
+		Property: "telemetry",
 		Output:   format.New(io),
 	}
-	r.ErrorContains(getRun(context.Background(), opts), "property \"verbosity\" is not set")
+	r.ErrorContains(getRun(context.Background(), opts), "property \"telemetry\" is not set")
 }
 
 func TestGet_JSONOutput(t *testing.T) {
@@ -59,12 +59,12 @@ func TestGet_JSONOutput(t *testing.T) {
 
 	io := iostreams.Test()
 	p := profile.TestProfile(t)
-	p.Organization = "123"
+	p.DefaultOrganization = "123"
 	p.NoColor = func() *bool { b := true; return &b }()
 
 	expect := map[string]string{
-		"organization": "\"123\"",
-		"no_color":     "true", // No quotes for boolean
+		"default_organization": "\"123\"",
+		"no_color":             "true", // No quotes for boolean
 	}
 
 	for k, v := range expect {

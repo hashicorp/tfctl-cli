@@ -188,7 +188,7 @@ func ConfigureRootCommand(i *Invocation, cmd *Command) {
 		logger.Debug("Log level set", "level", logger.GetLevel())
 
 		// Replace the context with a context containing a newly named logger for this command.
-		commandName := strings.TrimLeft(c.commandPath(), fmt.Sprintf("%s ", version.Name))
+		commandName := strings.TrimPrefix(c.commandPath(), fmt.Sprintf("%s ", version.Name))
 		i.ShutdownCtx = logging.WithLogger(i.ShutdownCtx, logger.Named(commandName))
 
 		tel := telemetry.FromContext(i.ShutdownCtx)
@@ -222,7 +222,7 @@ func ConfigureRootCommand(i *Invocation, cmd *Command) {
 			i.ShutdownCtx = tel.StartCommand(i.ShutdownCtx, telemetry.CommandInfo{
 				Command: c.CommandPath(),
 				Profile: i.Profile,
-				Debug:   i.flags.debug > 0 || i.Profile.GetVerbosity() == "debug",
+				Debug:   i.flags.debug > 0,
 				JSON:    i.flags.json || i.flags.jq != "",
 				DryRun:  i.flags.dryRun,
 			})
@@ -290,8 +290,8 @@ func (i *Invocation) applyGlobalFlags(_ *Command) error {
 		i.IO.ForceNoColor()
 	}
 
-	// Set quiet on the IOStream if enabled by the flag or profile
-	if i.flags.Quiet || i.Profile.IsQuiet() {
+	// Set quiet on the IOStream if enabled by the flag
+	if i.flags.Quiet {
 		i.IO.SetQuiet(true)
 	}
 

@@ -13,7 +13,7 @@ func TestProfile(t *testing.T) *Profile { //nolint:paralleltest
 	defaultProfile := TestLoader(t).DefaultProfile()
 	defaultProfile.Hostname = "app.test.terraform.io"
 	defaultProfile.hostCacheDir = t.TempDir()
-	defaultProfile.Organization = "test-organization"
+	defaultProfile.DefaultOrganization = "test-organization"
 	defaultProfile.Token = "test-token"
 
 	return defaultProfile

@@ -37,8 +37,8 @@ func ResolvePath(pathTemplate, org string) (string, error) {
 		return "", fmt.Errorf(
 			"organization is required but not set\n\n" +
 				"Set one with:\n" +
-				"  tfctl profile set organization <name>\n" +
-				"  --organization <name> / -o <name>",
+				"  tfctl profile set default_organization <name>\n" +
+				"Or use --organization <name> / -o <name>",
 		)
 	}
 	return strings.ReplaceAll(pathTemplate, "{organization_name}", org), nil

@@ -220,8 +220,8 @@ func TestStartCommand_CreatesSpanWithAttributes(t *testing.T) {
 
 	// Check attributes.
 	attrs := spanAttrMap(s)
-	assert.Equal(t, "run start", attrs["tfctl.command"])
-	assert.Equal(t, true, attrs["tfctl.dry_run"])
+	assert.Equal(t, "run start", attrs["command"])
+	assert.Equal(t, true, attrs["dry_run_flag"])
 	assert.Equal(t, false, attrs["is_tty"])
 	assert.NotEmpty(t, attrs["os"])
 	assert.NotEmpty(t, attrs["arch"])
@@ -241,7 +241,7 @@ func TestStartCommand_IncludesCIAttribute(t *testing.T) {
 	require.Len(t, spans, 1)
 
 	attrs := spanAttrMap(spans[0])
-	assert.Equal(t, true, attrs["ci"])
+	assert.Equal(t, true, attrs["is_ci"])
 }
 
 func TestStartCommand_NoCIAttribute(t *testing.T) {
@@ -258,7 +258,7 @@ func TestStartCommand_NoCIAttribute(t *testing.T) {
 	require.Len(t, spans, 1)
 
 	attrs := spanAttrMap(spans[0])
-	assert.Equal(t, false, attrs["ci"])
+	assert.Equal(t, false, attrs["is_ci"])
 }
 
 // ============================================================
