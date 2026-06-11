@@ -29,8 +29,7 @@ func (s *simpleSliceValue[T]) Set(val string) error {
 	ss := strings.Split(val, ",")
 	out := make([]T, len(ss))
 	for i, val := range ss {
-		_, err := fmt.Sscanf(val, "%v", &out[i])
-		if err != nil {
+		if err := setValue(&out[i], val); err != nil {
 			return err
 		}
 	}
@@ -87,8 +86,7 @@ func (s *simpleSliceValue[T]) GetSlice() []string {
 
 func (s *simpleSliceValue[T]) fromString(val string) (T, error) {
 	var out T
-	_, err := fmt.Sscanf(val, "%v", &out)
-	if err != nil {
+	if err := setValue(&out, val); err != nil {
 		return out, err
 	}
 
