@@ -87,7 +87,7 @@ func (i *Invocation) IsDryRun() bool {
 // flag taking precedence over the profile setting.
 func (i *Invocation) ResolveLogLevel() hclog.Level {
 	if !i.flags.parsed {
-		return hclog.Warn
+		return hclog.Error
 	}
 
 	switch {
@@ -96,7 +96,7 @@ func (i *Invocation) ResolveLogLevel() hclog.Level {
 	case i.GetGlobalFlags().debug == 1:
 		return hclog.Debug
 	default:
-		return hclog.LevelFromString(i.Profile.GetVerbosity())
+		return hclog.Error
 	}
 }
 
