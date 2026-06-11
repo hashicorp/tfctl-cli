@@ -49,6 +49,31 @@ func TestSimpleMap_StringToString(t *testing.T) {
 	}, m)
 }
 
+func TestSimpleMap_StringToStringWithSpaces(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	var m map[string]string
+	f := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	f.AddFlag(&pflag.Flag{
+		Name:  "values",
+		Value: flagvalue.SimpleMap[string, string](nil, &m),
+	})
+
+	// A value containing spaces must be preserved verbatim and not be
+	// truncated at the first whitespace.
+	r.NoError(f.Parse([]string{
+		"--values", "name=Another Project",
+		"--values", "key with spaces=trailing  spaces ",
+		"--values", "filter=a=b c",
+	}))
+	r.EqualValues(map[string]string{
+		"name":            "Another Project",
+		"key with spaces": "trailing  spaces ",
+		"filter":          "a=b c",
+	}, m)
+}
+
 func TestSimpleMap_StringToInt(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)

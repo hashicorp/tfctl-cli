@@ -98,6 +98,23 @@ func TestSimpleSlice_String(t *testing.T) {
 	r.Equal([]string{"hello", "false", "123"}, s)
 }
 
+func TestSimpleSlice_StringWithSpaces(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	var s []string
+	f := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	f.AddFlag(&pflag.Flag{
+		Name:  "strings",
+		Value: flagvalue.SimpleSlice[string](nil, &s),
+	})
+
+	// Values containing spaces must be preserved verbatim; only commas
+	// separate elements within a single flag value.
+	r.NoError(f.Parse([]string{"--strings", "Another Project", "--strings", "a b,c d"}))
+	r.Equal([]string{"Another Project", "a b", "c d"}, s)
+}
+
 func TestSimpleSlice_Int(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)

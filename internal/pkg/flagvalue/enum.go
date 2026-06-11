@@ -29,7 +29,7 @@ func Enum[T comparable](allowed []T, val T, p *T) Value {
 
 func (i *enumValue[T]) Set(s string) error {
 	var v T
-	if _, err := fmt.Sscanf(s, "%v", &v); err != nil {
+	if err := setValue(&v, s); err != nil {
 		return err
 	}
 
