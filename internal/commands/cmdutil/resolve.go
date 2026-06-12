@@ -28,7 +28,7 @@ func ResolveOrganization(profileOrganization string, explicit string) string {
 
 // ResolvePath substitutes {organization_name} in a path template with org.
 // Returns an error if org is required but empty, with helpful message about
-// setting one via `profile set organization` or `--organization`.
+// setting one via `profile set default_organization` or `--organization`.
 func ResolvePath(pathTemplate, org string) (string, error) {
 	if !strings.Contains(pathTemplate, "{organization_name}") {
 		return pathTemplate, nil

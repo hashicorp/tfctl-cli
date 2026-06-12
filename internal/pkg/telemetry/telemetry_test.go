@@ -174,6 +174,66 @@ func TestInit_ProfileDisabled(t *testing.T) {
 // StartCommand Tests
 // ============================================================
 
+func TestInit_ResourceAttributes(t *testing.T) {
+	clearEnv(t)
+
+	agentCases := []struct {
+		envKey        string
+		envVal        string
+		expectedAgent string
+	}{
+		{"CLAUDECODE", "1", "claudecode"},
+		{"OPENCODE", "1", "opencode"},
+		{"COPILOT_GH", "true", "github_copilot"},
+		{"NONEXIST_AGENT", "1", ""},
+	}
+
+	t.Run("init attributes", func(t *testing.T) {
+		var buf bytes.Buffer
+		tel := Init(context.Background(), Config{
+			ErrWriter:        &buf,
+			ProfileTelemetry: "log",
+			Version:          "0.1.0",
+		})
+
+		tel.StartCommand(context.Background(), CommandInfo{Command: "variable import"})
+
+		err := tel.Shutdown(context.Background(), 0)
+		require.NoError(t, err)
+
+		output := buf.String()
+		require.Contains(t, output, "session_id")
+		require.Contains(t, output, "device_id")
+	})
+
+	for _, tc := range agentCases {
+		t.Run(tc.envKey, func(t *testing.T) {
+			clearEnv(t)
+			t.Setenv(tc.envKey, tc.envVal)
+
+			var buf bytes.Buffer
+			tel := Init(context.Background(), Config{
+				ErrWriter:        &buf,
+				ProfileTelemetry: "log",
+				Version:          "0.1.0",
+			})
+
+			tel.StartCommand(context.Background(), CommandInfo{Command: "variable import"})
+
+			err := tel.Shutdown(context.Background(), 0)
+			require.NoError(t, err)
+
+			output := buf.String()
+			if tc.expectedAgent != "" {
+				require.Contains(t, output, "agent")
+				require.Contains(t, output, tc.expectedAgent)
+			} else {
+				require.NotContains(t, output, "agent")
+			}
+		})
+	}
+}
+
 func TestStartCommand_DisabledMode_NoSpan(t *testing.T) {
 	clearEnv(t)
 	t.Setenv(EnvTelemetry, "false")
