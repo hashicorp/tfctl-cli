@@ -4,9 +4,9 @@
 package profiles
 
 import (
+	"context"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -92,7 +92,6 @@ func TestDelete(t *testing.T) {
 
 			opts := &DeleteOpts{
 				IO:       io,
-				Logger:   hclog.NewNullLogger(),
 				Profiles: l,
 				Names:    c.Delete,
 			}
@@ -111,7 +110,7 @@ func TestDelete(t *testing.T) {
 				r.NoError(err)
 			}
 
-			err = deleteRun(opts)
+			err = deleteRun(context.Background(), opts)
 			if c.Error != "" {
 				r.ErrorContains(err, c.Error)
 				return
@@ -155,8 +154,8 @@ func TestDeleteDryRun(t *testing.T) {
 	active.Name = "foo"
 	r.NoError(active.Write())
 
-	opts := &DeleteOpts{IO: io, Logger: hclog.NewNullLogger(), Profiles: l, Names: []string{"bar"}, DryRun: true}
-	r.NoError(deleteRun(opts))
+	opts := &DeleteOpts{IO: io, Profiles: l, Names: []string{"bar"}, DryRun: true}
+	r.NoError(deleteRun(context.Background(), opts))
 	r.Contains(io.Error.String(), `would delete profile "bar"`)
 
 	profiles, err := l.ListProfiles()

@@ -95,7 +95,7 @@ func newFakeStatusTFE(t *testing.T, username, tokenType, tokenID, expiredAt stri
 // newStatusClient returns a *client.Client pointed at srv, for use in StatusOpts.
 func newStatusClient(t *testing.T, srv *httptest.Server) *client.Client {
 	t.Helper()
-	c, err := client.New(srv.URL, "test-token", nil)
+	c, err := client.New(context.Background(), srv.URL, "test-token", nil)
 	require.NoError(t, err)
 	return c
 }
@@ -114,14 +114,13 @@ func TestStatus_Success(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:       context.Background(),
 		IO:        io,
 		Profile:   p,
 		Output:    output,
 		APIClient: newStatusClient(t, srv),
 	}
 
-	r.NoError(runStatus(opts))
+	r.NoError(runStatus(context.Background(), opts))
 	r.Contains(io.Output.String(), "Logged in to")
 	r.Contains(io.Output.String(), "testuser")
 	r.Contains(io.Output.String(), "Token expires")
@@ -141,14 +140,13 @@ func TestStatus_Success_NoExpiration(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:       context.Background(),
 		IO:        io,
 		Profile:   p,
 		Output:    output,
 		APIClient: newStatusClient(t, srv),
 	}
 
-	r.NoError(runStatus(opts))
+	r.NoError(runStatus(context.Background(), opts))
 	r.Contains(io.Output.String(), "Logged in to")
 	r.Contains(io.Output.String(), "testuser")
 	r.NotContains(io.Output.String(), "Token expires")
@@ -168,14 +166,13 @@ func TestStatus_Success_NoTokenLink(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:       context.Background(),
 		IO:        io,
 		Profile:   p,
 		Output:    output,
 		APIClient: newStatusClient(t, srv),
 	}
 
-	r.NoError(runStatus(opts))
+	r.NoError(runStatus(context.Background(), opts))
 	r.Contains(io.Output.String(), "Logged in to")
 	r.Contains(io.Output.String(), "testuser")
 	r.NotContains(io.Output.String(), "Token expires")
@@ -195,14 +192,13 @@ func TestStatus_Unauthorized(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:       context.Background(),
 		IO:        io,
 		Profile:   p,
 		Output:    output,
 		APIClient: newStatusClient(t, srv),
 	}
 
-	err := runStatus(opts)
+	err := runStatus(context.Background(), opts)
 	r.Error(err)
 	r.Contains(io.Error.String(), "Unauthorized")
 	r.Contains(io.Error.String(), srv.URL)
@@ -221,13 +217,12 @@ func TestStatus_NoToken(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
 		IO:      io,
 		Profile: p,
 		Output:  output,
 	}
 
-	err := runStatus(opts)
+	err := runStatus(context.Background(), opts)
 	r.Error(err)
 	r.Contains(io.Error.String(), "Unauthorized")
 	r.Contains(io.Error.String(), "app.terraform.io")
@@ -248,14 +243,13 @@ func TestStatus_JSONOutput(t *testing.T) {
 	output.SetFormat(format.JSON)
 
 	opts := &StatusOpts{
-		Ctx:       context.Background(),
 		IO:        io,
 		Profile:   p,
 		Output:    output,
 		APIClient: newStatusClient(t, srv),
 	}
 
-	r.NoError(runStatus(opts))
+	r.NoError(runStatus(context.Background(), opts))
 	r.Contains(io.Output.String(), `"hostname"`)
 	r.Contains(io.Output.String(), `"username"`)
 	r.Contains(io.Output.String(), `"testuser"`)
@@ -277,14 +271,13 @@ func TestStatus_MarkdownOutput(t *testing.T) {
 	output.SetFormat(format.Markdown)
 
 	opts := &StatusOpts{
-		Ctx:       context.Background(),
 		IO:        io,
 		Profile:   p,
 		Output:    output,
 		APIClient: newStatusClient(t, srv),
 	}
 
-	r.NoError(runStatus(opts))
+	r.NoError(runStatus(context.Background(), opts))
 	r.Contains(io.Output.String(), "Logged in to")
 	r.Contains(io.Output.String(), "testuser")
 }
@@ -303,14 +296,13 @@ func TestStatus_OrganizationToken(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:       context.Background(),
 		IO:        io,
 		Profile:   p,
 		Output:    output,
 		APIClient: newStatusClient(t, srv),
 	}
 
-	r.NoError(runStatus(opts))
+	r.NoError(runStatus(context.Background(), opts))
 	r.Contains(io.Output.String(), "organization")
 	r.Contains(io.Output.String(), "orguser")
 }
@@ -329,14 +321,13 @@ func TestStatus_TeamToken(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:       context.Background(),
 		IO:        io,
 		Profile:   p,
 		Output:    output,
 		APIClient: newStatusClient(t, srv),
 	}
 
-	r.NoError(runStatus(opts))
+	r.NoError(runStatus(context.Background(), opts))
 	r.Contains(io.Output.String(), "team")
 	r.Contains(io.Output.String(), "teamuser")
 }
@@ -356,14 +347,13 @@ func TestStatus_QuietMode(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:       context.Background(),
 		IO:        io,
 		Profile:   p,
 		Output:    output,
 		APIClient: newStatusClient(t, srv),
 	}
 
-	r.NoError(runStatus(opts))
+	r.NoError(runStatus(context.Background(), opts))
 	r.Empty(io.Error.String())
 	// Output still goes to stdout via displayer
 	r.Contains(io.Output.String(), "Logged in to")
@@ -382,13 +372,12 @@ func TestStatus_DefaultHostname(t *testing.T) {
 	output := format.New(io)
 
 	opts := &StatusOpts{
-		Ctx:     context.Background(),
 		IO:      io,
 		Profile: p,
 		Output:  output,
 	}
 
-	err := runStatus(opts)
+	err := runStatus(context.Background(), opts)
 	r.Error(err)
 	r.Contains(io.Error.String(), "app.terraform.io")
 }

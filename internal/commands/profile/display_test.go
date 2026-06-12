@@ -6,7 +6,6 @@ package profile
 import (
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -18,7 +17,7 @@ func TestDisplay(t *testing.T) {
 	t.Parallel()
 
 	p := profile.TestProfile(t)
-	p.Organization = "123"
+	p.DefaultOrganization = "123"
 	p.Hostname = "app.eu.terraform.io"
 	p.NoColor = func() *bool { b := true; return &b }()
 
@@ -29,7 +28,6 @@ func TestDisplay(t *testing.T) {
 
 		opts := &DisplayOpts{
 			IO:      io,
-			Logger:  hclog.NewNullLogger(),
 			Profile: p,
 			Output:  format.New(io),
 		}
@@ -48,7 +46,6 @@ func TestDisplay(t *testing.T) {
 
 		opts := &DisplayOpts{
 			IO:      io,
-			Logger:  hclog.NewNullLogger(),
 			Profile: p,
 			Output:  output,
 		}

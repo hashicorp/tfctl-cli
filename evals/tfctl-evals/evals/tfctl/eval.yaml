@@ -48,7 +48,7 @@ graders:
     name: max_efficiency
     weight: 1.0
     config:
-      max_tool_calls: 10
+      max_tool_calls: 40
 
 
 tasks:

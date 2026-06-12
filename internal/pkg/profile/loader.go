@@ -4,6 +4,7 @@
 package profile
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,10 +14,12 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/google/uuid"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/net/idna"
 
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
@@ -103,6 +106,29 @@ func newLoader(dir string) (*Loader, error) {
 		configDir:   path,
 		profilesDir: profilesDir,
 	}, nil
+}
+
+// GetDeviceID returns the unique identifier for this CLI installation, used for telemetry purposes.
+func (l *Loader) GetDeviceID(ctx context.Context) string {
+	logger := logging.FromContext(ctx)
+	deviceIDPath := filepath.Join(l.configDir, DeviceIDFileName)
+	_, err := os.Stat(deviceIDPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// If the device ID file doesn't exist, create it with a new UUID.
+			if err := os.WriteFile(deviceIDPath, []byte(uuid.New().String()), 0600); err != nil {
+				logger.Error("Failed to write device ID file", "error", err)
+			}
+		}
+	}
+
+	deviceID, err := os.ReadFile(deviceIDPath)
+	if err != nil {
+		logger.Error("Failed to read device ID file, generating a temporary device ID for this session", "error", err)
+		deviceID = []byte(uuid.New().String())
+	}
+
+	return string(deviceID)
 }
 
 // GetActiveProfile returns the current profile.
@@ -196,9 +222,9 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 	}
 
 	// If there's no default organization set, use the environment variable if it's set.
-	if c.Organization == "" {
+	if c.DefaultOrganization == "" {
 		if orgID, ok := os.LookupEnv(envVarOrganization); ok && orgID != "" {
-			c.Organization = orgID
+			c.DefaultOrganization = orgID
 		}
 	}
 
@@ -286,7 +312,7 @@ func (l *Loader) DefaultProfile() *Profile {
 
 	org, orgOK := os.LookupEnv(envVarOrganization)
 	if orgOK {
-		profile.Organization = org
+		profile.DefaultOrganization = org
 	}
 
 	hostname := DefaultHostname

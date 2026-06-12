@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -19,11 +18,11 @@ import (
 )
 
 func TestSchema_OperationById(t *testing.T) {
-	cmdContext := &cmd.Context{
+	cmdContext := &cmd.Invocation{
 		ShutdownCtx: context.Background(),
 		Profile:     profile.TestProfile(t),
 	}
-	embedded := SchemaFactory(cmdContext, hclog.NewNullLogger())
+	embedded := SchemaFactory(cmdContext)
 
 	op, err := embedded.OperationByID("getWorkspace")
 	require.NoError(t, err)
@@ -87,12 +86,12 @@ func TestSchemaFactory(t *testing.T) {
 		})
 
 		p := testProfileWithServer(t, srv.URL)
-		cmdContext := &cmd.Context{
+		cmdContext := &cmd.Invocation{
 			ShutdownCtx: context.Background(),
 			Profile:     p,
 		}
 
-		schema := SchemaFactory(cmdContext, hclog.NewNullLogger())
+		schema := SchemaFactory(cmdContext)
 		require.NotNil(t, schema)
 
 		// Verify it loaded the spec from the test server, not the embedded one.
@@ -116,13 +115,13 @@ func TestSchemaFactory(t *testing.T) {
 		})
 
 		p := testProfileWithServer(t, srv.URL)
-		cmdContext := &cmd.Context{
+		cmdContext := &cmd.Invocation{
 			ShutdownCtx: context.Background(),
 			Profile:     p,
 		}
 
 		// Pre-populate cache with the test spec.
-		loader, err := p.HostCache(hclog.NewNullLogger())
+		loader, err := p.HostCache(cmdContext.ShutdownCtx)
 		require.NoError(t, err)
 
 		var openAPIFile profile.FileID = "openapi.json"
@@ -130,7 +129,7 @@ func TestSchemaFactory(t *testing.T) {
 		err = loader.Write(openAPIFile, testOpenAPISpec, &now)
 		require.NoError(t, err)
 
-		schema := SchemaFactory(cmdContext, hclog.NewNullLogger())
+		schema := SchemaFactory(cmdContext)
 		require.NotNil(t, schema)
 
 		// Verify it used the cached spec (not the embedded one).
@@ -156,13 +155,13 @@ func TestSchemaFactory(t *testing.T) {
 		})
 
 		p := testProfileWithServer(t, srv.URL)
-		cmdContext := &cmd.Context{
+		cmdContext := &cmd.Invocation{
 			ShutdownCtx: context.Background(),
 			Profile:     p,
 		}
 
 		// Pre-populate cache with the embedded spec (simulating an outdated cache).
-		loader, err := p.HostCache(hclog.NewNullLogger())
+		loader, err := p.HostCache(cmdContext.ShutdownCtx)
 		require.NoError(t, err)
 
 		var openAPIFile profile.FileID = "openapi.json"
@@ -171,7 +170,7 @@ func TestSchemaFactory(t *testing.T) {
 		err = loader.Write(openAPIFile, embeddedOpenAPISpec, &now)
 		require.NoError(t, err)
 
-		schema := SchemaFactory(cmdContext, hclog.NewNullLogger())
+		schema := SchemaFactory(cmdContext)
 		require.NotNil(t, schema)
 
 		// Verify the factory used the freshly-fetched spec, not the cached one.
@@ -191,12 +190,12 @@ func TestSchemaFactory(t *testing.T) {
 		})
 
 		p := testProfileWithServer(t, srv.URL)
-		cmdContext := &cmd.Context{
+		cmdContext := &cmd.Invocation{
 			ShutdownCtx: context.Background(),
 			Profile:     p,
 		}
 
-		schema := SchemaFactory(cmdContext, hclog.NewNullLogger())
+		schema := SchemaFactory(cmdContext)
 		require.NotNil(t, schema)
 
 		// Should have fallen back to the full embedded spec.
@@ -208,12 +207,12 @@ func TestSchemaFactory(t *testing.T) {
 }
 
 func TestSchema_AtomizePath(t *testing.T) {
-	cmdContext := &cmd.Context{
+	cmdContext := &cmd.Invocation{
 		ShutdownCtx: context.Background(),
 		Profile:     profile.TestProfile(t),
 	}
 
-	embedded := SchemaFactory(cmdContext, hclog.NewNullLogger())
+	embedded := SchemaFactory(cmdContext)
 	require.NotNil(t, embedded)
 
 	t.Run("returns error for unknown path", func(t *testing.T) {
@@ -273,11 +272,11 @@ func TestSchema_AtomizePath(t *testing.T) {
 }
 
 func TestSchema_AtomizeOperation(t *testing.T) {
-	cmdContext := &cmd.Context{
+	cmdContext := &cmd.Invocation{
 		ShutdownCtx: context.Background(),
 		Profile:     profile.TestProfile(t),
 	}
-	embedded := SchemaFactory(cmdContext, hclog.NewNullLogger())
+	embedded := SchemaFactory(cmdContext)
 	require.NotNil(t, embedded)
 
 	t.Run("returns error for unknown operation", func(t *testing.T) {

@@ -179,7 +179,7 @@ func Test_PopulatePolicyCheckSummary(t *testing.T) {
 	}))
 	t.Cleanup(api.Close)
 
-	c, err := New(api.URL, "test-token", nil)
+	c, err := New(context.Background(), api.URL, "test-token", nil)
 	if err != nil {
 		t.Fatalf("creating client: %v", err)
 	}

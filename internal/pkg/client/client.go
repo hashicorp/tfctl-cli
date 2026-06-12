@@ -15,8 +15,12 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	tfe "github.com/hashicorp/go-tfe"
+	tfe "github.com/hashicorp/go-tfe/v2"
 	abs "github.com/microsoft/kiota-abstractions-go"
+	"go.opentelemetry.io/otel/attribute"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
 )
 
 // Client wraps the configured HCP Terraform API clients and request helpers.
@@ -44,15 +48,37 @@ type Request struct {
 }
 
 // New constructs a configured API client from an API address and token.
-func New(address, token string, defaultHeaders http.Header) (*Client, error) {
-	tfeClient, err := tfe.NewClient(&tfe.Config{
-		Address: address,
-		Token:   token,
-		Headers: defaultHeaders,
-	})
+// If logger is non-nil, retry attempts are logged at debug level.
+func New(ctx context.Context, address, token string, defaultHeaders http.Header) (*Client, error) {
+	cfg := &tfe.Config{
+		Address:           address,
+		Token:             token,
+		Headers:           defaultHeaders,
+		RetryServerErrors: true,
+		RetryRateLimited:  true,
+		RetryMaxRetries:   5,
+	}
+	cfg.RetryHook = func(attemptNum int, resp *http.Response) {
+		status := 0
+		url := ""
+		method := ""
+		if resp != nil {
+			status = resp.StatusCode
+			if resp.Request != nil {
+				url = resp.Request.URL.String()
+				method = resp.Request.Method
+			}
+		}
+		logger := logging.FromContext(ctx)
+		logger.Debug("Retrying API request", "attempt", attemptNum, "status", status, "method", method, "url", url)
+	}
+	tfeClient, err := tfe.NewClient(cfg)
 	if err != nil {
 		return nil, err
 	}
+
+	logger := logging.FromContext(ctx)
+	tel := telemetry.FromContext(ctx)
 
 	adapter := tfeClient.API.RequestAdapter
 	native, ok := adapter.(*tfe.TFERequestAdapter)
@@ -61,12 +87,17 @@ func New(address, token string, defaultHeaders http.Header) (*Client, error) {
 	}
 
 	baseURL := tfeClient.BaseURL()
-	return &Client{
+	result := &Client{
 		TFE:            tfeClient,
 		Adapter:        native,
 		BaseURL:        &baseURL,
 		DefaultHeaders: defaultHeaders,
-	}, nil
+	}
+
+	result.SetLogger(logger)
+	result.SetTelemetry(tel)
+
+	return result, nil
 }
 
 // Do sends a low-level request and returns the response. It is the callers responsibility to close
@@ -107,6 +138,10 @@ func (c *Client) Do(ctx context.Context, req *Request) (*http.Response, error) {
 			return nil, urlErr.Err
 		}
 		return nil, err
+	}
+
+	if httpResp.StatusCode >= 400 {
+		return nil, tfe.APIErrorFactory(httpResp, nil)
 	}
 
 	return httpResp, nil
@@ -190,6 +225,47 @@ func SummarizeAPIErrors(body []byte) string {
 		return payload.Message
 	}
 	return payload.Error
+}
+
+// SetTelemetry wraps the HTTP transport to emit network telemetry about outgoing requests.
+func (c *Client) SetTelemetry(tel *telemetry.Telemetry) {
+	// Wrap the HTTP transport to inject telemetry context and attributes.
+	if tel == nil || tel.Mode() == telemetry.ModeDisabled {
+		return
+	}
+
+	c.Adapter.Client.Transport = &telemetryTransport{
+		inner:     c.Adapter.Client.Transport,
+		telemetry: tel,
+	}
+}
+
+type telemetryTransport struct {
+	inner     http.RoundTripper
+	telemetry *telemetry.Telemetry
+}
+
+func (t *telemetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	startTime := time.Now()
+	spanCtx, span := t.telemetry.StartNetwork(req.Context(), "client req", req)
+	defer span.End()
+
+	resp, err := t.inner.RoundTrip(req.WithContext(spanCtx))
+	duration := time.Since(startTime)
+
+	if resp != nil {
+		span.SetAttributes(
+			attribute.Int64("http.status_code", int64(resp.StatusCode)),
+			attribute.Int64("http.content_length", resp.ContentLength),
+			attribute.Int64("http.duration_ms", duration.Milliseconds()),
+		)
+	}
+
+	if err != nil {
+		span.RecordError(err)
+	}
+
+	return resp, err
 }
 
 // SetLogger wraps the HTTP transport to log all requests and responses

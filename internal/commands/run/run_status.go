@@ -24,7 +24,6 @@ import (
 // StatusOpts stores the options parsed from flags for the run status command.
 type StatusOpts struct {
 	IO           iostreams.IOStreams
-	ShutdownCtx  context.Context
 	Output       *format.Outputter
 	Client       *client.Client
 	Organization string
@@ -32,16 +31,16 @@ type StatusOpts struct {
 }
 
 // NewCmdRunStatus creates the `run status` command.
-func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
+func NewCmdRunStatus(inv *cmd.Invocation) *cmd.Command {
 	opts := &StatusOpts{
-		IO: ctx.IO,
+		IO: inv.IO,
 	}
 	var organization string
 
 	cmd := &cmd.Command{
 		Name:      "status",
 		ShortHelp: "Show the status of a run, printing diagnostics if it failed.",
-		LongHelp: heredoc.New(ctx.IO, heredoc.WithPreserveNewlines()).Mustf(`
+		LongHelp: heredoc.New(inv.IO, heredoc.WithPreserveNewlines()).Mustf(`
 		The {{ template "mdCodeOrBold" "%s run status" }} command inspects an HCP Terraform run and prints its current status. If the run has errored, it renders all failures, in the following order: terraform diagnostics, policy failures, and run task failures.
 
 		The ID argument can be:
@@ -69,21 +68,21 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "Check status of a run by ID",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status run-abc123`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status run-abc123`, version.Name),
 			},
 			{
 				Preamble: "Check the latest run in a workspace by name",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status my-workspace --organization my-org`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run status my-workspace --organization my-org`, version.Name),
 			},
 		},
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			if len(args) != 1 {
 				return cmd.ErrDisplayUsage
 			}
 
 			org := organization
 			if org == "" {
-				org = ctx.Profile.Organization
+				org = inv.Profile.DefaultOrganization
 			}
 			if org == "" {
 				cfg, err := terraformcfg.FindCloudConfig(".")
@@ -92,18 +91,17 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 				}
 			}
 
-			apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
+			apiClient, err := inv.NewAPIClient()
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
-			opts.ShutdownCtx = ctx.ShutdownCtx
-			opts.Output = ctx.Output
+			opts.Output = inv.Output
 			opts.Client = apiClient
 			opts.Organization = org
 			opts.ID = args[0]
 
-			return runStatus(opts)
+			return runStatus(inv.ShutdownCtx, opts)
 		},
 	}
 
@@ -114,7 +112,7 @@ func NewCmdRunStatus(ctx *cmd.Context) *cmd.Command {
 // Several problems can contribute to a single failed run, and all are displayed in order of
 // severity: terraform diagnostics, policy check failures, policy evaluation failures, and
 // task failures.
-func runStatus(opts *StatusOpts) error {
+func runStatus(ctx context.Context, opts *StatusOpts) error {
 	resolver := client.NewResolver(opts.Client, false, false)
 
 	id := opts.ID
@@ -130,12 +128,12 @@ func runStatus(opts *StatusOpts) error {
 		}
 	}
 
-	runID, err := resolver.RunOrCurrentRun(opts.ShutdownCtx, opts.Organization, resourceType, id)
+	runID, err := resolver.RunOrCurrentRun(ctx, opts.Organization, resourceType, id)
 	if err != nil {
 		return err
 	}
 
-	summary, err := client.NewRunSummary(opts.ShutdownCtx, opts.Client, runID)
+	summary, err := client.NewRunSummary(ctx, opts.Client, runID)
 	if err != nil {
 		return err
 	}

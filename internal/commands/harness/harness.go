@@ -11,17 +11,17 @@ import (
 )
 
 // NewCmdHarness creates the `harness` command.
-func NewCmdHarness(ctx *cmd.Context) *cmd.Command {
+func NewCmdHarness(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "harness",
 		ShortHelp: "Install coding agent skills and see agent context.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s harness" }} command group lets you install coding agent skills and see printed coding agent context.
 		`, version.Name),
 	}
 
-	cmd.AddChild(NewCmdHarnessContext(ctx))
-	cmd.AddChild(NewCmdHarnessInstall(ctx))
+	cmd.AddChild(NewCmdHarnessContext(inv))
+	cmd.AddChild(NewCmdHarnessInstall(inv))
 
 	return cmd
 }

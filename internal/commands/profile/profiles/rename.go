@@ -4,34 +4,34 @@
 package profiles
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
-
-	"github.com/hashicorp/go-hclog"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdRename returns the `profile profiles rename` command for renaming a configuration profile.
-func NewCmdRename(ctx *cmd.Context) *cmd.Command {
+func NewCmdRename(inv *cmd.Invocation) *cmd.Command {
 	opts := &RenameOpts{
-		IO: ctx.IO,
+		IO: inv.IO,
 	}
 	renameCmd := &cmd.Command{
 		Name:      "rename",
 		ShortHelp: "Rename an existing profile.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles rename" }} command renames an existing profile.
 		`, version.Name),
 		Examples: []cmd.Example{
 			{
-				Preamble: heredoc.New(ctx.IO).Must(`
+				Preamble: heredoc.New(inv.IO).Must(`
 				To rename profile {{ template "mdCodeOrBold" "my-profile" }} to
 				{{ template "mdCodeOrBold" "new-profile" }}, run:
 				`),
@@ -59,16 +59,15 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			opts.ExistingName = args[0]
-			opts.Logger = c.Logger(ctx)
 			l, err := profile.NewLoader()
 			if err != nil {
 				return err
 			}
 			opts.Profiles = l
-			opts.DryRun = ctx.IsDryRun()
-			return renameRun(opts)
+			opts.DryRun = inv.IsDryRun()
+			return renameRun(inv.ShutdownCtx, opts)
 		},
 	}
 
@@ -78,15 +77,15 @@ func NewCmdRename(ctx *cmd.Context) *cmd.Command {
 // RenameOpts defines the options for the `profile profiles rename` command.
 type RenameOpts struct {
 	IO           iostreams.IOStreams
-	Logger       hclog.Logger
 	Profiles     *profile.Loader
 	ExistingName string
 	NewName      string
 	DryRun       bool
 }
 
-func renameRun(opts *RenameOpts) error {
-	opts.Logger.Debug("renaming profile", "from", opts.ExistingName, "to", opts.NewName)
+func renameRun(ctx context.Context, opts *RenameOpts) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug("renaming profile", "from", opts.ExistingName, "to", opts.NewName)
 
 	if opts.ExistingName == opts.NewName {
 		return fmt.Errorf("new name must be different from the existing name")

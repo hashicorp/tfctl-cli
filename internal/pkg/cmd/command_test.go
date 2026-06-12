@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/cli"
-	"github.com/hashicorp/go-tfe"
+	"github.com/hashicorp/go-tfe/v2"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
@@ -24,7 +24,7 @@ func TestCommand_PersistentPrerun(t *testing.T) {
 
 	// Create the command tree
 	io := iostreams.Test()
-	cCtx := &Context{
+	cCtx := &Invocation{
 		IO: io,
 	}
 	root := &Command{
@@ -75,7 +75,7 @@ func TestCommand_Flags(t *testing.T) {
 
 	// Create the command tree
 	io := iostreams.Test()
-	cCtx := &Context{
+	cCtx := &Invocation{
 		IO: io,
 	}
 	root := &Command{
@@ -103,43 +103,13 @@ func TestCommand_Flags(t *testing.T) {
 	r.Equal("child-set", *childFlag)
 }
 
-func TestCommand_Logger(t *testing.T) {
-	t.Parallel()
-	r := require.New(t)
-
-	// Create the command tree
-	io := iostreams.Test()
-	cCtx := &Context{
-		IO: io,
-	}
-	root := &Command{
-		Name: "root",
-		io:   io,
-	}
-
-	ctx := &Context{
-		IO: io,
-	}
-
-	child := &Command{
-		Name: "child",
-		RunF: func(c *Command, args []string) error {
-			c.Logger(ctx).Error("hello, world!")
-			return nil
-		},
-	}
-	root.AddChild(child)
-	r.Zero(child.Run([]string{}, cCtx))
-	r.Contains(io.Error.String(), "tfctl.child: hello, world!")
-}
-
 func TestCommand_ExitCode(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
 
 	// Create the command tree
 	io := iostreams.Test()
-	cCtx := &Context{
+	cCtx := &Invocation{
 		IO: io,
 	}
 	code := 42
@@ -180,7 +150,7 @@ func TestCommand_GlobalExitCode(t *testing.T) {
 
 			// Create the command tree
 			io := iostreams.Test()
-			cCtx := &Context{
+			cCtx := &Invocation{
 				IO:      io,
 				Profile: profile.TestProfile(t),
 			}
@@ -197,4 +167,25 @@ func TestCommand_GlobalExitCode(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCommand_CommandPath(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	root := &Command{Name: "tfctl"}
+	run := &Command{Name: "run"}
+	start := &Command{Name: "start"}
+
+	root.AddChild(run)
+	run.AddChild(start)
+
+	// Root command has no path (parent is nil).
+	r.Equal("", root.CommandPath())
+
+	// Direct child of root.
+	r.Equal("run", run.CommandPath())
+
+	// Grandchild: should return full path excluding root.
+	r.Equal("run start", start.CommandPath())
 }

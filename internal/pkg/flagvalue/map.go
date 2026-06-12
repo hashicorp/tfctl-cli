@@ -34,15 +34,13 @@ func (m *simpleMapValue[K, V]) Set(s string) error {
 
 	// Parse the key
 	var key K
-	_, err := fmt.Sscanf(parts[0], "%v", &key)
-	if err != nil {
+	if err := setValue(&key, parts[0]); err != nil {
 		return fmt.Errorf("failed to parse key: %w", err)
 	}
 
 	// Parse the value
 	var value V
-	_, err = fmt.Sscanf(parts[1], "%v", &value)
-	if err != nil {
+	if err := setValue(&value, parts[1]); err != nil {
 		return fmt.Errorf("failed to parse value: %w", err)
 	}
 

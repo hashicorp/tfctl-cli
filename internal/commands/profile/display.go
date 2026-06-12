@@ -6,8 +6,6 @@ package profile
 import (
 	"fmt"
 
-	"github.com/hashicorp/go-hclog"
-
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -17,22 +15,21 @@ import (
 )
 
 // NewCmdDisplay returns the `profile display` command for displaying the active profile.
-func NewCmdDisplay(ctx *cmd.Context) *cmd.Command {
+func NewCmdDisplay(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "display",
 		ShortHelp: "Display the active profile.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile display" }} command displays the active profile.
 		`, version.Name),
-		RunF: func(c *cmd.Command, _ []string) error {
-			profileNoToken := ctx.Profile
+		RunF: func(_ *cmd.Command, _ []string) error {
+			profileNoToken := inv.Profile
 			profileNoToken.Token = ""
 
 			return displayRun(&DisplayOpts{
-				IO:      ctx.IO,
-				Output:  ctx.Output,
+				IO:      inv.IO,
+				Output:  inv.Output,
 				Profile: profileNoToken,
-				Logger:  c.Logger(ctx),
 			})
 		},
 		NoAuthRequired: true,
@@ -46,7 +43,6 @@ type DisplayOpts struct {
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
 	Output  *format.Outputter
-	Logger  hclog.Logger
 }
 
 func displayRun(opts *DisplayOpts) error {
@@ -59,6 +55,7 @@ func displayRun(opts *DisplayOpts) error {
 	}
 
 	fmt.Fprint(opts.IO.Out(), opts.Profile.String())
+	fmt.Fprintln(opts.IO.Out())
 	return nil
 }
 

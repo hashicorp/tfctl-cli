@@ -4,10 +4,10 @@
 package profiles
 
 import (
+	"context"
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -25,7 +25,6 @@ func TestList(t *testing.T) {
 
 	opts := &ListOpts{
 		IO:       io,
-		Logger:   hclog.NewNullLogger(),
 		Output:   output,
 		Profiles: l,
 	}
@@ -33,17 +32,17 @@ func TestList(t *testing.T) {
 	// Create a few profiles
 	p1, err := l.NewProfile("alpha")
 	r.NoError(err)
-	p1.Organization = "alpha-org-id"
+	p1.DefaultOrganization = "alpha-org-id"
 	r.NoError(p1.Write())
 
 	p2, err := l.NewProfile("beta")
 	r.NoError(err)
-	p2.Organization = "beta-org-id"
+	p2.DefaultOrganization = "beta-org-id"
 	r.NoError(p2.Write())
 
 	p3, err := l.NewProfile("zed")
 	r.NoError(err)
-	p3.Organization = "zed-org-id"
+	p3.DefaultOrganization = "zed-org-id"
 	r.NoError(p3.Write())
 
 	// Set beta as active
@@ -53,14 +52,14 @@ func TestList(t *testing.T) {
 	r.NoError(active.Write())
 
 	// Call list
-	r.NoError(listRun(opts))
+	r.NoError(listRun(context.Background(), opts))
 
 	// Check we got the output we expected
 	expected := [][]string{
-		{"Name", "Active", "Organization"},
-		{p1.Name, "false", p1.Organization},
-		{p2.Name, "true", p2.Organization},
-		{p3.Name, "false", p3.Organization},
+		{"Name", "Active", "Default Organization"},
+		{p1.Name, "false", p1.DefaultOrganization},
+		{p2.Name, "true", p2.DefaultOrganization},
+		{p3.Name, "false", p3.DefaultOrganization},
 	}
 
 	lines := strings.Split(io.Output.String(), "\n")

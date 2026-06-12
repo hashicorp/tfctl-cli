@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-tfe/api/models"
-	"github.com/hashicorp/go-tfe/api/organizations"
+	"github.com/hashicorp/go-tfe/v2/api/models"
+	"github.com/hashicorp/go-tfe/v2/api/organizations"
 	abstractions "github.com/microsoft/kiota-abstractions-go"
 )
 
@@ -111,20 +111,20 @@ func extractCurrentRunID(rel models.RunsIdable, wsRef string) (string, error) {
 }
 
 // ResolveFromName resolves a resource ID from a name, based on the resource type. If the resource type is not recognized, the name is returned as-is.
-func (r Resolver) ResolveFromName(goCtx context.Context, resourceType, org, name string) (*string, error) {
+func (r Resolver) ResolveFromName(ctx context.Context, resourceType, org, name string) (*string, error) {
 	switch resourceType {
 	case "workspaces":
-		ws, err := r.Workspace(goCtx, org, name)
+		ws, err := r.Workspace(ctx, org, name)
 		if err != nil {
 			return nil, err
 		}
 		return ws.GetId(), nil
 	case "teams":
-		return r.Team(goCtx, org, name)
+		return r.Team(ctx, org, name)
 	case "projects":
-		return r.Project(goCtx, org, name)
+		return r.Project(ctx, org, name)
 	case "varsets":
-		return r.VariableSet(goCtx, org, name)
+		return r.VariableSet(ctx, org, name)
 	default:
 		return &name, nil
 	}

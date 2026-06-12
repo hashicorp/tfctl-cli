@@ -11,15 +11,15 @@ import (
 // NewCmdRunStatusSample creates the hidden `run status-sample` command.
 // It renders a pre-populated RunSummary with all potential failure types for
 // visual inspection.
-func NewCmdRunStatusSample(ctx *cmd.Context) *cmd.Command {
+func NewCmdRunStatusSample(inv *cmd.Invocation) *cmd.Command {
 	return &cmd.Command{
 		Name:           "status-sample",
 		ShortHelp:      "Display a sample run status with all failure types.",
 		Hidden:         true,
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
-			d := &summaryDisplayer{summary: sampleRunSummary(), io: ctx.IO}
-			return ctx.Output.Display(d)
+			d := &summaryDisplayer{summary: sampleRunSummary(), io: inv.IO}
+			return inv.Output.Display(d)
 		},
 	}
 }

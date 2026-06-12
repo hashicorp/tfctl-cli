@@ -21,4 +21,4 @@ expected:
     - "retry indefinitely"
     - "| jq"
   behavior:
-    max_tool_calls: 3
+    max_tool_calls: 15

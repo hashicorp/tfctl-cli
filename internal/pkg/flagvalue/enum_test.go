@@ -54,6 +54,23 @@ func TestEnum_String(t *testing.T) {
 	r.ErrorContains(err, "must be one of [trace debug info warn error]")
 }
 
+func TestEnum_StringWithSpaces(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	var choice string
+	f := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	f.AddFlag(&pflag.Flag{
+		Name:  "choice",
+		Value: flagvalue.Enum([]string{"Another Project", "Hello World"}, "Another Project", &choice),
+	})
+
+	// A multi-word enum value must match an allowed value verbatim rather
+	// than being truncated at the first space.
+	r.NoError(f.Parse([]string{"--choice", "Hello World"}))
+	r.Equal("Hello World", choice)
+}
+
 func TestEnum_Int(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)

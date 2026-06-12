@@ -14,7 +14,6 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
-	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // availableProperties returns a document section describing all the available
@@ -33,19 +32,16 @@ func availableProperties(io iostreams.IOStreams) *availablePropertiesBuilder {
 }
 
 func addCoreProperties(b *availablePropertiesBuilder) {
-	b.AddProperty("", "organization", "Organization of the HCP Terraform or Terraform Enterprise organization to operate on.")
+	b.AddProperty("", "default_organization", "Organization of the HCP Terraform or Terraform Enterprise organization to operate on by default.")
 	b.AddProperty("", "hostname", `
 		Default hostname API endpoints, if different from HCP Terraform (app.terraform.io). This affects which regional
 		endpoints are used for HCP services. For eu regions, use app.eu.terraform.io.`)
 	b.AddProperty("", "token", "The API token to use for all requests.")
 	b.AddProperty("", "no_color", "If True, color will not be used when printing messages in the terminal.")
-	b.AddProperty("", "quiet", "If True, prompts will be disabled and output will be minimized.")
-	b.AddProperty("", "verbosity", `
-		Default logging verbosity for {{ template "mdCodeOrBold" "%s" }} commands. This is the
-		equivalent of using the global {{ template "mdCodeOrBold" "--debug" }} flag. Supported log levels:
-		{{ template "mdCodeOrBold" "trace" }}, {{ template "mdCodeOrBold" "debug" }},
-		{{ template "mdCodeOrBold" "info" }}, {{ template "mdCodeOrBold" "warn" }}, and
-		{{ template "mdCodeOrBold" "error" }}.`, version.Name)
+	b.AddProperty("", "telemetry", `
+		Controls telemetry behavior. Set to {{ template "mdCodeOrBold" "false" }} or
+		{{ template "mdCodeOrBold" "disabled" }} to disable telemetry, {{ template "mdCodeOrBold" "log" }}
+		to output span data to stderr, or any other value to enable OTLP export.`)
 }
 
 type availablePropertiesBuilder struct {

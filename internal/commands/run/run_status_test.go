@@ -41,7 +41,7 @@ func testAPI(t *testing.T, handler http.Handler) *client.Client {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	c, err := client.New(server.URL, "test-token", nil)
+	c, err := client.New(context.Background(), server.URL, "test-token", nil)
 	require.NoError(t, err)
 	return c
 }
@@ -323,11 +323,11 @@ func TestRunStatus_ExitCode(t *testing.T) {
 			io := iostreams.Test()
 			out := format.New(io)
 			opts := &StatusOpts{
-				IO: io, ShutdownCtx: context.Background(),
+				IO:     io,
 				Output: out, Client: c, ID: "run-1",
 			}
 
-			err := runStatus(opts)
+			err := runStatus(context.Background(), opts)
 			if tt.wantErr {
 				assert.ErrorIs(t, err, cmd.ErrUnderlyingError)
 			} else {

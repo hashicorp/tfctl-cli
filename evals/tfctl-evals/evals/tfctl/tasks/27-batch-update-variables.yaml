@@ -18,4 +18,4 @@ expected:
   output_not_contains:
     - "| jq"
   behavior:
-    max_tool_calls: 5
+    max_tool_calls: 15

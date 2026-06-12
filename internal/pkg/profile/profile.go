@@ -5,16 +5,15 @@ package profile
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"slices"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclwrite"
@@ -26,20 +25,9 @@ const (
 	// the ConfigDir.
 	ActiveProfileFileName = "active_profile.hcl"
 
-	// VerbosityTrace is the trace verbosity level, which logs all messages including very detailed tracing messages.
-	VerbosityTrace = "trace"
-
-	// VerbosityDebug is the debug verbosity level, which logs debugging messages and above.
-	VerbosityDebug = "debug"
-
-	// VerbosityInfo is the info verbosity level, which logs informational messages and above.
-	VerbosityInfo = "info"
-
-	// VerbosityWarn is the warning verbosity level, which logs warning messages and above.
-	VerbosityWarn = "warn"
-
-	// VerbosityError is the error verbosity level, which only logs error messages.
-	VerbosityError = "error"
+	// DeviceIDFileName is the file name of the uuid used to identify this CLI installation for
+	// telemetry purposes, stored in the ConfigDir.
+	DeviceIDFileName = "device_id"
 )
 
 var (
@@ -87,23 +75,21 @@ type Profile struct {
 	// Name is the name of the profile
 	Name string `hcl:"name"`
 
-	// Organization stores the organization to make requests against.
-	Organization string `hcl:"organization"`
+	// DefaultOrganization stores the default organization to make requests against.
+	DefaultOrganization string `hcl:"default_organization"`
 
 	// NoColor disables color output
 	NoColor *bool `hcl:"no_color,optional" json:",omitempty"`
-
-	// Verbosity is the default verbosity to log at
-	Verbosity *string `hcl:"verbosity,optional" json:",omitempty"`
-
-	// Quiet is whether the CLI should minimize output
-	Quiet *bool `hcl:"quiet,optional" json:",omitempty"`
 
 	// Hostname is the profile's configured hostname for API requests. If not set, the default is app.terraform.io.
 	Hostname string `hcl:"hostname,optional" json:",omitempty"`
 
 	// Token is the API token to use for API requests. If not set, the CLI will look for the token in the environment or terraform credentials.
 	Token string `hcl:"token,optional" json:",omitempty"`
+
+	// Telemetry controls telemetry behavior. Values: "false"/"disabled" to disable,
+	// "log" to write spans to stderr, or any other value (including empty) to enable OTLP export.
+	Telemetry *string `hcl:"telemetry,optional" json:",omitempty"`
 
 	// tokenFromEnv is the token extracted from the environment. This is not written to disk and is only used to allow GetToken
 	// to return a token from the environment if one is not set on the profile.
@@ -120,8 +106,7 @@ type Profile struct {
 func (p *Profile) Predict(args complete.Args) []string {
 	properties := map[string][]string{
 		"no_color":  {"true", "false"},
-		"verbosity": {VerbosityTrace, VerbosityDebug, VerbosityInfo, VerbosityWarn, VerbosityError},
-		"quiet":     {"true", "false"},
+		"telemetry": {"true", "false", "disabled", "log"},
 	}
 
 	// If the property has been specified, return possible values.
@@ -134,7 +119,7 @@ func (p *Profile) Predict(args complete.Args) []string {
 
 	// predicting the property
 	if len(args.All) == 1 {
-		return []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token"}
+		return []string{"default_organization", "no_color", "hostname", "token", "telemetry"}
 	}
 
 	return nil
@@ -142,13 +127,13 @@ func (p *Profile) Predict(args complete.Args) []string {
 
 // HostCache returns a HostCacheLoader for the profile, which can be used to
 // read and write host-specific cache files.
-func (p *Profile) HostCache(logger hclog.Logger) (*HostCacheLoader, error) {
+func (p *Profile) HostCache(ctx context.Context) (*HostCacheLoader, error) {
 	hostname := p.GetHostname()
 	if hostname == "" {
 		return nil, fmt.Errorf("cannot get host cache with empty hostname")
 	}
 
-	return NewHostCacheLoader(p.hostCacheDir, hostname, logger)
+	return NewHostCacheLoader(ctx, p.hostCacheDir, hostname)
 }
 
 // Validate validates that the set values are valid. It validates parameters
@@ -159,11 +144,6 @@ func (p *Profile) Validate() error {
 	const nameRegex = "^[A-Za-z][A-Za-z0-9_]{0,63}$"
 	if matched, _ := regexp.MatchString(nameRegex, p.Name); !matched {
 		err = multierror.Append(err, ErrInvalidProfileName)
-	}
-
-	allowedVerbosities := []string{VerbosityTrace, VerbosityDebug, VerbosityInfo, VerbosityWarn, VerbosityError}
-	if f := p.GetVerbosity(); f != "" && !slices.Contains(allowedVerbosities, f) {
-		err = multierror.Append(err, fmt.Errorf("invalid verbosity %q. Must be one of: %q", f, allowedVerbosities))
 	}
 
 	err.ErrorFormat = func(errors []error) string {
@@ -249,20 +229,6 @@ func doWalkStructElements(path string, t reflect.Type, keys map[string]struct{})
 	}
 }
 
-// GetVerbosity returns the set verbosity or an empty string if it has not been
-// configured.
-func (p *Profile) GetVerbosity() string {
-	if p == nil {
-		return ""
-	}
-
-	if p.Verbosity == nil {
-		return ""
-	}
-
-	return *p.Verbosity
-}
-
 // GetToken returns the token set on the profile, or the token extracted from the environment
 // if one is available.
 func (p *Profile) GetToken() string {
@@ -290,25 +256,25 @@ func (p *Profile) GetHostname() string {
 	return p.Hostname
 }
 
-// SetOrg sets the Organization.
-func (p *Profile) SetOrg(name string) *Profile {
+// SetDefaultOrganization sets the default organization.
+func (p *Profile) SetDefaultOrganization(name string) *Profile {
 	if p == nil {
 		return nil
 	}
 
-	p.Organization = name
+	p.DefaultOrganization = name
 	return p
 }
 
-// IsQuiet returns whether the quiet property has been configured to be quiet.
-func (p *Profile) IsQuiet() bool {
+// GetTelemetry returns the telemetry setting or an empty string if unset.
+func (p *Profile) GetTelemetry() string {
 	if p == nil {
-		return false
+		return ""
 	}
 
-	if p.Quiet == nil {
-		return false
+	if p.Telemetry == nil {
+		return ""
 	}
 
-	return *p.Quiet
+	return *p.Telemetry
 }

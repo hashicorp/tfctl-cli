@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -22,21 +21,21 @@ import (
 )
 
 // NewCmdGet returns the `profile get` command for getting a CLI configuration property.
-func NewCmdGet(ctx *cmd.Context) *cmd.Command {
+func NewCmdGet(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "get",
 		ShortHelp: fmt.Sprintf("Get a %s CLI configuration property.", version.Name),
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile get" }} command gets the specified property in your active profile.
 
 		To view all currently set properties, run {{ template "mdCodeOrBold" "%s profile display" }}.
 		`, version.Name, version.Name),
 		Args: cmd.PositionalArguments{
-			Autocomplete: ctx.Profile,
+			Autocomplete: inv.Profile,
 			Args: []cmd.PositionalArgument{
 				{
 					Name: "PROPERTY",
-					Documentation: heredoc.New(ctx.IO).Must(`
+					Documentation: heredoc.New(inv.IO).Must(`
 					Property to be get, such as
 					{{ template "mdCodeOrBold" "organization" }} and
 					{{ template "mdCodeOrBold" "hostname" }}.
@@ -47,21 +46,19 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		AdditionalDocs: []cmd.DocSection{
-			availablePropertiesDoc(ctx.IO),
+			availablePropertiesDoc(inv.IO),
 		},
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			opts := &GetOpts{
-				Ctx:     ctx.ShutdownCtx,
-				IO:      ctx.IO,
-				Output:  ctx.Output,
-				Profile: ctx.Profile,
-				Logger:  c.Logger(ctx),
+				IO:      inv.IO,
+				Output:  inv.Output,
+				Profile: inv.Profile,
 			}
 
 			opts.Property = args[0]
 
-			return getRun(opts)
+			return getRun(inv.ShutdownCtx, opts)
 		},
 	}
 
@@ -70,16 +67,14 @@ func NewCmdGet(ctx *cmd.Context) *cmd.Command {
 
 // GetOpts defines the options for the `profile get` command.
 type GetOpts struct {
-	Ctx     context.Context
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
 	Output  *format.Outputter
-	Logger  hclog.Logger
 
 	Property string
 }
 
-func getRun(opts *GetOpts) error {
+func getRun(_ context.Context, opts *GetOpts) error {
 	if err := IsValidProperty(opts.Property); err != nil {
 		return err
 	}

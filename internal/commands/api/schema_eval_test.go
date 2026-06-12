@@ -11,8 +11,6 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
-	"github.com/hashicorp/go-hclog"
-
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
 )
@@ -127,7 +125,7 @@ func TestSchemaSearchSummary(t *testing.T) {
 }
 
 func TestSpecBackedSchemaSearch(t *testing.T) {
-	schema := loadSchemaOperationsForSchemaCommand(testCommandContext(iostreams.Test()), hclog.NewNullLogger())
+	schema := openapi.SchemaFactory(testCommandContext(iostreams.Test()))
 	if schema == nil {
 		t.Fatal("failed to load schema")
 	}

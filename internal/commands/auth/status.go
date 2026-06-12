@@ -21,18 +21,17 @@ import (
 )
 
 // NewCmdStatus returns the `auth status` command for displaying auth info.
-func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
+func NewCmdStatus(inv *cmd.Invocation) *cmd.Command {
 	opts := &StatusOpts{
-		Ctx:     ctx.ShutdownCtx,
-		IO:      ctx.IO,
-		Profile: ctx.Profile,
-		Output:  ctx.Output,
+		IO:      inv.IO,
+		Profile: inv.Profile,
+		Output:  inv.Output,
 	}
 
 	cmd := &cmd.Command{
 		Name:      "status",
 		ShortHelp: "Display information about the current authentication.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s auth status" }} command displays
 		information about the currently authenticated account and token,
 		including when the token expires if that information is available.
@@ -44,15 +43,15 @@ func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, _ []string) error {
-			if ctx.Profile.GetToken() != "" {
-				apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
+		RunF: func(_ *cmd.Command, _ []string) error {
+			if inv.Profile.GetToken() != "" {
+				apiClient, err := inv.NewAPIClient()
 				if err != nil {
 					return fmt.Errorf("failed to create API client: %w", err)
 				}
 				opts.APIClient = apiClient
 			}
-			return runStatus(opts)
+			return runStatus(inv.ShutdownCtx, opts)
 		},
 	}
 
@@ -61,7 +60,6 @@ func NewCmdStatus(ctx *cmd.Context) *cmd.Command {
 
 // StatusOpts defines the options for the `auth status` command.
 type StatusOpts struct {
-	Ctx       context.Context
 	IO        iostreams.IOStreams
 	Profile   *profile.Profile
 	Output    *format.Outputter
@@ -77,7 +75,7 @@ type StatusResult struct {
 	Active    bool       `json:"active"`
 }
 
-func runStatus(opts *StatusOpts) error {
+func runStatus(ctx context.Context, opts *StatusOpts) error {
 	hostname := opts.Profile.GetHostname()
 
 	// No token configured at all.
@@ -88,7 +86,7 @@ func runStatus(opts *StatusOpts) error {
 	apiClient := opts.APIClient
 
 	// Call /account/details.
-	resp, err := apiClient.TFE.API.Account().Details().Get(opts.Ctx, nil)
+	resp, err := apiClient.TFE.API.Account().Details().Get(ctx, nil)
 	if err != nil {
 		return displayUnauthorized(opts, hostname)
 	}
@@ -132,7 +130,7 @@ func runStatus(opts *StatusOpts) error {
 				}
 			}
 			if pathStr != "" {
-				expiresAt = fetchTokenExpiration(opts.Ctx, apiClient, pathStr)
+				expiresAt = fetchTokenExpiration(ctx, apiClient, pathStr)
 			}
 		}
 	}

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-tfe/api/models"
+	"github.com/hashicorp/go-tfe/v2/api/models"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -40,11 +40,11 @@ type CreateOpts struct {
 }
 
 // NewCmdRunStart creates the `run start` command.
-func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
+func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 	startOpts := StartOpts{
-		IO:      ctx.IO,
-		Profile: ctx.Profile,
-		Output:  ctx.Output,
+		IO:      inv.IO,
+		Profile: inv.Profile,
+		Output:  inv.Output,
 	}
 
 	runOpts := CreateOpts{}
@@ -52,7 +52,7 @@ func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "start",
 		ShortHelp: "Start a new run on a workspace.",
-		LongHelp: heredoc.New(ctx.IO, heredoc.WithPreserveNewlines()).Mustf(`
+		LongHelp: heredoc.New(inv.IO, heredoc.WithPreserveNewlines()).Mustf(`
 		The {{ template "mdCodeOrBold" "%s run start" }} command creates a new plan and apply run with the most recent configuration. {{ Bold "If auto-apply is enabled and no errors occur, the plan will be automatically applied." }}
 
 		The ID argument can be:
@@ -96,20 +96,20 @@ func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 		Examples: []cmd.Example{
 			{
 				Preamble: "Start a new run in a workspace by ID",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start ws-abc123`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start ws-abc123`, version.Name),
 			},
 			{
 				Preamble: "Start a new run in a workspace by name",
-				Command:  heredoc.New(ctx.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start my-workspace --organization my-org`, version.Name),
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start my-workspace --organization my-org`, version.Name),
 			},
 		},
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			if len(args) != 1 {
 				return cmd.ErrDisplayUsage
 			}
 
 			if startOpts.Organization == "" {
-				startOpts.Organization = ctx.Profile.Organization
+				startOpts.Organization = inv.Profile.DefaultOrganization
 			}
 			if startOpts.Organization == "" {
 				cfg, err := terraformcfg.FindCloudConfig(".")
@@ -119,16 +119,16 @@ func NewCmdRunStart(ctx *cmd.Context) *cmd.Command {
 			}
 
 			startOpts.Workspace = args[0]
-			startOpts.DryRun = ctx.IsDryRun()
+			startOpts.DryRun = inv.IsDryRun()
 
-			apiClient, err := ctx.NewAPIClient(c.Logger(ctx))
+			apiClient, err := inv.NewAPIClient()
 			if err != nil {
 				return fmt.Errorf("unable to create API client: %w", err)
 			}
 
 			startOpts.APIClient = apiClient
 
-			return runStart(ctx.ShutdownCtx, startOpts, runOpts)
+			return runStart(inv.ShutdownCtx, startOpts, runOpts)
 		},
 	}
 

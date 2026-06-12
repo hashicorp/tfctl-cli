@@ -765,129 +765,7 @@ The HCP Terraform API typically requires a resource ID as part of the path for r
   - Repeatable
   - Data type: String formatted as `<name>=<value>`
 
-- `--field`, `-f`: Set query parameter in request URL.
-  - Repeatable
-  - Data type: String formatted as `<key>=<value>`
-
-- `--header`, `-H`: Set request header.
-  - Repeatable
-  - Data type: String formatted as `<name>: <value>`
-
-- `--input`, `-i`: Specifies the raw JSON request body. You can specify the path if the JSON file is in a different directory. Use `-` to read from stdin.
-  - Optional
-  - Data type: String
-
-- `--method`, `-X`: HTTP method to use (such as `GET` or `POST`)
-  - Optional
-  - Data type: String
-
-- `--page-number`: Page number to return. Ignored when `--all` is set.
-  - Optional
-  - Data type: Number
-  - Default: `1`
-
-- `--page-size`: Limit the number of records to return. Default varies by resource. Ignored when `--all` is set.
-  - Optional
-  - Data type: Number
-
-- `--pathparam`, `-p`: Provide a hint for path parameter resolution.
-  - Repeatable
-  - Data type: String  formatted as `<name>=<value>`
-
-- `--type`, `-t`: Resource type for `--attribute JSON:API` request bodies.
-  - Optional
-  - Data type: String
-
-#### Examples
-
-Print out details about the account associated with the configured token in JSON format:
-
-```bash
-$ tfctl api /account/details --json
-```
-
-Create a project named `my-project` for the currently configured organization:
-
-```bash
-$ tfctl api /organizations/{organization}/projects --attribute="name=my-project" --attribute="description=A very fine project indeed."
-```
-
-Print a list of all the workspaces for the currently configured organization, up to a limit of 2000, sorted by the time the last run was started, in descending order:
-
-```bash
-$ tfctl api /organizations/{organization}/workspaces --all --field="sort=-current-run.created-at"
-```
-
-#### Related
-
-- [`tfctl api schema`](#tfctl-api-schema-get-reference): Inspect API schema
-- [Configuration reference](#configuration-reference)
-- [Global flags](#global-flags)
-
-### `tfctl api schema get` reference
-
-**Usage:** `tfctl api schema get <operation_id_or_path> [options]`
-
-#### Description
-
-Show a trimmed OpenAPI document for a single operationId or all operations on an exact API path.
-
-#### Arguments
-
-- `<operation_id_or_path>`: Either the OpenAPI `operationId` or API path to inspect. The operation ID must be the exact value. The API path must begin with `/`.
-  - Required argument
-  - Data type: String
-
-#### Examples
-
-Inspect the `getWorkspace` operation:
-
-```bash
-$ tfctl api schema get getWorkspace
-```
-
-Print out all operations available for workspaces:
-
-```bash 
-$ tfctl api schema get /organizations/{organization}/workspaces
-```
-
-#### Related
-
-- [`tfctl api`](#tfctl-api-reference): Perform API requests
-- [Global flags](#global-flags)
-
-### `tfctl api schema search` reference
-
-**Usage:** `tfctl api schema search <query> [<query> ...] [options]`
-
-#### Description
-
-Search API operations by keywords.
-
-#### Arguments
-
-- `<query>`: The search query to match against API operations.
-  - Required argument
-  - Repeatable  
-  - Data type: String
-
-#### Examples
-
-Search for workspace-related operations:
-
-```bash
-$ tfctl api schema search workspace
-```
-
-#### Related
-
-- [`tfctl api`](#tfctl-api-reference): Perform API requests
-- [Global flags](#global-flags)
-
-## Exit codes
-
-The `tfctl` command returns the following shell exit codes depending on whether the command exited successfully or with an error:
+### Exit Codes
 
 | Exit | Meaning                          | Solution                              |
 |------|----------------------------------|---------------------------------------|
@@ -899,3 +777,20 @@ The `tfctl` command returns the following shell exit codes depending on whether 
 | 5    | API Server Error Persists        | Try again later                       |
 | 6    | Underlying error detected        | Varies depending on error condition   |
 | 130  | Canceled (ctrl-c).               | &mdash;                               |
+
+
+### Telemetry
+
+By default, HashiCorp collects basic telemetry for each command invocation, including command details and OS/process information. You can disable telemetry using any of these methods: Set `TFCTL_TELEMETRY` to `disabled`, Set `DO_NOT_TRACK` to `true`, or set telemetry to disabled in your profile: 
+
+```bash
+$ tfctl profile set telemetry disabled
+```
+
+### Uninstall/Clean up
+
+**Uninstall Shell Completions**
+
+```bash
+$ tfctl --autocomplete-uninstall
+```

@@ -15,11 +15,11 @@ import (
 )
 
 // NewCmdProfiles returns the `profile profiles` command for managing configuration profiles.
-func NewCmdProfiles(ctx *cmd.Context) *cmd.Command {
+func NewCmdProfiles(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "profiles",
 		ShortHelp: "Manage configuration profiles.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile profiles" }} command group manages 
 		the set of named %s profiles. You can create new profiles using
 		{{ template "mdCodeOrBold" "%s profile profiles create" }} and activate existing
@@ -29,11 +29,11 @@ func NewCmdProfiles(ctx *cmd.Context) *cmd.Command {
 		`, version.Name, version.Name, version.Name, version.Name),
 	}
 
-	cmd.AddChild(NewCmdCreate(ctx))
-	cmd.AddChild(NewCmdDelete(ctx))
-	cmd.AddChild(NewCmdList(ctx))
-	cmd.AddChild(NewCmdActivate(ctx))
-	cmd.AddChild(NewCmdRename(ctx))
+	cmd.AddChild(NewCmdCreate(inv))
+	cmd.AddChild(NewCmdDelete(inv))
+	cmd.AddChild(NewCmdList(inv))
+	cmd.AddChild(NewCmdActivate(inv))
+	cmd.AddChild(NewCmdRename(inv))
 
 	return cmd
 }

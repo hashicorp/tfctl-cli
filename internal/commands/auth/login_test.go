@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -37,29 +36,24 @@ func newFakeTFE(t *testing.T, username string) *httptest.Server {
 	return srv
 }
 
-// stubBrowser replaces openBrowserFn with a no-op for the duration of the test.
-func stubBrowser(t *testing.T) {
-	t.Helper()
-	orig := openBrowserFn
-	openBrowserFn = func(url string) error { return nil }
-	t.Cleanup(func() { openBrowserFn = orig })
-}
-
-// runLogin mimics the RunF flow by creating a cmd.Context and calling loginRun.
+// runLogin mimics the RunF flow by creating a cmd.Invocation and calling loginRun.
+// It injects a no-op browser opener into the options so tests never launch a
+// real browser and never mutate shared package state (keeping them race-free
+// under t.Parallel()).
 func runLogin(t *testing.T, opts *LoginOpts) error {
 	t.Helper()
-	if opts.Logger == nil {
-		opts.Logger = hclog.NewNullLogger()
+	if opts.OpenBrowser == nil {
+		opts.OpenBrowser = func(string) error { return nil }
 	}
-	cmdCtx := &cmd.Context{
-		IO:      opts.IO,
-		Profile: opts.Profile,
+	inv := &cmd.Invocation{
+		IO:          opts.IO,
+		Profile:     opts.Profile,
+		ShutdownCtx: context.Background(),
 	}
-	return loginRun(cmdCtx, opts)
+	return loginRun(inv.ShutdownCtx, inv, opts)
 }
 
 func TestLoginFromStdin(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -73,7 +67,6 @@ func TestLoginFromStdin(t *testing.T) {
 	io.Input.WriteString("my-test-token\n")
 
 	opts := &LoginOpts{
-		Ctx:     context.Background(),
 		IO:      io,
 		Profile: p,
 		Token:   true,
@@ -89,7 +82,6 @@ func TestLoginFromStdin(t *testing.T) {
 }
 
 func TestLoginFromStdin_CustomHostname(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -114,7 +106,6 @@ func TestLoginFromStdin_CustomHostname(t *testing.T) {
 }
 
 func TestLoginFromStdin_EmptyToken(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -137,7 +128,6 @@ func TestLoginFromStdin_EmptyToken(t *testing.T) {
 }
 
 func TestLoginFromStdin_NoInput(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -159,7 +149,6 @@ func TestLoginFromStdin_NoInput(t *testing.T) {
 }
 
 func TestLoginFromStdin_WhitespaceToken(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -182,7 +171,6 @@ func TestLoginFromStdin_WhitespaceToken(t *testing.T) {
 }
 
 func TestLoginFromStdin_TokenWithWhitespace(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -209,7 +197,6 @@ func TestLoginFromStdin_TokenWithWhitespace(t *testing.T) {
 }
 
 func TestLoginInteractive_NoTTY(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -231,7 +218,6 @@ func TestLoginInteractive_NoTTY(t *testing.T) {
 }
 
 func TestLoginInteractive_Success(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -244,6 +230,9 @@ func TestLoginInteractive_Success(t *testing.T) {
 	io := iostreams.Test()
 	io.InputTTY = true
 	io.ErrorTTY = true
+	// PromptConfirm (Testing) consumes a single "y" byte; ReadSecret then reads
+	// the remaining bytes as the pasted token.
+	io.Input.WriteString("y")
 	io.Input.WriteString("interactive-token\n")
 
 	opts := &LoginOpts{
@@ -253,7 +242,7 @@ func TestLoginInteractive_Success(t *testing.T) {
 	}
 
 	r.NoError(runLogin(t, opts))
-	r.Contains(io.Error.String(), "Opening browser")
+	r.Contains(io.Error.String(), "Opening your browser")
 	r.Contains(io.Error.String(), "Successfully logged in")
 	r.Contains(io.Error.String(), "interactive-user")
 
@@ -263,7 +252,6 @@ func TestLoginInteractive_Success(t *testing.T) {
 }
 
 func TestLoginFromStdin_DifferentProfile(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -302,7 +290,6 @@ func TestLoginFromStdin_DifferentProfile(t *testing.T) {
 }
 
 func TestLoginFromStdin_DryRun(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -337,7 +324,6 @@ func TestLoginFromStdin_DryRun(t *testing.T) {
 }
 
 func TestLoginInteractive_DryRun(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -354,6 +340,7 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 	io := iostreams.Test()
 	io.InputTTY = true
 	io.ErrorTTY = true
+	io.Input.WriteString("y")
 	io.Input.WriteString("interactive-token\n")
 
 	opts := &LoginOpts{
@@ -373,7 +360,6 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 }
 
 func TestLoginFromStdin_QuietMode(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -402,7 +388,6 @@ func TestLoginFromStdin_QuietMode(t *testing.T) {
 }
 
 func TestLoginFromStdin_VerifyFails(t *testing.T) {
-	stubBrowser(t)
 	t.Parallel()
 	r := require.New(t)
 
@@ -428,4 +413,116 @@ func TestLoginFromStdin_VerifyFails(t *testing.T) {
 	loaded, err := l.LoadProfile(p.Name)
 	r.NoError(err)
 	r.NotEqual("bad-token", loaded.Token)
+}
+
+func TestLoginInteractive_ConfirmOpensBrowserWithSource(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	srv := newFakeTFE(t, "interactive-user")
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	p.Hostname = srv.URL
+	r.NoError(p.Write())
+
+	io := iostreams.Test()
+	io.InputTTY = true
+	io.ErrorTTY = true
+	// Confirm with a single "y" byte (consumed by PromptConfirm), then the token
+	// (read by ReadSecret).
+	io.Input.WriteString("y")
+	io.Input.WriteString("interactive-token\n")
+
+	var openedURL string
+	opened := false
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   false,
+		OpenBrowser: func(u string) error {
+			opened = true
+			openedURL = u
+			return nil
+		},
+	}
+
+	r.NoError(runLogin(t, opts))
+
+	r.True(opened, "browser is opened after the user confirms")
+	r.Contains(openedURL, "/app/settings/tokens")
+	r.Contains(openedURL, "?source=tfctl-login")
+	r.Contains(io.Error.String(), "Do you want to proceed")
+
+	loaded, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	r.Equal("interactive-token", loaded.Token)
+}
+
+func TestLoginInteractive_DeclineDoesNotOpenBrowser(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	r.NoError(p.Write())
+
+	initial, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	initialToken := initial.Token
+
+	io := iostreams.Test()
+	io.InputTTY = true
+	io.ErrorTTY = true
+	// Decline with a single "n" byte.
+	io.Input.WriteString("n")
+
+	opened := false
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   false,
+		OpenBrowser: func(string) error {
+			opened = true
+			return nil
+		},
+	}
+
+	// Declining is a clean, non-error exit and must not open the browser or
+	// mutate the stored token.
+	r.NoError(runLogin(t, opts))
+	r.False(opened, "browser must not open when the user declines")
+	r.Contains(io.Error.String(), "Login canceled.")
+
+	loaded, err := l.LoadProfile(p.Name)
+	r.NoError(err)
+	r.Equal(initialToken, loaded.Token, "token is unchanged when login is declined")
+}
+
+func TestLoginFromStdin_DoesNotPromptOrOpenBrowser(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	srv := newFakeTFE(t, "testuser")
+	l := profile.TestLoader(t)
+	p := l.DefaultProfile()
+	p.Hostname = srv.URL
+	r.NoError(p.Write())
+
+	io := iostreams.Test()
+	io.Input.WriteString("my-test-token\n")
+
+	opened := false
+	opts := &LoginOpts{
+		IO:      io,
+		Profile: p,
+		Token:   true,
+		OpenBrowser: func(string) error {
+			opened = true
+			return nil
+		},
+	}
+
+	r.NoError(runLogin(t, opts))
+	r.False(opened, "stdin/--token mode must not open a browser")
+	r.NotContains(io.Error.String(), "Do you want to proceed")
 }

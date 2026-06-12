@@ -9,23 +9,23 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // NewCmdSet returns the `profile set` command for setting a profile configuration property.
-func NewCmdSet(ctx *cmd.Context) *cmd.Command {
+func NewCmdSet(inv *cmd.Invocation) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "set",
 		ShortHelp: "Set a profile configuration property.",
-		LongHelp: heredoc.New(ctx.IO).Mustf(`
+		LongHelp: heredoc.New(inv.IO).Mustf(`
 		The {{ template "mdCodeOrBold" "%s profile set" }} command sets the specified property in your
 		active profile. A property governs the behavior of a specific aspect of the %s CLI.
 		This could be setting the hostname and organization to target, or configuring the default
@@ -41,11 +41,11 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 		and {{ template "mdCodeOrBold" "%s profile profiles activate" }} to switch between them.
 		`, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name, version.Name),
 		Args: cmd.PositionalArguments{
-			Autocomplete: ctx.Profile,
+			Autocomplete: inv.Profile,
 			Args: []cmd.PositionalArgument{
 				{
 					Name: "PROPERTY",
-					Documentation: heredoc.New(ctx.IO).Must(`
+					Documentation: heredoc.New(inv.IO).Must(`
 					Property to be set, such as
 					{{ template "mdCodeOrBold" "organization" }} and
 					{{ template "mdCodeOrBold" "hostname" }}.
@@ -60,22 +60,20 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 			},
 		},
 		AdditionalDocs: []cmd.DocSection{
-			availablePropertiesDoc(ctx.IO),
+			availablePropertiesDoc(inv.IO),
 		},
 		NoAuthRequired: true,
-		RunF: func(c *cmd.Command, args []string) error {
+		RunF: func(_ *cmd.Command, args []string) error {
 			opts := &SetOpts{
-				Ctx:     ctx.ShutdownCtx,
-				IO:      ctx.IO,
-				Profile: ctx.Profile,
-				Output:  ctx.Output,
-				Logger:  c.Logger(ctx),
+				IO:      inv.IO,
+				Profile: inv.Profile,
+				Output:  inv.Output,
 			}
 
 			opts.Property = args[0]
 			opts.Value = args[1]
-			opts.DryRun = ctx.IsDryRun()
-			return setRun(opts)
+			opts.DryRun = inv.IsDryRun()
+			return setRun(inv.ShutdownCtx, opts)
 		},
 	}
 
@@ -84,11 +82,9 @@ func NewCmdSet(ctx *cmd.Context) *cmd.Command {
 
 // SetOpts defines the options for the `profile set` command.
 type SetOpts struct {
-	Ctx     context.Context
 	IO      iostreams.IOStreams
 	Profile *profile.Profile
 	Output  *format.Outputter
-	Logger  hclog.Logger
 
 	// Arguments
 	Property string
@@ -96,7 +92,7 @@ type SetOpts struct {
 	DryRun   bool
 }
 
-func setRun(opts *SetOpts) error {
+func setRun(ctx context.Context, opts *SetOpts) error {
 	// Validate we are not changing the name
 	if opts.Property == "name" {
 		return fmt.Errorf("to update a profile name use %s",
@@ -108,7 +104,8 @@ func setRun(opts *SetOpts) error {
 		return err
 	}
 
-	opts.Logger.Debug("setting property", "property", opts.Property, "profile", opts.Profile.Name)
+	logger := logging.FromContext(ctx)
+	logger.Debug("setting property", "property", opts.Property, "profile", opts.Profile.Name)
 
 	p := opts.Profile
 	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
@@ -163,12 +160,12 @@ func setRun(opts *SetOpts) error {
 		return nil
 	}
 
-	// Check if geography was changed and clear org/project if needed
+	// Check if hostname was changed and clear default_organization/token
 	hostnameChanged := false
 	if opts.Property == "hostname" {
 		hostnameChanged = true
-		// Clear organization and token to force re-initialization
-		p.Organization = ""
+		// Clear default_organization and token to force re-initialization
+		p.DefaultOrganization = ""
 		p.Token = ""
 	}
 
@@ -176,7 +173,7 @@ func setRun(opts *SetOpts) error {
 		cs := opts.IO.ColorScheme()
 		fmt.Fprintf(opts.IO.Err(), "%s would set profile property %q to %q\n", cs.DryRunLabel(), opts.Property, opts.Value)
 		if hostnameChanged {
-			fmt.Fprintf(opts.IO.Err(), "%s would also clear organization and token for the active profile\n", cs.DryRunLabel())
+			fmt.Fprintf(opts.IO.Err(), "%s would also clear default_organization and token for the active profile\n", cs.DryRunLabel())
 		}
 		return nil
 	}
@@ -190,12 +187,12 @@ func setRun(opts *SetOpts) error {
 
 	// Notify user about hostname changes
 	if hostnameChanged {
-		fmt.Fprintf(opts.IO.Err(), "\n%s Hostname changed to %q. Organization and token settings have been cleared.\n",
+		fmt.Fprintf(opts.IO.Err(), "\n%s Hostname changed to %q. Default organization and token settings have been cleared.\n",
 			opts.IO.ColorScheme().WarningLabel(), opts.Value)
 		fmt.Fprintf(opts.IO.Err(), "Please run %s to reconfigure your token for this hostname.\n\n",
 			opts.IO.ColorScheme().String(fmt.Sprintf("%s auth login", version.Name)).Bold())
 		fmt.Fprintf(opts.IO.Err(), "It's also recommended to run %s to set a default organization.\n\n",
-			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile set organization ORGANIZATION", version.Name)).Bold())
+			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile set default_organization ORGANIZATION", version.Name)).Bold())
 	}
 
 	return nil

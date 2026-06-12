@@ -28,11 +28,11 @@ type InstallOpts struct {
 }
 
 // NewCmdHarnessInstall creates the `harness install` command.
-func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
+func NewCmdHarnessInstall(inv *cmd.Invocation) *cmd.Command {
 	installOpts := InstallOpts{
-		IO:      ctx.IO,
-		Profile: ctx.Profile,
-		Output:  ctx.Output,
+		IO:      inv.IO,
+		Profile: inv.Profile,
+		Output:  inv.Output,
 	}
 
 	listAgentsSentence := fmt.Sprintf("%s, or %s", strings.Join(skills.AgentNames[:len(skills.AgentNames)-1], ", "), skills.AgentNames[len(skills.AgentNames)-1])
@@ -40,7 +40,7 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 	cmd := &cmd.Command{
 		Name:      "install",
 		ShortHelp: "Install coding agent skills for tfctl.",
-		LongHelp: heredoc.New(ctx.IO, heredoc.WithPreserveNewlines()).Mustf(`
+		LongHelp: heredoc.New(inv.IO, heredoc.WithPreserveNewlines()).Mustf(`
 		The {{ template "mdCodeOrBold" "%s harness install" }} command installs the official tfctl agent skill for the selected platform. The available agent platforms are: {{ template "mdCodeOrBold" "%s" }}.
 
 		Alternatively, you can use npx skills to install the tfctl skill for most other agents:
@@ -61,7 +61,7 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "AGENT",
-					Documentation: heredoc.New(ctx.IO).Mustf(`The agent to install the skill for. Valid options are {{ template "mdCodeOrBold" "%s" }}`, listAgentsSentence),
+					Documentation: heredoc.New(inv.IO).Mustf(`The agent to install the skill for. Valid options are {{ template "mdCodeOrBold" "%s" }}`, listAgentsSentence),
 				},
 			},
 		},
@@ -83,7 +83,7 @@ func NewCmdHarnessInstall(ctx *cmd.Context) *cmd.Command {
 
 			installOpts.Agent = &agent
 
-			if ctx.IsDryRun() {
+			if inv.IsDryRun() {
 				installOpts.DryRun = true
 			}
 

@@ -7,15 +7,13 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"time"
+	"strings"
 
-	hclog "github.com/hashicorp/go-hclog"
 	"github.com/posener/complete"
 	flag "github.com/spf13/pflag"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
-	"github.com/hashicorp/tfctl-cli/version"
 )
 
 var (
@@ -126,9 +124,6 @@ type Command struct {
 
 	// io formats output
 	io iostreams.IOStreams
-
-	// logger is the logger for this command
-	logger hclog.Logger
 }
 
 // Example is an example of how to use a given command.
@@ -271,42 +266,19 @@ func (c *Command) AddChild(cmd *Command) {
 	c.children = append(c.children, cmd)
 }
 
+// CommandPath returns the full command path excluding the root command name.
+// For example, if the command tree is "tfctl" -> "run" -> "start", this returns "run start".
+func (c *Command) CommandPath() string {
+	var parts []string
+	for cmd := c; cmd != nil && cmd.parent != nil; cmd = cmd.parent {
+		parts = append([]string{cmd.Name}, parts...)
+	}
+	return strings.Join(parts, " ")
+}
+
 // SetIO sets the commands IO for input and output.
 func (c *Command) SetIO(io iostreams.IOStreams) {
 	c.io = io
-}
-
-// Logger returns a logger named according to the command.
-func (c *Command) Logger(ctx *Context) hclog.Logger {
-	if c.logger != nil {
-		return c.logger
-	}
-
-	if c.parent != nil {
-		pl := c.parent.Logger(ctx)
-		c.logger = pl.Named(c.Name)
-		return c.logger
-	}
-
-	// Create the logger
-	io := ctx.IO
-
-	logOpt := &hclog.LoggerOptions{
-		Name:       version.Name,
-		Level:      ctx.ResolveLogLevel(),
-		Output:     io.Err(),
-		TimeFn:     time.Now,
-		TimeFormat: "15:04:05.000",
-		Color:      hclog.ColorOff, // Enabled next, maybe
-	}
-
-	if io.ColorEnabled() && io.IsErrorTTY() {
-		logOpt.Color = hclog.ForceColor
-		logOpt.ColorHeaderAndFields = true
-	}
-
-	c.logger = hclog.New(logOpt)
-	return c.logger
 }
 
 // ExitCodeError is an error that includes an exit code. If returned by a

@@ -6,7 +6,6 @@ package cmd
 import (
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
@@ -25,7 +24,6 @@ func TestPositionalArgs_validateFunc(t *testing.T) {
 			NoAuthRequired: true,
 			Args:           PositionalArguments{Validate: f},
 			io:             io,
-			logger:         hclog.NewNullLogger(),
 		}
 	}
 
@@ -126,7 +124,7 @@ func TestPositionalArgs_validateFunc(t *testing.T) {
 
 			io := iostreams.Test()
 			command := argValidationCommand(io, c.ValidateF)
-			code := command.Run(c.Args, &Context{IO: io})
+			code := command.Run(c.Args, &Invocation{IO: io})
 			if c.Error == "" {
 				r.Zero(code, io.Error.String())
 				return
@@ -152,7 +150,6 @@ func TestCommand_ArgsValidation(t *testing.T) {
 			NoAuthRequired: true,
 			Args:           PositionalArguments{Validate: f},
 			io:             io,
-			logger:         hclog.NewNullLogger(),
 		}
 	}
 
@@ -253,7 +250,7 @@ func TestCommand_ArgsValidation(t *testing.T) {
 
 			io := iostreams.Test()
 			command := argValidationCommand(io, c.ValidateF)
-			code := command.Run(c.Args, &Context{IO: io})
+			code := command.Run(c.Args, &Invocation{IO: io})
 			if c.Error == "" {
 				r.Zero(code, io.Error.String())
 				return

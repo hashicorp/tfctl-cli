@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path"
@@ -8,6 +9,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 )
 
 // HostCacheLoader is responsible for loading and refreshing cached data for a host.
@@ -37,7 +40,8 @@ type RefreshResult struct {
 type CheckRefreshFunc func(mTime *time.Time) RefreshResult
 
 // NewHostCacheLoader creates a new HostCacheLoader for the given hostname, using the provided logger for logging.
-func NewHostCacheLoader(baseDir, hostname string, logger hclog.Logger) (*HostCacheLoader, error) {
+func NewHostCacheLoader(ctx context.Context, baseDir, hostname string) (*HostCacheLoader, error) {
+	logger := logging.FromContext(ctx)
 	hostDir := filepath.Join(baseDir, normalizeHostname(hostname))
 	if err := os.MkdirAll(hostDir, 0o766); err != nil {
 		return nil, err
