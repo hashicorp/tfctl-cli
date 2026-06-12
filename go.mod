@@ -8,10 +8,11 @@ require (
 	github.com/cli/browser v1.3.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/getkin/kin-openapi v0.137.0
+	github.com/google/uuid v1.6.0
 	github.com/hashicorp/cli v1.1.7
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-tfe/v2 v2.0.0-20260609195945-f70c8b58a0b4
+	github.com/hashicorp/go-tfe/v2 v2.0.0-20260611161741-624e4864f63b
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/itchyny/gojq v0.12.19
@@ -72,7 +73,6 @@ require (
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect

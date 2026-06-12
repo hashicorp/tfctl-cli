@@ -182,9 +182,9 @@ func TestInit_ResourceAttributes(t *testing.T) {
 		envVal        string
 		expectedAgent string
 	}{
-		{"CLAUDECODE", "1", "claudecode"},
+		{"CLAUDECODE", "1", "claude"},
 		{"OPENCODE", "1", "opencode"},
-		{"COPILOT_GH", "true", "github_copilot"},
+		{"COPILOT_GH", "true", "copilot"},
 		{"NONEXIST_AGENT", "1", ""},
 	}
 
@@ -588,6 +588,7 @@ func clearEnv(t *testing.T) {
 	t.Setenv("CLAUDECODE", "")
 	t.Setenv("OPENCODE", "")
 	t.Setenv("COPILOT_GH", "")
+	t.Setenv("COPILOT_CLI", "")
 }
 
 // newTestTelemetry creates a Telemetry instance with an in-memory exporter for testing.

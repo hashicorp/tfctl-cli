@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: get-policy-check-results
 name: Get policy check results
 description: Tests correct /runs/{run-id}/policy-checks endpoint (not workspace-nested).

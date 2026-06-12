@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: list-all-workspaces-with-pagination
 name: List all workspaces with pagination
 description: Tests that the agent uses --all flag and built-in --jq for filtering.

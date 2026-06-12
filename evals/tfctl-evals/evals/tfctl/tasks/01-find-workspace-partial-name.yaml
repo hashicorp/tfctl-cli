@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: find-workspace-by-partial-name
 name: Find workspace by partial name with run state
 description: Tests graceful handling when workspace not found (exit 2 = stop).

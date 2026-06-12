@@ -29,6 +29,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/skills"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
@@ -209,14 +210,11 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 }
 
 func detectAgent() string {
-	if os.Getenv("OPENCODE") == "1" {
-		return "opencode"
-	}
-	if os.Getenv("CLAUDECODE") == "1" {
-		return "claudecode"
-	}
-	if os.Getenv("COPILOT_GH") == "true" || os.Getenv("COPILOT_CLI") == "1" {
-		return "github_copilot"
+	for _, name := range skills.AgentNames {
+		agent, _ := skills.GetAgent(name)
+		if agent.DetectParentProcess() {
+			return name
+		}
 	}
 	return ""
 }

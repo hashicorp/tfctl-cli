@@ -1,3 +1,6 @@
+// Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
+
 // Package logging provides utilities for creating and accessing a logger within the application.
 package logging
 

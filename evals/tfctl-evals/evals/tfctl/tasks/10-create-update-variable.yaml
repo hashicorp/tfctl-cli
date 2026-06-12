@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: create-or-update-variable
 name: Create or update workspace variable
 description: Tests correct endpoint and -p flag for variable creation.

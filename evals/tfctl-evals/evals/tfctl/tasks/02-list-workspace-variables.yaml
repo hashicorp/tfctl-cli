@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: list-workspace-variables
 name: List workspace variables with correct endpoint
 description: Tests that agent uses /workspaces/{workspace}/vars (NOT org-nested path) and -p flag.

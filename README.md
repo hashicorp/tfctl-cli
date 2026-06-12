@@ -1,7 +1,6 @@
 # tfctl: The HCP Terraform CLI
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
-[![Go Version](https://img.shields.io/badge/Go-1.25.10+-00ADD8?logo=go)](https://go.dev/)
 
 Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise platform.
 
@@ -12,27 +11,15 @@ The `tfctl` CLI  provides high-level commands for common workflows, such as mana
 ## Installation
 You can install the CLI, command completion utility, and agent skill separately.  
 
-### Prerequisites
+### Precompiled Binaries
 
-- Go language v1.25.10 or later
-- Git
-- Make
+You can access official release binaries at [releases.hashicorp.com](https://releases.hashicorp.com/tfctl-cli/)
 
-### Install `tfctl`
+### Building from Source
 
-1. Clone the git [repository](https://github.com/hashicorp/tfctl-cli):
-   - SSH: `git clone git@github.com:hashicorp/tfctl-cli.git`
-   - HTTPS: `git clone https://github.com/hashicorp/tfctl-cli.git`
-1. Change to the new directory: `cd tfctl-cli`
-1. Run `make go/install`.
+See [Developers](#developers) below for details.
 
-Verify the installation:
-
-```bash
-$ tfctl --version
-```
-
-### Install shell completion
+## Install shell completion
 
 We recommend installing the shell completion module for command, argument, and API path completion.
 
@@ -42,15 +29,15 @@ $ tfctl --autocomplete-install
 
 You can uninstall shell completion with the `tfctl --autocomplete-uninstall` command.
 
-### Install AI agent skill
+## Install AI agent skill
 
 The `tfctl` CLI ships with an agent skill that gives AI coding agents access to HCP Terraform through the `tfctl` command, but discourages non-human delete operations. You can install it using the `tfctl harness install` command or NPX. Replace `<agent>` with one of the following supported AI agents:
 
+- `antigravity`
 - `bob` 
 - `claude`
 - `codex`
 - `copilot`
-- `gemini`
 - `opencode`
 - `pi`
 
@@ -60,7 +47,7 @@ To install the skill with `tfctl harness install` command, run:
 $ tfctl harness install <agent> --global
 ```
 
-To install the skill with NPX, run:
+To install the skill for other agents using npx skills, run:
 
 ```bash
 $ npx skills add hashicorp/tfctl-cli --skill 'tfctl'
@@ -82,7 +69,7 @@ $ tfctl profile set hostname <host>
 
 ### Set authentication token
 
-Run the `tfctl auth login` command to create and install a token for `tfctl` to use to authenticate with HCP Terraform or Terraform Enterprise.
+Run the `tfctl auth login` command to create and install a token for `tfctl` to use to authenticate with HCP Terraform or Terraform Enterprise. If you already have a token, you can use `tfctl profile set token $TOKEN`.
 
 ```bash
 $ tfctl auth login
@@ -284,7 +271,7 @@ Install coding agent skills or print out coding agent context document.
 #### Subcommands
 
 - `context`: Print coding agent context for tfctl, suitable for AGENTS.md.
-- `install <agent>`: Install coding agent skills for tfctl in your project directory.
+- `install AGENT`: Install coding agent skills for tfctl in your project directory.
   - `--global`: Install skills in the global user directory instead of the current project directory.
 
 Supported agents are:
@@ -317,6 +304,136 @@ Print out agent context for `tfctl`, suitable for AGENTS.md.
 $ tfctl harness context
 ```
 
+### `tfctl api` reference
+
+**Usage:** `tfctl api PATH [options]`
+
+#### Description
+
+Perform any HCP Terraform API v2 request with the given path or URL.
+
+The HCP Terraform API typically requires a resource ID as part of the path for resource-specific requests. To support this, the `tfctl` CLI interpolates parameter values in the `<path>` argument denoted by `{NAME}`. Whenever possible, `tfctl` infers these values from the path, the active profile, or local Terraform configuration. You can provide values for named parameters with the `--pathparam` argument.
+
+#### Arguments
+
+- `PATH`: API path relative to configured host, or URL.
+  - Required argument
+
+#### Options
+
+- `--all`: Fetch all records in multiple pages, up to 2000, and combine them into one page.
+
+- `--attribute`, `-a`: Set attribute in request body. Sets `--method` to `POST`.
+  - Repeatable
+  - Format as `<name>=<value>`
+
+- `--field`, `-f`: Add a query parameter to the request URL.
+  - Repeatable
+  - Format as `<name>=<value>`
+
+- `--header`, `-H`: Add an HTTP header to the request.
+  - Repeatable
+  - Format as `<name>=<value>`
+
+- `--input`, `-i`: Specify the entire JSON request body.
+  - Repeatable
+  - Format as JSON:API data envelope, or `-` to read from stdin.
+
+- `--method`, `-X`: HTTP method to use (GET, POST, etc)
+
+- `--page-number`, `-n`: Page number to return. Ignored if `--all` is set.
+  - Default: 1
+
+- `--page-size`, `-s`: Limit the number of records to return. Ignored if `--all` is set.
+  - Default: Varies by resource
+
+- `--pathparam`, `-p`: Provide a hint for path parameter resolution.
+  - Repeatable
+  - Format as `<name>=<value>`
+  - Useful for resolving unique resource names, such as project, to an ID that can be used in the PATH.
+  - Example: `tfctl api /projects/{name} -p 'name=Default Project'`
+
+- `--type`, `-t`: Resource type for --attribute JSON:API request bodies.
+    - This value is inferred from the path whenever possible.
+
+### `tfctl api schema search` reference
+
+**Usage:** `tfctl api schema search QUERY`
+
+#### Description
+
+Search all platform operations that can be invoked using `tfctl api`
+
+#### Arguments
+
+- `QUERY`: Any phrase
+  - Required argument
+
+#### Example
+
+```bash
+$ tfctl api schema search 'run tasks'
+```
+
+### `tfctl api schema get` reference
+
+**Usage:** `tfctl api schema get OPERATION`
+
+#### Description
+
+Get the OpenAPI specification for any single operation, including any schema components in use.
+
+#### Arguments
+
+- `OPERATION`: The operation ID of any search result
+  - Required argument
+
+#### Example
+
+```bash
+$ tfctl api schema get getTask
+```
+
+### `tfctl get` reference
+
+**Usage:** `tfctl get ID`
+
+#### Description
+
+Get or lists a resource. Acts as a simplified shortcut to using `tfctl api`.
+
+#### Arguments
+
+- `ID`: A flexible string argument that can be:
+  - A resource ID, like `proj-9arLMbi8daoo3hhG` or `ws-sRMALNbEeg1aT93F`
+  - A resource type prefix, like `proj`, `ws`, or `varset`
+  - A resource type name, like `projects`, `organizations`, or `agent-pools`
+
+### `tfctl create` reference
+
+**Usage:** `tfctl create TYPE`
+
+#### Description
+
+Creates a resource. Acts as a simplified shortcut to using `tfctl api`.
+
+#### Arguments
+
+- `TYPE`: A resource type name to create, like `projects`, `organizations`, or `agent-pools`
+
+#### Flags
+
+`--attribute`, `-a`: Attribute for the JSON:API request body
+  - Repeatable
+  - Format as `<name>=<value>`
+
+- `--input`, `-i`: Specify the entire JSON request body.
+  - Repeatable
+  - Format as JSON:API data envelope, or `-` to read from stdin.
+
+- `--organization`, `-o`: Organization name
+  - Default: Profile `default_organization` or terraform cloud config context
+
 ### `tfctl profile display` reference
 
 **Usage:** `tfctl profile display [options]`
@@ -346,7 +463,7 @@ $ tfctl profile display --profile="my-profile"
 
 ### `tfctl profile get` reference
 
-**Usage:** `tfctl profile get <property> [options]`
+**Usage:** `tfctl profile get PROPERTY [options]`
 
 #### Description
 
@@ -354,7 +471,7 @@ Get the value of the given configuration property for a profile.
 
 #### Arguments
 
-- `<property>`: The configuration property name to retrieve.
+- `PROPERTY`: The configuration property name to retrieve.
   - Required argument
   - Data type: String
 
@@ -373,7 +490,7 @@ $ tfctl profile get organization
 
 ### `tfctl profile set` reference
 
-**Usage:** `tfctl profile set <property> <value> [options]`
+**Usage:** `tfctl profile set PROPERTY VALUE [options]`
 
 #### Description
 
@@ -381,11 +498,11 @@ Set the value of the given configuration property for a profile.
 
 #### Arguments
 
-- `<property>`: The configuration property name to set.
+- `PROPERTY`: The configuration property name to set.
   - Required argument
   - Data type: String
 
-- `<value>`: The value to set for the property.
+- `VALUE`: The value to set for the property.
   - Required argument
   - Data type: String
 
@@ -404,7 +521,7 @@ $ tfctl profile set organization my-organization
 
 ### `tfctl profile unset` reference
 
-**Usage:** `tfctl profile unset <property> [options]`
+**Usage:** `tfctl profile unset PROPERTY [options]`
 
 #### Description
 
@@ -412,7 +529,7 @@ Unset the value of the given configuration property for a profile.
 
 #### Arguments
 
-- `<property>`: The configuration property name to unset.
+- `PROPERTY`: The configuration property name to unset.
   - Required argument
   - Data type: String
 
@@ -431,7 +548,7 @@ $ tfctl profile unset organization
 
 ### `tfctl profile profiles activate` reference
 
-**Usage:** `tfctl profile profiles activate <name> [options]`
+**Usage:** `tfctl profile profiles activate NAME [options]`
 
 #### Description
 
@@ -439,7 +556,7 @@ Activate an existing named profile.
 
 #### Arguments
 
-- `<name>`: The profile name to activate.
+- `NAME`: The profile name to activate.
   - Required argument
   - Data type: String
 
@@ -464,7 +581,7 @@ $ tfctl profile profiles activate default
 
 ### `tfctl profile profiles create` reference
 
-**Usage:** `tfctl profile profiles create <name> [options]`
+**Usage:** `tfctl profile profiles create NAME [options]`
 
 #### Description
 
@@ -472,7 +589,7 @@ Create a new profile, and activate it automatically unless `--no-activate` is sp
 
 #### Arguments
 
-- `<name>`: The profile name to create.
+- `NAME`: The profile name to create.
   - Required argument
   - Data type: String
 
@@ -523,7 +640,7 @@ $ tfctl profile profiles list --json
 
 ### `tfctl profile profiles delete` reference
 
-**Usage:** `tfctl profile profiles delete <name> [<name> ...] [options]`
+**Usage:** `tfctl profile profiles delete NAME [<name> ...] [options]`
 
 #### Description
 
@@ -531,7 +648,7 @@ Delete an existing named profile.
 
 #### Arguments
 
-- `<name>`: One or more profile names to delete.
+- `NAME`: One or more profile names to delete.
   - Required argument
   - Data type: String
   - Repeatable
@@ -551,7 +668,7 @@ $ tfctl profile profiles delete old-profile
 
 ### `tfctl profile profiles rename` reference
 
-**Usage:** `tfctl profile profiles rename <name> --new_name=<new_name> [options]`
+**Usage:** `tfctl profile profiles rename NAME --new_name=<new_name> [options]`
 
 #### Description
 
@@ -559,7 +676,7 @@ Rename an existing named profile.
 
 #### Arguments
 
-- `<name>`: The current profile name.
+- `NAME`: The current profile name.
   - Required argument
   - Data type: String
 
@@ -582,7 +699,7 @@ $ tfctl profile profiles rename old-name --new_name="new-name"
 
 ### `tfctl run start` reference
 
-**Usage:** `tfctl run start <workspace_id_or_name> [options]`
+**Usage:** `tfctl run start ID_OR_NAME [options]`
 
 #### Description
 
@@ -590,7 +707,7 @@ Start a new run on the workspace specified by ID or name.
 
 #### Arguments
 
-- `<workspace_id_or_name>`: Workspace ID or name.
+- `ID_OR_NAME`: Workspace ID or name.
   - Required argument
   - Data type: String
 
@@ -629,11 +746,11 @@ $ tfctl run start my-workspace
 
 ### `tfctl run status` reference
 
-**Usage:** `tfctl run status <id> [options]`
+**Usage:** `tfctl run status ID [options]`
 
 #### Description
 
-Print out the status of a run. You can specify a run ID, workspace ID, or workspace name for the `<id>` argument.
+Print out the status of a run. You can specify a run ID, workspace ID, or workspace name for the `ID` argument.
 
 - Run ID: Gets the specific run. Run IDs are prefixed with `run-`.
 - Workspace ID: Gets the latest run on the workspace. Workspace IDs are prefixed with `ws-`. 
@@ -679,7 +796,7 @@ $ tfctl run status ws-abc123xyz
 
 ### `tfctl variable import` reference
 
-**Usage:** `tfctl variable import [<tfvars_file>] [options]`
+**Usage:** `tfctl variable import [TFVARS_FILE] [options]`
 
 #### Description
 
@@ -738,33 +855,6 @@ $ tfctl variable import --overwrite --variable-set-name="my-varset" --env="AWS_A
 - [Configuration reference](#configuration-reference)
 - [Global flags](#global-flags)
 
-### `tfctl api` reference
-
-**Usage:** `tfctl api <path>> [options]`
-
-#### Description
-
-Perform any HCP Terraform API v2 request with the given path or URL.
-
-The HCP Terraform API typically requires a resource ID as part of the path for resource-specific requests. To support this, the `tfctl` CLI interpolates parameter values in the `<path>` argument denoted by `{NAME}`. Whenever possible, `tfctl` infers these values from the path, the active profile, or local Terraform configuration. You can provide values for named parameters with the `--pathparam` argument.
-
-#### Arguments
-
-- `<path>`: API path relative to configured host, or URL.
-  - Required argument
-  - Data type: String
-
-#### Options
-
-- `--all`: Disable pagination and fetch all records. The `tfctl api` command can retrieve up to 2000 records per call.
-  - Optional
-  - Data type: Boolean flag
-  - Default: `false`
-
-- `--attribute`, `-a`: Set attribute in request body. Sets `--method` to `POST`.
-  - Repeatable
-  - Data type: String formatted as `<name>=<value>`
-
 ### Exit Codes
 
 | Exit | Meaning                          | Solution                              |
@@ -781,10 +871,16 @@ The HCP Terraform API typically requires a resource ID as part of the path for r
 
 ### Telemetry
 
-By default, HashiCorp collects basic telemetry for each command invocation, including command details and OS/process information. You can disable telemetry using any of these methods: Set `TFCTL_TELEMETRY` to `disabled`, Set `DO_NOT_TRACK` to `true`, or set telemetry to disabled in your profile: 
+By default, HashiCorp collects anonymous trace telemetry for each command invocation, including the command name, exit status, network metrics, and basic process information. You can disable telemetry using any of these methods: Set `TFCTL_TELEMETRY` to `disabled`, Set `DO_NOT_TRACK` to `true`, or set telemetry to disabled in your profile: 
 
 ```bash
 $ tfctl profile set telemetry disabled
+```
+
+You can view the telemetry that we transmit by setting profile telemetry to `log`:
+
+```bash
+$ tfctl profile set telemetry log
 ```
 
 ### Uninstall/Clean up
@@ -794,3 +890,42 @@ $ tfctl profile set telemetry disabled
 ```bash
 $ tfctl --autocomplete-uninstall
 ```
+
+## Developers
+
+### Installing from Source
+
+#### Prerequisites
+
+- go v1.26.4 or later
+- git
+- make
+
+#### Install `tfctl`
+
+1. Clone the git [repository](https://github.com/hashicorp/tfctl-cli):
+   - SSH: `git clone git@github.com:hashicorp/tfctl-cli.git`
+   - HTTPS: `git clone https://github.com/hashicorp/tfctl-cli.git`
+1. Change to the new directory: `cd tfctl-cli`
+1. Run `make go/install`.
+
+Verify the installation:
+
+```bash
+$ tfctl --version
+```
+
+### Preparing your Change
+
+#### PR Preparation Checklist
+
+1. Ensure you have [changie](https://changie.dev/guide/installation/) installed for release notes prep.
+1. Ensure any command changes are sensitive to these global flags:
+  - `--json` &mdash; Force machine readable output to stdout. Does not apply to stderr.
+  - `--markdown` &mdash; Force markdown output to stdout. Does not apply to stderr.
+  - `--dry-run` &mdash; Don't make any actual writes or other mutations. Describe what would have changed to stderr.
+  - `--quiet` &mdash; Don't render output to stdout.
+1. Get the logging interface from the context and add debug logging for interesting conditions and nonfatal situations.
+1. Run `make gen/screenshot` if the root command output changes.
+1. Add the `Autocomplete` field to positional arguments and flags to assist shell autocomplete.
+1. Run `changie new` to prepare a new changelog entry for the next set of release notes.

@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: get-configuration-version
 name: Get configuration version info
 description: Tests correct /workspaces/{workspace}/configuration-versions endpoint.

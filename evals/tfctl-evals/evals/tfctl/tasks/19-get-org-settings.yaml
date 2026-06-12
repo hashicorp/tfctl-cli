@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: get-organization-settings
 name: Get organization settings
 description: Tests simple GET /organizations/{org} call.

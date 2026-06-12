@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: get-current-run-with-status
 name: Get current run with status and logs
 description: Tests that agent follows relationships to get log URL from plan/apply (not run.log-read-url which is null on completed runs).

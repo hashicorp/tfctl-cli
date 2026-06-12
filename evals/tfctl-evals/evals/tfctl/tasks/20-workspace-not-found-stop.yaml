@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: workspace-not-found-stop
 name: "Negative: workspace not found, stop"
 description: Tests that agent accepts not-found as definitive answer without retrying.

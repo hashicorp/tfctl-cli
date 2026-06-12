@@ -15,11 +15,12 @@ import (
 
 // AgentSpec defines the necessary information to install a skill for a coding agent.
 type AgentSpec struct {
-	Name            string
-	DisplayName     string
-	SkillsDir       string
-	GlobalSkillsDir func() string
-	Detect          func() bool
+	Name                string
+	DisplayName         string
+	SkillsDir           string
+	GlobalSkillsDir     func() string
+	Detect              func() bool
+	DetectParentProcess func() bool
 }
 
 func detectHomeDirPath(dir string) bool {
@@ -64,6 +65,22 @@ func registerAgents() map[string]AgentSpec {
 	}
 
 	return map[string]AgentSpec{
+		"antigravity": {
+			Name:        "antigravity",
+			DisplayName: "Antigravity CLI",
+			SkillsDir:   ".agents/skills",
+			GlobalSkillsDir: func() string {
+				path, _ := homedir.Expand("~/.gemini/config/skills")
+				return path
+			},
+			Detect: func() bool {
+				return detectHomeDirPath(".gemini")
+			},
+			DetectParentProcess: func() bool {
+				// TODO
+				return false
+			},
+		},
 		"bob": {
 			Name:        "bob",
 			DisplayName: "IBM Bob",
@@ -74,6 +91,10 @@ func registerAgents() map[string]AgentSpec {
 			},
 			Detect: func() bool {
 				return detectHomeDirPath(".bob")
+			},
+			DetectParentProcess: func() bool {
+				// TODO
+				return false
 			},
 		},
 		"claude": {
@@ -87,6 +108,9 @@ func registerAgents() map[string]AgentSpec {
 				_, err := os.Stat(claudeDir)
 				return err == nil
 			},
+			DetectParentProcess: func() bool {
+				return os.Getenv("CLAUDECODE") == "1"
+			},
 		},
 		"codex": {
 			Name:        "codex",
@@ -99,17 +123,9 @@ func registerAgents() map[string]AgentSpec {
 				_, err := os.Stat(codexDir)
 				return err == nil
 			},
-		},
-		"gemini": {
-			Name:        "gemini",
-			DisplayName: "Gemini CLI",
-			SkillsDir:   ".agents/skills",
-			GlobalSkillsDir: func() string {
-				path, _ := homedir.Expand("~/.gemini/skills")
-				return path
-			},
-			Detect: func() bool {
-				return detectHomeDirPath(".gemini")
+			DetectParentProcess: func() bool {
+				// TODO
+				return false
 			},
 		},
 		"copilot": {
@@ -123,6 +139,9 @@ func registerAgents() map[string]AgentSpec {
 			Detect: func() bool {
 				return detectHomeDirPath(".copilot")
 			},
+			DetectParentProcess: func() bool {
+				return os.Getenv("COPILOT_GH") == "true" || os.Getenv("COPILOT_CLI") == "1"
+			},
 		},
 		"opencode": {
 			Name:        "opencode",
@@ -135,6 +154,9 @@ func registerAgents() map[string]AgentSpec {
 			Detect: func() bool {
 				return detectHomeDirPath(".config/opencode")
 			},
+			DetectParentProcess: func() bool {
+				return os.Getenv("OPENCODE") == "1"
+			},
 		},
 		"pi": {
 			Name:        "pi",
@@ -146,6 +168,9 @@ func registerAgents() map[string]AgentSpec {
 			},
 			Detect: func() bool {
 				return detectHomeDirPath(".pi")
+			},
+			DetectParentProcess: func() bool {
+				return os.Getenv("PI_CODING_AGENT") == "true"
 			},
 		},
 	}

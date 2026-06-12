@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: list-vars-sensitive-filtering
 name: List vars with sensitive flag filtering
 description: Tests combined --jq filter for sensitive == false AND key exclusion.

@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: find-workspace-by-vcs
 name: Find workspace by VCS identifier
 description: Tests single API call with --jq to filter by VCS repo.

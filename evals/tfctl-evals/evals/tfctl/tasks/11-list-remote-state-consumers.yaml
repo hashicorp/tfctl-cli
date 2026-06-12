@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: list-remote-state-consumers
 name: List remote state consumers for workspace
 description: Tests correct endpoint and -p flag for remote state consumers.

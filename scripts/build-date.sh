@@ -1,6 +1,6 @@
 #!/bin/bash
-# Copyright IBM Corp. 2024, 2026
-# SPDX-License-Identifier: BUSL-1.1
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
 
 readonly SCRIPT_NAME="$(basename ${BASH_SOURCE[0]})"
 readonly SCRIPT_DIR="$(dirname ${BASH_SOURCE[0]})"
