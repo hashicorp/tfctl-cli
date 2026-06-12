@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: apply-variable-set-to-workspace
 name: Apply variable set to workspace
 description: Tests correct endpoint and POST body format for varset application.

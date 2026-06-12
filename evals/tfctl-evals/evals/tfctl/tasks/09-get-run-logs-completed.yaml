@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: get-run-logs-completed
 name: Get run logs for completed run
 description: Tests that agent gets log URL from /applies or /plans (not run.log-read-url which is null on completed runs).

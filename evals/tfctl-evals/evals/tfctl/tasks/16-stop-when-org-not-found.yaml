@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: search-wrong-org-stop
 name: "Negative: stop when org not found"
 description: Tests that agent stops completely when org doesn't exist — never pivots to another org.

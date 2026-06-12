@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: list-variable-sets-in-org
 name: List all variable sets in org
 description: Tests correct /organizations/{org}/varsets endpoint with --jq for var counts.

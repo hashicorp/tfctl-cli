@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: handle-auth-token-expiry
 name: Handle auth token expiry gracefully
 description: Tests that agent explains exit 3 means expired token and advises re-auth.

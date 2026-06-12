@@ -1,5 +1,5 @@
-# Copyright IBM Corp. 2016, 2025
-# SPDX-License-Identifier: BUSL-1.1
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
 
 url_docker_registry_dockerhub = "https://hub.docker.com/r/hashicorp/tfctl-cli"
 url_docker_registry_ecr       = "https://gallery.ecr.aws/hashicorp/tfctl-cli"

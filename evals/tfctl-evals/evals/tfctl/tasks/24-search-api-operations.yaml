@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: search-api-operations
 name: Search API operations by keyword
 description: Tests use of tfctl api schema search command.

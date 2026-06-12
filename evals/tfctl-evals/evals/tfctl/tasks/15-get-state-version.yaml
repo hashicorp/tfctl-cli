@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: get-workspace-state-version
 name: Get workspace state version info
 description: Tests correct /current-state-version endpoint (not the list endpoint).

@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: batch-update-variables
 name: Batch update workspace variables
 description: Tests that agent uses separate API calls (HCP TFC doesn't support bulk POST for vars).

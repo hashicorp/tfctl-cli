@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: list-workspaces-by-team
 name: List workspaces by team
 description: Tests correct two-step pattern — resolve team name then query /team-workspaces.

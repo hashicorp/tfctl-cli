@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: unknown-workspace-id-handling
 name: "Negative: unknown workspace ID handling"
 description: Tests that agent accepts not-found for unknown workspace ID without retrying.

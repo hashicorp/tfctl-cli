@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: diagnose-failed-run
 name: Diagnose failed run
 description: Tests that agent extracts plan ID from relationships and fetches plan for error details.

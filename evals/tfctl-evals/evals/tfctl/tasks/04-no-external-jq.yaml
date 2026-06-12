@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: no-external-jq-filter
 name: "Negative: no external jq"
 description: Tests that the agent uses built-in --jq flag instead of piping to external jq binary.

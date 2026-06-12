@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 id: count-workspaces-by-tf-version
 name: Count workspaces by terraform version
 description: Tests single API call with --all and --jq for grouping/counting.
