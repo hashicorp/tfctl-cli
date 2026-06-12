@@ -585,6 +585,9 @@ func clearEnv(t *testing.T) {
 	t.Setenv("TRACESTATE", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	t.Setenv("CI", "")
+	t.Setenv("CLAUDECODE", "")
+	t.Setenv("OPENCODE", "")
+	t.Setenv("COPILOT_GH", "")
 }
 
 // newTestTelemetry creates a Telemetry instance with an in-memory exporter for testing.
