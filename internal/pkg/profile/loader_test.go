@@ -4,6 +4,7 @@
 package profile
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -209,6 +210,23 @@ default_organization = "123"`,
 	})
 }
 
+func TestLoader_GetDeviceID(t *testing.T) {
+	tmpDir := t.TempDir()
+	l, err := newLoader(tmpDir)
+	require.NoError(t, err)
+
+	id := l.GetDeviceID(context.Background())
+	require.NotEmpty(t, id)
+
+	// device ID matches file contents
+	id2 := l.GetDeviceID(context.Background())
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "device_id"))
+	require.NoError(t, err)
+	require.Equal(t, id, string(data))
+	require.Equal(t, id, id2)
+}
+
 //nolint:paralleltest
 func TestLoader_LoadProfileEnv(t *testing.T) {
 	// These tests aren't parallel because they manipulate the environment
@@ -216,9 +234,7 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 
 	//nolint:paralleltest
 	t.Run("default profile, env set", func(t *testing.T) {
-		defer os.Unsetenv(envVarOrganization)
-
-		os.Setenv(envVarOrganization, "xyz")
+		t.Setenv(envVarOrganization, "xyz")
 
 		r := require.New(t)
 		l, err := newLoader(t.TempDir())
@@ -233,13 +249,11 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 		r := require.New(t)
 		l := TestLoader(t)
 
-		defer os.Unsetenv(envVarOrganization)
-
 		p, err := l.NewProfile("test")
 		r.NoError(err)
 		r.NoError(p.Write())
 
-		os.Setenv(envVarOrganization, "xyz")
+		t.Setenv(envVarOrganization, "xyz")
 
 		out, err := l.LoadProfile(p.Name)
 		r.NoError(err)
