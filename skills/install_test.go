@@ -80,4 +80,14 @@ func TestInstallSkill(t *testing.T) {
 			require.FileExists(t, expected)
 		})
 	}
+
+	// Make sure every agent has some basic fields defined
+	for _, agent := range agents {
+		agent.Detect()
+		agent.DetectParentProcess()
+		require.NotEmpty(t, agent.Name)
+		require.NotEmpty(t, agent.DisplayName)
+		require.NotEmpty(t, agent.SkillsDir)
+		require.NotEmpty(t, agent.GlobalSkillsDir())
+	}
 }
