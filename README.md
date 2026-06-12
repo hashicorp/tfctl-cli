@@ -6,14 +6,22 @@ Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise p
 
 The `tfctl` CLI  provides high-level commands for common workflows, such as managing runs, variables, and workspaces, and direct API access for advanced automation. It supports multiple configuration profiles, allowing you to switch between different HCP Terraform organizations and Terraform Enterprise instances. It also integrates with AI coding agents to facilitate agent-assisted management of Terraform workflows.
 
-![tfctl](assets/tfctl.png "tfctl")
+![tfctl](assets/hero.png "tfctl")
 
 ## Installation
 You can install the CLI, command completion utility, and agent skill separately.  
 
+### Homebrew
+
+MacOS and Linux users can install tfctl from the HashiCorp brew tap:
+
+```bash
+$ brew install hashicorp/tap/tfctl
+```
+
 ### Precompiled Binaries
 
-You can access official release binaries at [releases.hashicorp.com](https://releases.hashicorp.com/tfctl-cli/)
+You can download official release binaries at [releases.hashicorp.com](https://releases.hashicorp.com/tfctl/)
 
 ### Building from Source
 
@@ -171,6 +179,8 @@ If you have not configured a particular option for the active profile, `tfctl` c
 `TF_TOKEN_<hostname>`: An HCP Terraform API token to present during authentication, with the specified hostname in Punycode formatting, for example `TF_TOKEN_app_terraform_io`. The CLI present the Terraform token only if it has not been configured in any other way.
 
 ## Command reference
+
+![tfctl](assets/tfctl.png "tfctl")
 
 The `tfctl` command can manage HCP Terraform runs and variables with the corresponding subcommands. It also provides direct access to the HCP Terraform API with the `api` subcommand.
 
