@@ -88,7 +88,7 @@ func realMain() int {
 		profileTelemetry = activeProfile.GetTelemetry()
 	}
 	tel := telemetry.Init(shutdownCtx, telemetry.Config{
-		InstallationID:   loader.GetDeviceID(shutdownCtx),
+		DeviceID:         loader.GetDeviceID(shutdownCtx),
 		Hostname:         activeProfile.GetHostname(),
 		ProfileTelemetry: profileTelemetry,
 		Version:          version.Version,

@@ -49,8 +49,8 @@ const (
 
 // Config holds the configuration needed to initialize telemetry.
 type Config struct {
-	// InstallationID is the unique identifier for this CLI installation, used for telemetry purposes.
-	InstallationID string
+	// DeviceID is the unique identifier for this CLI installation, used for telemetry purposes.
+	DeviceID string
 
 	// ProfileTelemetry is the value of the profile's telemetry setting.
 	ProfileTelemetry string
@@ -91,16 +91,16 @@ type CommandInfo struct {
 
 // Telemetry manages the lifecycle of OpenTelemetry tracing for a CLI invocation.
 type Telemetry struct {
-	hostname       string
-	mode           Mode
-	provider       trace.TracerProvider
-	sdkTP          *sdktrace.TracerProvider // nil when disabled
-	tracer         trace.Tracer
-	span           trace.Span
-	parentCtx      context.Context
-	errWriter      io.Writer
-	isTTY          bool
-	installationID string
+	hostname  string
+	mode      Mode
+	provider  trace.TracerProvider
+	sdkTP     *sdktrace.TracerProvider // nil when disabled
+	tracer    trace.Tracer
+	span      trace.Span
+	parentCtx context.Context
+	errWriter io.Writer
+	isTTY     bool
+	deviceID  string
 }
 
 // SetErrorHandler allows overriding the default OpenTelemetry error handler. By default,
@@ -124,12 +124,12 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 	mode := ResolveMode(cfg.ProfileTelemetry)
 
 	t := &Telemetry{
-		mode:           mode,
-		errWriter:      cfg.ErrWriter,
-		parentCtx:      ctx,
-		hostname:       cfg.Hostname,
-		isTTY:          cfg.IsTTY,
-		installationID: cfg.InstallationID,
+		mode:      mode,
+		errWriter: cfg.ErrWriter,
+		parentCtx: ctx,
+		hostname:  cfg.Hostname,
+		isTTY:     cfg.IsTTY,
+		deviceID:  cfg.DeviceID,
 	}
 
 	if mode == ModeDisabled {
@@ -146,7 +146,8 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 		semconv.ServiceVersion(cfg.Version),
 		semconv.TelemetrySDKLanguageGo,
 		semconv.TelemetrySDKName("opentelemetry"),
-		attribute.String("session_id", generateStableID(cfg.InstallationID, os.Getppid())),
+		attribute.String("device_id", t.deviceID),
+		attribute.String("session_id", generateStableID(t.deviceID, os.Getppid())),
 	)
 
 	// Create the exporter based on mode
@@ -247,7 +248,6 @@ func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.
 
 	// Build attributes from CommandInfo
 	attrs := []attribute.KeyValue{
-		attribute.String("installation_id", t.installationID),
 		attribute.String("command", info.Command),
 		attribute.Bool("dry_run_flag", info.DryRun),
 		attribute.Bool("debug_flag", info.Debug),
@@ -266,7 +266,7 @@ func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.
 	}
 
 	if agent := detectAgent(); agent != "" {
-		attrs = append(attrs, attribute.String("tfctl.agent", agent))
+		attrs = append(attrs, attribute.String("agent", agent))
 	}
 
 	spanName := fmt.Sprintf("tfctl %s", info.Command)
