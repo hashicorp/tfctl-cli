@@ -37,10 +37,10 @@ func TestSet(t *testing.T) {
 		},
 		{
 			Name:     "basic top-level property",
-			Property: "organization",
+			Property: "default_organization",
 			Value:    "123",
 			CheckProfile: func(p *profile.Profile, r *require.Assertions) {
-				r.Equal("123", p.Organization)
+				r.Equal("123", p.DefaultOrganization)
 			},
 		},
 		{
@@ -58,24 +58,18 @@ func TestSet(t *testing.T) {
 			Error:    "cannot parse 'no_color' as bool",
 		},
 		{
-			Name:     "basic core property - invalid value",
-			Property: "verbosity",
-			Value:    "bad-value",
-			Error:    "invalid verbosity \"bad-value\". Must be one of:",
-		},
-		{
 			Name:     "hostname change clears org and project",
 			Property: "hostname",
 			Value:    "app.eu.terraform.io",
 			SetupProfile: func(p *profile.Profile) {
 				// Set initial org and project values
-				p.Organization = "test-org-123"
+				p.DefaultOrganization = "test-org-123"
 				p.Token = "test"
 			},
 			CheckProfile: func(p *profile.Profile, r *require.Assertions) {
 				// Verify geography is set and org/project are cleared
 				r.Equal("app.eu.terraform.io", p.Hostname)
-				r.Equal("", p.Organization)
+				r.Equal("", p.DefaultOrganization)
 				r.Equal("", p.Token)
 			},
 		},
@@ -125,7 +119,7 @@ func TestSet_Organization(t *testing.T) {
 	o := &SetOpts{
 		IO:       io,
 		Profile:  p,
-		Property: "organization",
+		Property: "default_organization",
 	}
 
 	setup := func(quiet, tty, authed bool, projectID string) {
@@ -141,7 +135,7 @@ func TestSet_Organization(t *testing.T) {
 	checkOrg := func(expected string) {
 		loadedProfile, err := l.LoadProfile(p.Name)
 		r.NoError(err)
-		r.Equal(expected, loadedProfile.Organization)
+		r.Equal(expected, loadedProfile.DefaultOrganization)
 	}
 
 	// Run with quiet off, TTY's, authenticated, and return that the user has access to the project
@@ -161,21 +155,21 @@ func TestSetDryRun(t *testing.T) {
 	io := iostreams.Test()
 	p, err := l.NewProfile("test")
 	r.NoError(err)
-	p.Organization = "original-org"
+	p.DefaultOrganization = "original-org"
 	r.NoError(p.Write())
 	o := &SetOpts{
 		IO:       io,
 		Profile:  p,
-		Property: "organization",
+		Property: "default_organization",
 		Value:    "dry-run-org",
 	}
 
 	o.DryRun = true
 	r.NoError(setRun(context.Background(), o))
-	r.Equal("dry-run-org", o.Profile.Organization)
-	r.Contains(io.Error.String(), `would set profile property "organization" to "dry-run-org"`)
+	r.Equal("dry-run-org", o.Profile.DefaultOrganization)
+	r.Contains(io.Error.String(), `would set profile property "default_organization" to "dry-run-org"`)
 
 	reloaded, err := l.LoadProfile("test")
 	r.NoError(err)
-	r.Equal("original-org", reloaded.Organization)
+	r.Equal("original-org", reloaded.DefaultOrganization)
 }

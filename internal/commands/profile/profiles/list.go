@@ -114,8 +114,8 @@ func (p *profileDisplayer) FieldTemplates() []format.Field {
 			ValueFormat: fmt.Sprintf("{{ eq ( .Name ) %q }}", p.activeProfile),
 		},
 		{
-			Name:        "Organization",
-			ValueFormat: "{{ .Organization }}",
+			Name:        "Default Organization",
+			ValueFormat: "{{ .DefaultOrganization }}",
 		},
 	}
 }

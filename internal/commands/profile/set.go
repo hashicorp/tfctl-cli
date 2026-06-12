@@ -160,12 +160,12 @@ func setRun(ctx context.Context, opts *SetOpts) error {
 		return nil
 	}
 
-	// Check if geography was changed and clear org/project if needed
+	// Check if hostname was changed and clear default_organization/token
 	hostnameChanged := false
 	if opts.Property == "hostname" {
 		hostnameChanged = true
-		// Clear organization and token to force re-initialization
-		p.Organization = ""
+		// Clear default_organization and token to force re-initialization
+		p.DefaultOrganization = ""
 		p.Token = ""
 	}
 
@@ -173,7 +173,7 @@ func setRun(ctx context.Context, opts *SetOpts) error {
 		cs := opts.IO.ColorScheme()
 		fmt.Fprintf(opts.IO.Err(), "%s would set profile property %q to %q\n", cs.DryRunLabel(), opts.Property, opts.Value)
 		if hostnameChanged {
-			fmt.Fprintf(opts.IO.Err(), "%s would also clear organization and token for the active profile\n", cs.DryRunLabel())
+			fmt.Fprintf(opts.IO.Err(), "%s would also clear default_organization and token for the active profile\n", cs.DryRunLabel())
 		}
 		return nil
 	}
@@ -187,12 +187,12 @@ func setRun(ctx context.Context, opts *SetOpts) error {
 
 	// Notify user about hostname changes
 	if hostnameChanged {
-		fmt.Fprintf(opts.IO.Err(), "\n%s Hostname changed to %q. Organization and token settings have been cleared.\n",
+		fmt.Fprintf(opts.IO.Err(), "\n%s Hostname changed to %q. Default organization and token settings have been cleared.\n",
 			opts.IO.ColorScheme().WarningLabel(), opts.Value)
 		fmt.Fprintf(opts.IO.Err(), "Please run %s to reconfigure your token for this hostname.\n\n",
 			opts.IO.ColorScheme().String(fmt.Sprintf("%s auth login", version.Name)).Bold())
 		fmt.Fprintf(opts.IO.Err(), "It's also recommended to run %s to set a default organization.\n\n",
-			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile set organization ORGANIZATION", version.Name)).Bold())
+			opts.IO.ColorScheme().String(fmt.Sprintf("%s profile set default_organization ORGANIZATION", version.Name)).Bold())
 	}
 
 	return nil

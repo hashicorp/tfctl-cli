@@ -245,7 +245,7 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 
 			// Resolve path params ({workspace}, {organization}, etc.) before URL resolution.
 			if strings.Contains(path, "{") {
-				resolvedPath, resolveErr := resolvePathParamsFromContext(inv.ShutdownCtx, inv.Profile.Organization, apiClient, path, opts.PathParams)
+				resolvedPath, resolveErr := resolvePathParamsFromContext(inv.ShutdownCtx, inv.Profile.DefaultOrganization, apiClient, path, opts.PathParams)
 				if resolveErr != nil {
 					return resolveErr
 				}
@@ -259,7 +259,7 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 
 			opts.URL = resolvedURL
 			opts.Client = apiClient
-			opts.Quiet = inv.Profile.IsQuiet()
+			opts.Quiet = inv.GetGlobalFlags().Quiet
 			opts.DryRun = inv.IsDryRun()
 
 			return RunAPI(inv.ShutdownCtx, opts)

@@ -37,7 +37,7 @@ func TestRunCreate(t *testing.T) {
 				})
 			},
 		}))
-		inv.Profile.Organization = "my-org"
+		inv.Profile.DefaultOrganization = "my-org"
 
 		opts := &Opts{Args: []string{"workspace"}, ProfileOrganization: "my-org"}
 		opts.Attributes = map[string]string{"name": "foo"}
@@ -309,7 +309,7 @@ func TestNewCmdCreate_ArgValidation(t *testing.T) {
 				})
 			},
 		}))
-		inv.Profile.Organization = "my-org"
+		inv.Profile.DefaultOrganization = "my-org"
 
 		c := NewCmdCreate(inv)
 		root := &cmd.Command{Name: "tfctl"}

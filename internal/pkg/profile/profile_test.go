@@ -20,15 +20,13 @@ func TestPropertyNames(t *testing.T) {
 	properties := PropertyNames()
 	r.NotEmpty(properties)
 	r.Contains(properties, "name")
-	r.Contains(properties, "organization")
+	r.Contains(properties, "default_organization")
 	r.Contains(properties, "token")
 	r.Contains(properties, "hostname")
 }
 
 func TestProfile_Validate(t *testing.T) {
 	t.Parallel()
-
-	badVerbosity := "invalid"
 
 	cases := []struct {
 		Name    string
@@ -48,19 +46,10 @@ func TestProfile_Validate(t *testing.T) {
 			Error: "profile name may only include",
 		},
 		{
-			Name: "invalid core",
-			Profile: &Profile{
-				Name:         "test",
-				Organization: "123",
-				Verbosity:    &badVerbosity,
-			},
-			Error: "invalid verbosity",
-		},
-		{
 			Name: "valid",
 			Profile: &Profile{
-				Name:         "test",
-				Organization: "123",
+				Name:                "test",
+				DefaultOrganization: "123",
 			},
 			Error: "",
 		},
@@ -96,14 +85,7 @@ func TestProfile_Predict(t *testing.T) {
 			Args: complete.Args{
 				All: []string{""},
 			},
-			Expected: []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token", "telemetry"},
-		},
-		{
-			Name: "specific field",
-			Args: complete.Args{
-				All: []string{"org"},
-			},
-			Expected: []string{"organization", "no_color", "verbosity", "quiet", "hostname", "token", "telemetry"},
+			Expected: []string{"default_organization", "no_color", "hostname", "token", "telemetry"},
 		},
 	}
 

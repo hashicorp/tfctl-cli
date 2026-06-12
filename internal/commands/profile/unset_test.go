@@ -16,9 +16,7 @@ import (
 func TestUnset(t *testing.T) {
 	t.Parallel()
 	defaultProfile := func(p *profile.Profile) {
-		p.Organization = "123"
-		info := "info"
-		p.Verbosity = &info
+		p.DefaultOrganization = "123"
 	}
 
 	cases := []struct {
@@ -46,9 +44,9 @@ func TestUnset(t *testing.T) {
 		},
 		{
 			Name:     "unset basic property",
-			Property: "verbosity",
+			Property: "default_organization",
 			CheckProfile: func(p *profile.Profile, r *require.Assertions) {
-				r.Nil(p.Verbosity)
+				r.Empty(p.DefaultOrganization)
 			},
 		},
 	}
@@ -99,7 +97,7 @@ func TestUnsetDryRun(t *testing.T) {
 	l := profile.TestLoader(t)
 	p, err := l.NewProfile("test")
 	r.NoError(err)
-	p.Organization = "keep-me"
+	p.DefaultOrganization = "keep-me"
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -107,14 +105,14 @@ func TestUnsetDryRun(t *testing.T) {
 		IO:       io,
 		Profile:  p,
 		Profiles: l,
-		Property: "organization",
+		Property: "default_organization",
 	}
 
 	o.DryRun = true
 	r.NoError(unsetRun(context.Background(), o))
-	r.Contains(io.Error.String(), `would unset profile property "organization"`)
+	r.Contains(io.Error.String(), `would unset profile property "default_organization"`)
 
 	reloaded, err := l.LoadProfile("test")
 	r.NoError(err)
-	r.Equal("keep-me", reloaded.Organization)
+	r.Equal("keep-me", reloaded.DefaultOrganization)
 }

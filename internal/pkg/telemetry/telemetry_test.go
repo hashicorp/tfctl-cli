@@ -174,6 +174,66 @@ func TestInit_ProfileDisabled(t *testing.T) {
 // StartCommand Tests
 // ============================================================
 
+func TestInit_ResourceAttributes(t *testing.T) {
+	clearEnv(t)
+
+	agentCases := []struct {
+		envKey        string
+		envVal        string
+		expectedAgent string
+	}{
+		{"CLAUDECODE", "1", "claudecode"},
+		{"OPENCODE", "1", "opencode"},
+		{"COPILOT_GH", "true", "github_copilot"},
+		{"NONEXIST_AGENT", "1", ""},
+	}
+
+	t.Run("init attributes", func(t *testing.T) {
+		var buf bytes.Buffer
+		tel := Init(context.Background(), Config{
+			ErrWriter:        &buf,
+			ProfileTelemetry: "log",
+			Version:          "0.1.0",
+		})
+
+		tel.StartCommand(context.Background(), CommandInfo{Command: "variable import"})
+
+		err := tel.Shutdown(context.Background(), 0)
+		require.NoError(t, err)
+
+		output := buf.String()
+		require.Contains(t, output, "session_id")
+		require.Contains(t, output, "device_id")
+	})
+
+	for _, tc := range agentCases {
+		t.Run(tc.envKey, func(t *testing.T) {
+			clearEnv(t)
+			t.Setenv(tc.envKey, tc.envVal)
+
+			var buf bytes.Buffer
+			tel := Init(context.Background(), Config{
+				ErrWriter:        &buf,
+				ProfileTelemetry: "log",
+				Version:          "0.1.0",
+			})
+
+			tel.StartCommand(context.Background(), CommandInfo{Command: "variable import"})
+
+			err := tel.Shutdown(context.Background(), 0)
+			require.NoError(t, err)
+
+			output := buf.String()
+			if tc.expectedAgent != "" {
+				require.Contains(t, output, "agent")
+				require.Contains(t, output, tc.expectedAgent)
+			} else {
+				require.NotContains(t, output, "agent")
+			}
+		})
+	}
+}
+
 func TestStartCommand_DisabledMode_NoSpan(t *testing.T) {
 	clearEnv(t)
 	t.Setenv(EnvTelemetry, "false")
@@ -220,8 +280,8 @@ func TestStartCommand_CreatesSpanWithAttributes(t *testing.T) {
 
 	// Check attributes.
 	attrs := spanAttrMap(s)
-	assert.Equal(t, "run start", attrs["tfctl.command"])
-	assert.Equal(t, true, attrs["tfctl.dry_run"])
+	assert.Equal(t, "run start", attrs["command"])
+	assert.Equal(t, true, attrs["dry_run_flag"])
 	assert.Equal(t, false, attrs["is_tty"])
 	assert.NotEmpty(t, attrs["os"])
 	assert.NotEmpty(t, attrs["arch"])
@@ -241,7 +301,7 @@ func TestStartCommand_IncludesCIAttribute(t *testing.T) {
 	require.Len(t, spans, 1)
 
 	attrs := spanAttrMap(spans[0])
-	assert.Equal(t, true, attrs["ci"])
+	assert.Equal(t, true, attrs["is_ci"])
 }
 
 func TestStartCommand_NoCIAttribute(t *testing.T) {
@@ -258,7 +318,7 @@ func TestStartCommand_NoCIAttribute(t *testing.T) {
 	require.Len(t, spans, 1)
 
 	attrs := spanAttrMap(spans[0])
-	assert.Equal(t, false, attrs["ci"])
+	assert.Equal(t, false, attrs["is_ci"])
 }
 
 // ============================================================
@@ -525,6 +585,9 @@ func clearEnv(t *testing.T) {
 	t.Setenv("TRACESTATE", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	t.Setenv("CI", "")
+	t.Setenv("CLAUDECODE", "")
+	t.Setenv("OPENCODE", "")
+	t.Setenv("COPILOT_GH", "")
 }
 
 // newTestTelemetry creates a Telemetry instance with an in-memory exporter for testing.

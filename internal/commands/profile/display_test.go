@@ -17,7 +17,7 @@ func TestDisplay(t *testing.T) {
 	t.Parallel()
 
 	p := profile.TestProfile(t)
-	p.Organization = "123"
+	p.DefaultOrganization = "123"
 	p.Hostname = "app.eu.terraform.io"
 	p.NoColor = func() *bool { b := true; return &b }()
 

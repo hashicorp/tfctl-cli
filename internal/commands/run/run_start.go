@@ -109,7 +109,7 @@ func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 			}
 
 			if startOpts.Organization == "" {
-				startOpts.Organization = inv.Profile.Organization
+				startOpts.Organization = inv.Profile.DefaultOrganization
 			}
 			if startOpts.Organization == "" {
 				cfg, err := terraformcfg.FindCloudConfig(".")

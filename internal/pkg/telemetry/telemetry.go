@@ -8,6 +8,7 @@ package telemetry
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
@@ -48,6 +49,9 @@ const (
 
 // Config holds the configuration needed to initialize telemetry.
 type Config struct {
+	// DeviceID is the unique identifier for this CLI installation, used for telemetry purposes.
+	DeviceID string
+
 	// ProfileTelemetry is the value of the profile's telemetry setting.
 	ProfileTelemetry string
 
@@ -96,12 +100,21 @@ type Telemetry struct {
 	parentCtx context.Context
 	errWriter io.Writer
 	isTTY     bool
+	deviceID  string
 }
 
 // SetErrorHandler allows overriding the default OpenTelemetry error handler. By default,
 // errors are ignored.
 func SetErrorHandler(handler func(error)) {
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(handler))
+}
+
+func generateStableID(uuid string, id int) string {
+	// Combine into a single string separator-style to prevent boundary collisions
+	combined := fmt.Sprintf("%s:%d", uuid, id)
+
+	// Hash it
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(combined)))
 }
 
 // Init creates and configures a Telemetry instance based on the resolved mode.
@@ -116,6 +129,7 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 		parentCtx: ctx,
 		hostname:  cfg.Hostname,
 		isTTY:     cfg.IsTTY,
+		deviceID:  cfg.DeviceID,
 	}
 
 	if mode == ModeDisabled {
@@ -132,7 +146,8 @@ func Init(ctx context.Context, cfg Config) *Telemetry {
 		semconv.ServiceVersion(cfg.Version),
 		semconv.TelemetrySDKLanguageGo,
 		semconv.TelemetrySDKName("opentelemetry"),
-		attribute.Int("process.parent_pid", os.Getppid()),
+		attribute.String("device_id", t.deviceID),
+		attribute.String("session_id", generateStableID(t.deviceID, os.Getppid())),
 	)
 
 	// Create the exporter based on mode
@@ -233,21 +248,25 @@ func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.
 
 	// Build attributes from CommandInfo
 	attrs := []attribute.KeyValue{
-		attribute.String("tfctl.command", info.Command),
-		attribute.Bool("tfctl.dry_run", info.DryRun),
-		attribute.Bool("tfctl.debug", info.Debug),
-		attribute.Bool("tfctl.json", info.JSON),
+		attribute.String("command", info.Command),
+		attribute.Bool("dry_run_flag", info.DryRun),
+		attribute.Bool("debug_flag", info.Debug),
+		attribute.Bool("json_flag", info.JSON),
 		attribute.String("os", runtime.GOOS),
 		attribute.String("arch", runtime.GOARCH),
-		attribute.Bool("ci", os.Getenv("CI") != ""),
-		attribute.String("agent_detected", detectAgent()),
+		attribute.Bool("is_ci", os.Getenv("CI") != ""),
 		attribute.Bool("is_tty", t.isTTY),
 	}
 
 	if info.Profile != nil {
 		attrs = append(attrs,
-			attribute.String("tfctl.hostname", info.Profile.GetHostname()),
+			attribute.String("hostname", info.Profile.GetHostname()),
+			attribute.Bool("is_named_profile", info.Profile.Name != profile.ProfileNameDefault),
 		)
+	}
+
+	if agent := detectAgent(); agent != "" {
+		attrs = append(attrs, attribute.String("agent", agent))
 	}
 
 	spanName := fmt.Sprintf("tfctl %s", info.Command)

@@ -64,7 +64,14 @@ func realMain() int {
 
 	// TODO: check version for updates?
 
-	activeProfile, err := loadActiveProfile()
+	// Create the profile loader
+	loader, err := profile.NewLoader()
+	if err != nil {
+		fmt.Fprintln(io.Err(), err)
+		return 1
+	}
+
+	activeProfile, err := loadActiveProfile(loader)
 	if err != nil {
 		fmt.Fprintln(io.Err(), err)
 		return 1
@@ -81,6 +88,7 @@ func realMain() int {
 		profileTelemetry = activeProfile.GetTelemetry()
 	}
 	tel := telemetry.Init(shutdownCtx, telemetry.Config{
+		DeviceID:         loader.GetDeviceID(shutdownCtx),
 		Hostname:         activeProfile.GetHostname(),
 		ProfileTelemetry: profileTelemetry,
 		Version:          version.Version,
@@ -137,13 +145,7 @@ func realMain() int {
 }
 
 // loadActiveProfile loads the active profile.
-func loadActiveProfile() (*profile.Profile, error) {
-	// Create the profile loader
-	loader, err := profile.NewLoader()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create profile loader: %w", err)
-	}
-
+func loadActiveProfile(loader *profile.Loader) (*profile.Profile, error) {
 	// Load the active profile
 	activeProfile, err := loader.GetActiveProfile()
 	if err != nil {

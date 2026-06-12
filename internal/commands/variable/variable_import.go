@@ -119,7 +119,7 @@ func NewCmdVariableImport(inv *cmd.Invocation) *cmd.Command {
 			}
 
 			if opts.Organization == "" {
-				opts.Organization = inv.Profile.Organization
+				opts.Organization = inv.Profile.DefaultOrganization
 			}
 
 			if opts.Organization == "" || opts.Workspace == "" {
