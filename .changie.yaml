@@ -1,0 +1,29 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+changesDir: .changes
+unreleasedDir: unreleased
+headerPath: header.tpl.md
+changelogPath: CHANGELOG.md
+versionExt: md
+versionFormat: '## {{.Version}} ({{.Time.Format "January 2, 2006"}})'
+kindFormat: '{{.Kind}}:'
+changeFormat: "* {{.Body}} {{- if .Custom.Issue }} ([#{{.Custom.Issue}}](https://github.com/hashicorp/tfctl-cli/issues/{{.Custom.Issue}})){{- end}}"
+kinds:
+    - label: NEW FEATURES
+      auto: minor
+    - label: ENHANCEMENTS
+      auto: minor
+    - label: BUG FIXES
+      auto: patch
+    - label: NOTES
+    - label: BREAKING CHANGES
+newlines:
+    afterChangelogHeader: 0
+    beforeKind: 1
+    afterKind: 1
+    afterChange: 1
+    afterVersion: 1
+    beforeChangelogVersion: 0
+    endOfVersion: 1
+envPrefix: CHANGIE_
