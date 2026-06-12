@@ -2,24 +2,6 @@
 
 <!-- Describe a clear reason for this change -->
 
-## PCI review checklist
-
-<!-- heimdall_github_prtemplate:grc-pci_dss-2024-01-05 -->
-
-- [ ] I have documented a clear reason for, and description of, the change I am making.
-
-- [x] If applicable, I've documented a plan to revert these changes if they require more than reverting the pull request.
-
-- [ ] If applicable, I've documented the impact of any changes to security controls.
-
-If you have any questions, please contact your direct supervisor, GRC (#team-grc), or the PCI working group (#proj-pci-reboot). You can also find more information at [PCI Compliance](https://hashicorp.atlassian.net/wiki/spaces/SEC/pages/2784559202/PCI+Compliance).
-
-## The Three Ex's:
-
-### External Links
-
-- [JIRA](https://hashicorp.atlassian.net/browse/xxxx)
-
 ### Example Output
 
 <!--
@@ -27,7 +9,15 @@ One easy way to create a screenshot is:
 go run github.com/homeport/termshot/cmd/termshot@v0.6.1 -c -f ~/screenshot.png -- tfctl mycommand --myflag
 -->
 
-### Extra Things that are Easy to Forget
+### PR Checklist
 
-- [ ] If you added a top level command or global flag, run `make gen/screenshot` to update the README screenshot
-- [ ] Think through bash autocomplete prediction for new command targets or flag argument values
+1. Ensure you have [changie](https://changie.dev/guide/installation/) installed for release notes prep.
+1. Ensure any command changes are sensitive to these global flags:
+  - `--json` &mdash; Force machine readable output to stdout. Does not apply to stderr.
+  - `--markdown` &mdash; Force markdown output to stdout. Does not apply to stderr.
+  - `--dry-run` &mdash; Don't make any actual writes or other mutations. Describe what would have changed to stderr.
+  - `--quiet` &mdash; Don't render output to stdout.
+1. Get the logging interface from the context and add debug logging for interesting conditions and nonfatal situations.
+1. Run `make gen/screenshot` if the root command output changes.
+1. Add the `Autocomplete` field to positional arguments and flags to assist shell autocomplete.
+1. Run `changie new` to prepare a new changelog entry for the next set of release notes.

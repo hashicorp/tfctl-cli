@@ -920,7 +920,7 @@ $ tfctl --version
 #### PR Preparation Checklist
 
 1. Ensure you have [changie](https://changie.dev/guide/installation/) installed for release notes prep.
-1. Ensure your change is sensitive to these global flags.
+1. Ensure any command changes are sensitive to these global flags:
   - `--json` &mdash; Force machine readable output to stdout. Does not apply to stderr.
   - `--markdown` &mdash; Force markdown output to stdout. Does not apply to stderr.
   - `--dry-run` &mdash; Don't make any actual writes or other mutations. Describe what would have changed to stderr.
