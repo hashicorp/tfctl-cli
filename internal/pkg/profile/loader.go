@@ -80,7 +80,7 @@ func newLoader(dir string) (*Loader, error) {
 	if err != nil {
 		// If the directory doesn't exist, create it.
 		if errors.Is(err, fs.ErrNotExist) {
-			if err := os.MkdirAll(path, 0766); err != nil {
+			if err := os.MkdirAll(path, 0700); err != nil {
 				return nil, fmt.Errorf("failed to created %s config directory %q: %w", version.Name, path, err)
 			}
 		} else {
@@ -94,7 +94,7 @@ func newLoader(dir string) (*Loader, error) {
 	if err != nil {
 		// If the directory doesn't exist, create it.
 		if errors.Is(err, fs.ErrNotExist) {
-			if err := os.MkdirAll(profilesDir, 0766); err != nil {
+			if err := os.MkdirAll(profilesDir, 0700); err != nil {
 				return nil, fmt.Errorf("failed to created %s profiles directory %q: %w", version.Name, profilesDir, err)
 			}
 		} else {

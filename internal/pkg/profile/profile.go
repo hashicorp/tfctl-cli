@@ -179,7 +179,8 @@ func (p *Profile) Write() error {
 	path := fmt.Sprintf("%s/%s.hcl", p.dir, p.Name)
 	f := hclwrite.NewEmptyFile()
 	gohcl.EncodeIntoBody(p, f.Body())
-	return os.WriteFile(path, f.Bytes(), 0o666)
+
+	return os.WriteFile(path, f.Bytes(), os.FileMode(0o600))
 }
 
 // String returns an HCL formatted string representation of the profile.

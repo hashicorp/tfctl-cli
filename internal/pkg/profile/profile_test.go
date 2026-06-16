@@ -5,7 +5,9 @@ package profile
 
 import (
 	"context"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -138,4 +140,22 @@ func TestProfile_HostCache(t *testing.T) {
 	r.NoError(err)
 
 	r.FileExists(path.Join(h.dir, "test.json"))
+}
+
+func TestProfile_WritePermissions(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	p := &Profile{
+		Name: "test",
+		dir:  t.TempDir(),
+	}
+	err := p.Write()
+	r.NoError(err)
+
+	path := filepath.Join(p.dir, "test.hcl")
+
+	info, err := os.Stat(path)
+	r.NoError(err)
+	r.Equal(os.FileMode(0o600), info.Mode().Perm())
 }
