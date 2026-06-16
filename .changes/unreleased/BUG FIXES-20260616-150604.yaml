@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: hostname telemetry is anonymized when not HCP Terraform.
+time: 2026-06-16T15:06:04.201058-06:00
