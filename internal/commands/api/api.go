@@ -257,6 +257,14 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 				return fmt.Errorf("invalid input path/URL %q", path)
 			}
 
+			if resolvedURL.Host != apiClient.BaseURL.Host {
+				return fmt.Errorf("invalid input path/URL %q: must be on the same host as the configured profile host %q", path, inv.Profile.GetHostname())
+			}
+
+			if resolvedURL.Scheme != "https" {
+				return fmt.Errorf("invalid input path/URL %q: must use https scheme", path)
+			}
+
 			opts.URL = resolvedURL
 			opts.Client = apiClient
 			opts.Quiet = inv.GetGlobalFlags().Quiet
