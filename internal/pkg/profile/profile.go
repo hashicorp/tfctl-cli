@@ -257,6 +257,12 @@ func (p *Profile) GetHostname() string {
 	return p.Hostname
 }
 
+// IsHCPTerraform returns true if the profile's hostname is a known HCP Terraform hostname
+// in any geo.
+func (p *Profile) IsHCPTerraform() bool {
+	return p.GetHostname() == "app.terraform.io" || p.GetHostname() == "app.eu.terraform.io"
+}
+
 // SetDefaultOrganization sets the default organization.
 func (p *Profile) SetDefaultOrganization(name string) *Profile {
 	if p == nil {
