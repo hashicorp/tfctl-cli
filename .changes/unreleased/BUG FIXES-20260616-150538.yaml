@@ -1,3 +1,3 @@
 kind: BUG FIXES
-body: Profile configuration files are now created with owner-read permissions only.
+body: Profile configuration files are now created with owner-rw permissions only.
 time: 2026-06-16T15:05:38.766655-06:00
