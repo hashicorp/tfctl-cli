@@ -189,44 +189,6 @@ func TestClientDo_UnwrapsTransportErrors(t *testing.T) {
 	require.ErrorIs(t, err, wantErr)
 }
 
-func TestSummarizeAPIErrors(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		body string
-		want string
-	}{
-		{
-			name: "json api errors",
-			body: `{"errors":[{"title":"invalid request","detail":"workspace not found"}]}`,
-			want: "invalid request: workspace not found",
-		},
-		{
-			name: "message fallback",
-			body: `{"message":"rate limit exceeded"}`,
-			want: "rate limit exceeded",
-		},
-		{
-			name: "error fallback",
-			body: `{"error":"unauthorized"}`,
-			want: "unauthorized",
-		},
-		{
-			name: "invalid json",
-			body: `not-json`,
-			want: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			require.Equal(t, tt.want, SummarizeAPIErrors([]byte(tt.body)))
-		})
-	}
-}
-
 func TestClientSetLogger_Response(t *testing.T) {
 	t.Parallel()
 

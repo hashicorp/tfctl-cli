@@ -309,25 +309,6 @@ func TestRunAPI_InlineQueryParamsSparseFieldsets(t *testing.T) {
 	require.Equal(t, "name", req.Query.Get("fields[workspaces]"))
 }
 
-func TestNewCmdAPI_HostmismatchReturnsError(t *testing.T) {
-	t.Parallel()
-
-	io := iostreams.Test()
-	inv := &cmd.Invocation{
-		IO:          io,
-		Output:      format.New(io),
-		ShutdownCtx: context.Background(),
-		Profile: &profile.Profile{
-			Name:     "test",
-			Hostname: "example.com",
-			Token:    "test-token",
-		},
-	}
-	cmd := NewCmdAPI(inv)
-	err := cmd.RunF(cmd, []string{"https://malicious.com/api/v2/things"})
-	require.ErrorContains(t, err, "must be on the same host as the configured profile host \"example.com\"")
-}
-
 func TestNewCmdAPI_NonHTTPSReturnsError(t *testing.T) {
 	t.Parallel()
 

@@ -6,7 +6,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -133,15 +132,12 @@ func (c *Client) Do(ctx context.Context, req *Request) (*http.Response, error) {
 
 	httpResp, err := c.Adapter.Client.Do(httpReq)
 	if err != nil {
+		// Unwrap url.Error to get the underlying error type for better error handling by callers.
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) {
 			return nil, urlErr.Err
 		}
 		return nil, err
-	}
-
-	if httpResp.StatusCode >= 400 {
-		return nil, tfe.APIErrorFactory(httpResp, nil)
 	}
 
 	return httpResp, nil
@@ -192,39 +188,6 @@ func httpMethod(method string) abs.HttpMethod {
 	default:
 		return abs.GET
 	}
-}
-
-// SummarizeAPIErrors attempts to extract meaningful error messages from typical API error responses.
-func SummarizeAPIErrors(body []byte) string {
-	var payload struct {
-		Errors []struct {
-			Status string `json:"status"`
-			Title  string `json:"title"`
-			Detail string `json:"detail"`
-		} `json:"errors"`
-		Error   string `json:"error"`
-		Message string `json:"message"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return ""
-	}
-	if len(payload.Errors) > 0 {
-		parts := make([]string, 0, len(payload.Errors))
-		for _, item := range payload.Errors {
-			if item.Detail != "" {
-				parts = append(parts, strings.TrimSpace(item.Title+": "+item.Detail))
-				continue
-			}
-			if item.Title != "" {
-				parts = append(parts, item.Title)
-			}
-		}
-		return strings.Join(parts, ", ")
-	}
-	if payload.Message != "" {
-		return payload.Message
-	}
-	return payload.Error
 }
 
 // SetTelemetry wraps the HTTP transport to emit network telemetry about outgoing requests.
