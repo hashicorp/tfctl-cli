@@ -278,7 +278,7 @@ func (p *Profile) SetHostname(hostname string) error {
 }
 
 // NormalizeHostname validates and normalizes the given hostname by stripping any extra URL data,
-// like paths. It also converts domain names to their idna ASCII form
+// like paths. It also converts domain names to their idna ASCII form.
 func NormalizeHostname(hostname string) (string, error) {
 	u, err := url.Parse(hostname)
 	if err != nil {
