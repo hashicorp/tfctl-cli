@@ -123,6 +123,58 @@ func TestCore_Getters(t *testing.T) {
 	r.Equal("token-from-env", p.GetToken())
 }
 
+func TestNormalizeHostname(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		Name     string
+		Input    string
+		Expected string
+		Error    string
+	}{
+		{
+			Name:     "valid hostname",
+			Input:    "example.com",
+			Expected: "example.com",
+		},
+		{
+			Name:     "hostname with scheme",
+			Input:    "https://example.com",
+			Expected: "example.com",
+		},
+		{
+			Name:  "hostname with path",
+			Input: "example.com/some/path",
+			Error: `invalid hostname "example.com/some/path": must be a valid hostname (with optional port)`,
+		},
+		{
+			Name:  "invalid hostname",
+			Input: "invalid/hostname",
+			Error: `invalid hostname "invalid/hostname": must be a valid hostname (with optional port)`,
+		},
+		{
+			Name:     "hostname with unicode characters",
+			Input:    "täst.com",
+			Expected: "xn--tst-qla.com",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			t.Parallel()
+			r := require.New(t)
+
+			output, err := NormalizeHostname(c.Input)
+			if c.Error == "" {
+				r.NoError(err)
+				r.Equal(c.Expected, output)
+			} else {
+				r.ErrorContains(err, c.Error)
+			}
+		})
+	}
+}
+
 func TestProfile_SetHostname(t *testing.T) {
 	t.Parallel()
 

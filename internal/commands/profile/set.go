@@ -199,7 +199,7 @@ func setRun(ctx context.Context, opts *SetOpts) error {
 }
 
 func (o *SetOpts) setValidHostname() (bool, error) {
-	hostname, err := profile.ValidateHostname(o.Profile.Hostname)
+	hostname, err := profile.NormalizeHostname(o.Profile.Hostname)
 	if err != nil {
 		return false, err
 	}

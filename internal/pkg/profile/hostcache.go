@@ -45,7 +45,12 @@ type CheckRefreshFunc func(mTime *time.Time) RefreshResult
 // NewHostCacheLoader creates a new HostCacheLoader for the given hostname, using the provided logger for logging.
 func NewHostCacheLoader(ctx context.Context, baseDir, hostname string) (*HostCacheLoader, error) {
 	logger := logging.FromContext(ctx)
-	hostDir := filepath.Join(baseDir, normalizeHostname(hostname))
+	hostnameNormal, err := NormalizeHostname(hostname)
+	if err != nil {
+		return nil, err
+	}
+
+	hostDir := filepath.Join(baseDir, hostnameNormal)
 	if err := os.MkdirAll(hostDir, 0o766); err != nil {
 		return nil, err
 	}

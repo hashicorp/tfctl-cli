@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,6 +19,7 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/posener/complete"
+	"golang.org/x/net/idna"
 )
 
 const (
@@ -267,7 +269,7 @@ func (p *Profile) SetHostname(hostname string) error {
 		return nil
 	}
 
-	hostname, err := ValidateHostname(hostname)
+	hostname, err := NormalizeHostname(hostname)
 	if err != nil {
 		return err
 	}
@@ -275,18 +277,26 @@ func (p *Profile) SetHostname(hostname string) error {
 	return nil
 }
 
-// ValidateHostname validates that the provided hostname is a valid hostname with an optional port,
-// and does not include a scheme. If the hostname includes a scheme, the scheme is stripped before
-// validation.
-func ValidateHostname(hostname string) (string, error) {
-	// Validate the hostname format. It should be a hostname and port, no scheme
-	if indexScheme := strings.Index(hostname, "://"); indexScheme >= 0 {
-		hostname = hostname[indexScheme+3:]
+// NormalizeHostname validates and normalizes the given hostname by stripping any extra URL data,
+// like paths. It also converts domain names to their idna ASCII form
+func NormalizeHostname(hostname string) (string, error) {
+	u, err := url.Parse(hostname)
+	if err != nil {
+		return "", fmt.Errorf("invalid hostname %q: %w", hostname, err)
+	}
+
+	if err == nil && u.Host != "" {
+		hostname = u.Host
+	}
+
+	if asciiHost, err := idna.Lookup.ToASCII(hostname); err == nil {
+		return asciiHost, nil
 	}
 
 	if !validHostnamePattern.MatchString(hostname) {
 		return "", fmt.Errorf("invalid hostname %q: must be a valid hostname (with optional port)", hostname)
 	}
+
 	return hostname, nil
 }
 

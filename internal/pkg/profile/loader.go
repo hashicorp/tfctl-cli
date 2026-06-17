@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/mitchellh/go-homedir"
-	"golang.org/x/net/idna"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/version"
@@ -335,17 +334,6 @@ func (l *Loader) NewProfile(name string) (*Profile, error) {
 	return p, p.Validate()
 }
 
-func normalizeHostname(hostname string) string {
-	hostname = strings.TrimSpace(hostname)
-	hostname = strings.TrimPrefix(hostname, "https://")
-	hostname = strings.TrimPrefix(hostname, "http://")
-	hostname = strings.TrimRight(hostname, "/")
-	if asciiHost, err := idna.Lookup.ToASCII(hostname); err == nil {
-		return asciiHost
-	}
-	return hostname
-}
-
 func profileTokenEnvVar(profileName string) string {
 	if profileName == "" || profileName == "default" {
 		return envVarToken
@@ -354,7 +342,10 @@ func profileTokenEnvVar(profileName string) string {
 }
 
 func legacyTokenEnvVar(hostname string) string {
-	hostname = normalizeHostname(hostname)
+	hostname, err := NormalizeHostname(hostname)
+	if err != nil {
+		return ""
+	}
 
 	var b strings.Builder
 	b.WriteString("TF_TOKEN_")
@@ -393,7 +384,11 @@ func tokenFromCredentials(hostname string) (string, error) {
 		return "", fmt.Errorf("parse %s: %w", path, err)
 	}
 
-	hostname = normalizeHostname(hostname)
+	hostname, err = NormalizeHostname(hostname)
+	if err != nil {
+		return "", err
+	}
+
 	entry, ok := creds.Credentials[hostname]
 	if !ok {
 		return "", nil
