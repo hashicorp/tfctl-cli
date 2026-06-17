@@ -150,7 +150,7 @@ func setRun(ctx context.Context, opts *SetOpts) error {
 	write := true
 	switch opts.Property {
 	case "hostname":
-		write, err = opts.validateHostname()
+		write, err = opts.setValidHostname()
 	case "organization":
 		write, err = opts.validateOrg()
 	}
@@ -198,12 +198,13 @@ func setRun(ctx context.Context, opts *SetOpts) error {
 	return nil
 }
 
-func (o *SetOpts) validateHostname() (bool, error) {
-	hostname, err := o.Profile.ValidateHostname(o.Profile.Hostname)
+func (o *SetOpts) setValidHostname() (bool, error) {
+	hostname, err := profile.ValidateHostname(o.Profile.Hostname)
 	if err != nil {
 		return false, err
 	}
 	o.Profile.Hostname = hostname
+	o.Value = hostname
 	return true, nil
 }
 

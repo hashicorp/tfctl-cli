@@ -252,6 +252,7 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 				path = resolvedPath
 			}
 
+			// URL safety validation
 			resolvedURL, err := client.ResolveURL(*apiClient.BaseURL, path)
 			if err != nil {
 				return fmt.Errorf("invalid input path/URL %q", path)

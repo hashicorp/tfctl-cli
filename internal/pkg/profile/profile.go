@@ -263,7 +263,11 @@ func (p *Profile) GetHostname() string {
 // with an optional port, and should not include a scheme. If the hostname includes a scheme, the
 // scheme will be stripped.
 func (p *Profile) SetHostname(hostname string) error {
-	hostname, err := p.ValidateHostname(hostname)
+	if p == nil {
+		return nil
+	}
+
+	hostname, err := ValidateHostname(hostname)
 	if err != nil {
 		return err
 	}
@@ -274,7 +278,7 @@ func (p *Profile) SetHostname(hostname string) error {
 // ValidateHostname validates that the provided hostname is a valid hostname with an optional port,
 // and does not include a scheme. If the hostname includes a scheme, the scheme is stripped before
 // validation.
-func (p *Profile) ValidateHostname(hostname string) (string, error) {
+func ValidateHostname(hostname string) (string, error) {
 	// Validate the hostname format. It should be a hostname and port, no scheme
 	if indexScheme := strings.Index(hostname, "://"); indexScheme >= 0 {
 		hostname = hostname[indexScheme+3:]

@@ -173,6 +173,14 @@ func TestProfile_SetHostname(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("nil profile", func(t *testing.T) {
+		p := (*Profile)(nil)
+		r := require.New(t)
+		err := p.SetHostname("example.com")
+		r.NoError(err)
+		r.Equal("", p.GetHostname())
+	})
 }
 
 func TestProfile_HostCache(t *testing.T) {
