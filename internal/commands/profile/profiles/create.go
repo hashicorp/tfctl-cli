@@ -92,7 +92,6 @@ type CreateOpts struct {
 
 func createRun(ctx context.Context, opts *CreateOpts) error {
 	logger := logging.FromContext(ctx)
-	logger.Debug("creating profile", "name", opts.Name, "hostname", opts.Hostname)
 
 	// Get the existing profiles
 	profiles, err := opts.Profiles.ListProfiles()
@@ -115,8 +114,13 @@ func createRun(ctx context.Context, opts *CreateOpts) error {
 
 	// Set the hostname if provided
 	if opts.Hostname != "" {
-		p.Hostname = opts.Hostname
+		err := p.SetHostname(opts.Hostname)
+		if err != nil {
+			return err
+		}
 	}
+
+	logger.Debug("creating profile", "name", opts.Name, "hostname", opts.Hostname)
 
 	if opts.DryRun {
 		cs := opts.IO.ColorScheme()

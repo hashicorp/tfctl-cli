@@ -38,6 +38,8 @@ var (
 	// ErrInvalidProfileName is returned if a profile is created with an invalid
 	// profile name.
 	ErrInvalidProfileName = errors.New("profile name may only include a-z, A-Z, 0-9, or '_', must start with a letter, and can be no longer than 64 characters")
+
+	validHostnamePattern = regexp.MustCompile(`^[a-zA-Z0-9.-]+(:\d+)?$`)
 )
 
 // ActiveProfile stores the active profile.
@@ -255,6 +257,33 @@ func (p *Profile) GetHostname() string {
 	}
 
 	return p.Hostname
+}
+
+// SetHostname sets the profile's hostname after validating it. The hostname should be a hostname
+// with an optional port, and should not include a scheme. If the hostname includes a scheme, the
+// scheme will be stripped.
+func (p *Profile) SetHostname(hostname string) error {
+	hostname, err := p.ValidateHostname(hostname)
+	if err != nil {
+		return err
+	}
+	p.Hostname = hostname
+	return nil
+}
+
+// ValidateHostname validates that the provided hostname is a valid hostname with an optional port,
+// and does not include a scheme. If the hostname includes a scheme, the scheme is stripped before
+// validation.
+func (p *Profile) ValidateHostname(hostname string) (string, error) {
+	// Validate the hostname format. It should be a hostname and port, no scheme
+	if indexScheme := strings.Index(hostname, "://"); indexScheme >= 0 {
+		hostname = hostname[indexScheme+3:]
+	}
+
+	if !validHostnamePattern.MatchString(hostname) {
+		return "", fmt.Errorf("invalid hostname %q: must be a valid hostname (with optional port)", hostname)
+	}
+	return hostname, nil
 }
 
 // IsHCPTerraform returns true if the profile's hostname is a known HCP Terraform hostname

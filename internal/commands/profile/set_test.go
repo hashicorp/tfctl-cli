@@ -173,3 +173,23 @@ func TestSetDryRun(t *testing.T) {
 	r.NoError(err)
 	r.Equal("original-org", reloaded.DefaultOrganization)
 }
+
+func TestSetInvalidHostname(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+	io := iostreams.Test()
+
+	p, err := l.NewProfile("test")
+	r.NoError(err)
+	o := &SetOpts{
+		IO:       io,
+		Profile:  p,
+		Property: "hostname",
+		Value:    "my/deployment:8080",
+	}
+
+	err = setRun(context.Background(), o)
+	r.ErrorContains(err, "invalid hostname \"my/deployment:8080\": must be a valid hostname (with optional port)")
+}

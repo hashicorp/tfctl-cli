@@ -123,6 +123,58 @@ func TestCore_Getters(t *testing.T) {
 	r.Equal("token-from-env", p.GetToken())
 }
 
+func TestProfile_SetHostname(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		Name     string
+		Hostname string
+		Error    string
+		Expected string
+	}{
+		{
+			Name:     "valid hostname",
+			Hostname: "example.com",
+			Error:    "",
+			Expected: "example.com",
+		},
+		{
+			Name:     "valid hostname with port",
+			Hostname: "example.com:8080",
+			Error:    "",
+			Expected: "example.com:8080",
+		},
+		{
+			Name:     "hostname with scheme",
+			Hostname: "https://example.com",
+			Error:    "",
+			Expected: "example.com",
+		},
+		{
+			Name:     "invalid hostname with slash",
+			Hostname: "invalid/hostname",
+			Error:    `invalid hostname "invalid/hostname": must be a valid hostname (with optional port)`,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			p := &Profile{}
+			r := require.New(t)
+			err := p.SetHostname(c.Hostname)
+			if c.Error == "" {
+				r.NoError(err)
+			} else {
+				r.ErrorContains(err, c.Error)
+			}
+
+			if c.Expected != "" {
+				r.Equal(c.Expected, p.GetHostname())
+			}
+		})
+	}
+}
+
 func TestProfile_HostCache(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
