@@ -246,19 +246,21 @@ func (l *Loader) LoadProfile(ctx context.Context, name string) (*Profile, error)
 
 	// 2. Check for a token in the terraform credentials file that matches the hostname of the profile
 	if c.GetToken() == "" {
-		credsToken, err := tokenFromCredentials(c.Hostname)
+		credsToken, err := tokenFromCredentials(c.GetHostname())
 		if err != nil {
 			return nil, err
 		}
-		logger.Debug("Setting token from terraform credentials file", "hostname", c.Hostname)
-		c.tokenFromEnv = credsToken
+		if credsToken != "" {
+			logger.Debug("Setting token from terraform credentials file", "hostname", c.GetHostname())
+			c.tokenFromEnv = credsToken
+		}
 	}
 
 	// 3. Check for a token in the terraform environment variable that matches the hostname of the
 	// profile (support for TF_TOKEN_{normalizedHostname}
 	if c.GetToken() == "" {
-		if envToken := os.Getenv(terraformTokenEnvVar(c.Hostname)); envToken != "" {
-			logger.Debug("Setting token from terraform environment", "var", terraformTokenEnvVar(c.Hostname))
+		if envToken := os.Getenv(terraformTokenEnvVar(c.GetHostname())); envToken != "" {
+			logger.Debug("Setting token from terraform environment", "var", terraformTokenEnvVar(c.GetHostname()))
 			c.tokenFromEnv = envToken
 		}
 	}
@@ -299,7 +301,8 @@ const (
 
 // DefaultProfile returns the minimal default profile. If environment
 // variables related to organization and project are set, they are honored here.
-func (l *Loader) DefaultProfile() *Profile {
+func (l *Loader) DefaultProfile(ctx context.Context) *Profile {
+	logger := logging.FromContext(ctx)
 	profile, err := l.NewProfile(ProfileNameDefault)
 	if err != nil {
 		panic("The default profile should always be valid. This is always a developer error: " + err.Error())
@@ -312,7 +315,14 @@ func (l *Loader) DefaultProfile() *Profile {
 
 	hostname := DefaultHostname
 	if envHostname, ok := os.LookupEnv(envVarHostname); ok && envHostname != "" {
-		hostname = envHostname
+		hostnameNormal, err := NormalizeHostname(envHostname)
+		if err != nil {
+			logger.Debug("Invalid hostname set by environment (using default)", "error", err)
+			hostnameNormal = DefaultHostname
+		} else {
+			logger.Debug("Using hostname from "+envVarHostname, "hostname", hostnameNormal)
+		}
+		hostname = hostnameNormal
 	}
 
 	profile.Hostname = hostname

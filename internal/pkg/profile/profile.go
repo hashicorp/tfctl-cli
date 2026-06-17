@@ -282,7 +282,7 @@ func (p *Profile) SetHostname(hostname string) error {
 func NormalizeHostname(hostname string) (string, error) {
 	u, err := url.Parse(hostname)
 	if err != nil {
-		return "", fmt.Errorf("invalid hostname %q: %w", hostname, err)
+		return "", fmt.Errorf("invalid hostname %q: must be a valid hostname (with optional port)", hostname)
 	}
 
 	if err == nil && u.Host != "" {

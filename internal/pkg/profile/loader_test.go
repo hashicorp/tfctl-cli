@@ -239,9 +239,42 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 		r := require.New(t)
 		l, err := newLoader(t.TempDir())
 		r.NoError(err)
-		prof := l.DefaultProfile()
+		prof := l.DefaultProfile(context.Background())
 
 		r.Equal("xyz", prof.DefaultOrganization)
+	})
+
+	t.Run("default profile, hostname env set", func(t *testing.T) {
+		t.Setenv(envVarHostname, "https://example.com/with/path")
+
+		r := require.New(t)
+		l, err := newLoader(t.TempDir())
+		r.NoError(err)
+		prof := l.DefaultProfile(context.Background())
+
+		r.Equal("example.com", prof.Hostname)
+	})
+
+	t.Run("default profile, hostname with port env set", func(t *testing.T) {
+		t.Setenv(envVarHostname, "example.com:8080")
+
+		r := require.New(t)
+		l, err := newLoader(t.TempDir())
+		r.NoError(err)
+		prof := l.DefaultProfile(context.Background())
+
+		r.Equal("example.com:8080", prof.Hostname)
+	})
+
+	t.Run("default profile, invalid hostname env set", func(t *testing.T) {
+		t.Setenv(envVarHostname, "example/youtube")
+
+		r := require.New(t)
+		l, err := newLoader(t.TempDir())
+		r.NoError(err)
+		prof := l.DefaultProfile(context.Background())
+
+		r.Equal(DefaultHostname, prof.Hostname)
 	})
 
 	//nolint:paralleltest

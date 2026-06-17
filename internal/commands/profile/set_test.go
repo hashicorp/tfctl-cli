@@ -114,7 +114,7 @@ func TestSet_Organization(t *testing.T) {
 	r := require.New(t)
 	io := iostreams.Test()
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	r.NoError(p.Write())
 	o := &SetOpts{
 		IO:       io,

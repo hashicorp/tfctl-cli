@@ -165,7 +165,7 @@ func loadActiveProfile(ctx context.Context, loader *profile.Loader) (*profile.Pr
 			return nil, fmt.Errorf("failed to save default active profile config: %w", err)
 		}
 
-		if err := loader.DefaultProfile().Write(); err != nil {
+		if err := loader.DefaultProfile(ctx).Write(); err != nil {
 			return nil, fmt.Errorf("failed to save default profile config: %w", err)
 		}
 

@@ -207,6 +207,11 @@ func TestProfile_SetHostname(t *testing.T) {
 			Hostname: "invalid/hostname",
 			Error:    `invalid hostname "invalid/hostname": must be a valid hostname (with optional port)`,
 		},
+		{
+			Name:     "cannot be parsed",
+			Hostname: "http://[invalid:hostname]",
+			Error:    `invalid hostname "http://[invalid:hostname]": must be a valid hostname (with optional port)`,
+		},
 	}
 
 	for _, c := range cases {
