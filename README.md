@@ -89,7 +89,7 @@ Verify that the login is successful before leaving the token page in your browse
 
 If the CLI does not find a token configured for the active profile, it checks your Terraform configuration for a matching token. Refer to [Terraform tokens](#terraform-tokens) for more information.
 
-### Set organization
+### Set default organization
 
 Run the `tfctl profile set default_organization` command to set the organization. Replace `<name>` with your HCP Terraform or Terraform Enterprise organization name.
 
