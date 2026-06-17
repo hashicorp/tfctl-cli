@@ -91,10 +91,10 @@ If the CLI does not find a token configured for the active profile, it checks yo
 
 ### Set organization
 
-Run the `tfctl profile set organization` command to set the organization. Replace `<name>` with your HCP Terraform or Terraform Enterprise organization name.
+Run the `tfctl profile set default_organization` command to set the organization. Replace `<name>` with your HCP Terraform or Terraform Enterprise organization name.
 
 ```bash
-$ tfctl profile set organization <name>
+$ tfctl profile set default_organization <name>
 ```
 
 ## Example usage
@@ -106,11 +106,11 @@ $ tfctl profile set organization <name>
 
 # Configure profiles for EU and US organizations, and authenticate to both. You must already have users with access to the organizations in each HCP Terraform instance.
 $ tfctl profile profiles create us --hostname=app.terraform.io
-$ tfctl profile set organization my-us-org-name
+$ tfctl profile set default_organization my-us-org-name
 $ tfctl auth login # Create API token in web browser, copy it, then paste it to terminal
 
 $ tfctl profile profiles create eu --hostname=app.eu.terraform.io
-$ tfctl profile set organization my-eu-org-name
+$ tfctl profile set default_organization my-eu-org-name
 $ tfctl auth login # Create API token in web browser, copy it, then paste it to terminal
 
 # Get workspace configuration from EU org. Workspace must already exist in this org.
@@ -521,7 +521,7 @@ Set the value of the given configuration property for a profile.
 Set the organization to `my-organization` for the active profile:
 
 ```bash
-$ tfctl profile set organization my-organization
+$ tfctl profile set default_organization my-organization
 ```
 
 #### Related
@@ -548,7 +548,7 @@ Unset the value of the given configuration property for a profile.
 Unset the organization for the active profile:
 
 ```bash
-$ tfctl profile unset organization
+$ tfctl profile unset default_organization
 ```
 
 #### Related
