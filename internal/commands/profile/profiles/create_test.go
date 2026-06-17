@@ -103,7 +103,7 @@ func TestCreateHostnameWithScheme(t *testing.T) {
 	r.NoError(err)
 	r.Contains(profiles, "hostname_with_scheme")
 
-	p, err := l.LoadProfile("hostname_with_scheme")
+	p, err := l.LoadProfile(context.Background(), "hostname_with_scheme")
 	r.NoError(err)
 	r.Equal("example.com:8080", p.GetHostname())
 }

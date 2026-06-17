@@ -91,7 +91,7 @@ If the CLI does not find a token configured for the active profile, it checks yo
 
 ### Set default organization
 
-Run the `tfctl profile set default_organization` command to set the organization. Replace `<name>` with your HCP Terraform or Terraform Enterprise organization name.
+Run the `tfctl profile set default_organization` command to set the default organization. Replace `<name>` with your HCP Terraform or Terraform Enterprise organization name.
 
 ```bash
 $ tfctl profile set default_organization <name>
@@ -172,7 +172,7 @@ If you have not configured a particular option for the active profile, `tfctl` c
 
 `TFCTL_HOSTNAME`: The Terraform Enterprise or HCP Terraform hostname to use. Defaults to `app.terraform.io`.
 
-`TFCTL_TOKEN`: An HCP Terraform API token to use in conjunction with the default profile.
+`TFCTL_TOKEN`: An HCP Terraform API token to use in conjunction with the default profile. This variable is not used in conjunction with any other profile.
 
 `TFCTL_TOKEN_<profile>`: An HCP Terraform API token to use in conjunction with the named profile.
 

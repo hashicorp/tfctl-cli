@@ -195,7 +195,8 @@ func (l *Loader) ListProfiles() ([]string, error) {
 // LoadProfile loads a profile given its name. If the profile can not be found,
 // ErrNoProfileFilePresent will be returned. Otherwise, an error will be
 // returned if the profile is invalid.
-func (l *Loader) LoadProfile(name string) (*Profile, error) {
+func (l *Loader) LoadProfile(ctx context.Context, name string) (*Profile, error) {
+	logger := logging.FromContext(ctx)
 	// Expand the directory.
 	path := filepath.Join(l.profilesDir, fmt.Sprintf("%s.hcl", name))
 
@@ -223,27 +224,41 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 	// If there's no default organization set, use the environment variable if it's set.
 	if c.DefaultOrganization == "" {
 		if orgID, ok := os.LookupEnv(envVarOrganization); ok && orgID != "" {
+			logger.Debug("Setting default_organization from "+envVarOrganization, "organization", orgID)
 			c.DefaultOrganization = orgID
 		}
 	}
 
-	// If there's no token set, check the credentials file and environment variables.
-	if c.Token == "" {
-		credsToken, err := tokenFromCredentials(c.Hostname)
-		if err != nil {
-			return nil, err
-		}
-		c.tokenFromEnv = credsToken
+	// If there's no token set, check the credentials file and environment variables. These are
+	// checked in a careful order of precedence.
+
+	if c.Token != "" {
+		logger.Debug("Using token from profile", "name", c.Name)
 	}
 
-	if c.Token == "" {
+	// 1. Check for a token specific to tfctl (TFCTL_TOKEN_{profileName} or TFCTL_TOKEN for the default profile)
+	if c.GetToken() == "" {
 		if envToken := os.Getenv(profileTokenEnvVar(c.Name)); envToken != "" {
+			logger.Debug("Setting token from environment", "var", profileTokenEnvVar(c.Name))
 			c.tokenFromEnv = envToken
 		}
 	}
 
-	if c.Token == "" {
-		if envToken := os.Getenv(legacyTokenEnvVar(c.Hostname)); envToken != "" {
+	// 2. Check for a token in the terraform credentials file that matches the hostname of the profile
+	if c.GetToken() == "" {
+		credsToken, err := tokenFromCredentials(c.Hostname)
+		if err != nil {
+			return nil, err
+		}
+		logger.Debug("Setting token from terraform credentials file", "hostname", c.Hostname)
+		c.tokenFromEnv = credsToken
+	}
+
+	// 3. Check for a token in the terraform environment variable that matches the hostname of the
+	// profile (support for TF_TOKEN_{normalizedHostname}
+	if c.GetToken() == "" {
+		if envToken := os.Getenv(terraformTokenEnvVar(c.Hostname)); envToken != "" {
+			logger.Debug("Setting token from terraform environment", "var", terraformTokenEnvVar(c.Hostname))
 			c.tokenFromEnv = envToken
 		}
 	}
@@ -253,25 +268,6 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 	c.hostCacheDir = hostCacheDir
 
 	return &c, nil
-}
-
-// LoadProfiles loads all the available profiles.
-func (l *Loader) LoadProfiles() ([]*Profile, error) {
-	profileNames, err := l.ListProfiles()
-	if err != nil {
-		return nil, err
-	}
-
-	var profiles []*Profile
-	for _, n := range profileNames {
-		p, err := l.LoadProfile(n)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load profile %q: %w", n, err)
-		}
-		profiles = append(profiles, p)
-	}
-
-	return profiles, nil
 }
 
 // DeleteProfile deletes the profile with the given name. If the profile can not be found,
@@ -341,7 +337,7 @@ func profileTokenEnvVar(profileName string) string {
 	return fmt.Sprintf(envVarTokenProfileFormat, profileName)
 }
 
-func legacyTokenEnvVar(hostname string) string {
+func terraformTokenEnvVar(hostname string) string {
 	hostname, err := NormalizeHostname(hostname)
 	if err != nil {
 		return ""

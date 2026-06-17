@@ -133,7 +133,7 @@ func TestSet_Organization(t *testing.T) {
 	}
 
 	checkOrg := func(expected string) {
-		loadedProfile, err := l.LoadProfile(p.Name)
+		loadedProfile, err := l.LoadProfile(context.Background(), p.Name)
 		r.NoError(err)
 		r.Equal(expected, loadedProfile.DefaultOrganization)
 	}
@@ -169,7 +169,7 @@ func TestSetDryRun(t *testing.T) {
 	r.Equal("dry-run-org", o.Profile.DefaultOrganization)
 	r.Contains(io.Error.String(), `would set profile property "default_organization" to "dry-run-org"`)
 
-	reloaded, err := l.LoadProfile("test")
+	reloaded, err := l.LoadProfile(context.Background(), "test")
 	r.NoError(err)
 	r.Equal("original-org", reloaded.DefaultOrganization)
 }

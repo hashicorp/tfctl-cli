@@ -55,8 +55,16 @@ func realMain() int {
 		}
 	}()
 
+	initialLogLevel := logging.LevelDefault
+	for _, a := range args {
+		if a == "--debug" {
+			initialLogLevel = logging.LevelDebug
+			break
+		}
+	}
+
 	// The logger level will need to be set by the command after parsing flags.
-	logger := logging.NewLogger(io)
+	logger := logging.NewLogger(io, initialLogLevel)
 
 	// Add the logger to the shutdown context because this is the context used throughout
 	// the command execution lifecycle.
@@ -71,7 +79,7 @@ func realMain() int {
 		return 1
 	}
 
-	activeProfile, err := loadActiveProfile(loader)
+	activeProfile, err := loadActiveProfile(shutdownCtx, loader)
 	if err != nil {
 		fmt.Fprintln(io.Err(), err)
 		return 1
@@ -145,7 +153,7 @@ func realMain() int {
 }
 
 // loadActiveProfile loads the active profile.
-func loadActiveProfile(loader *profile.Loader) (*profile.Profile, error) {
+func loadActiveProfile(ctx context.Context, loader *profile.Loader) (*profile.Profile, error) {
 	// Load the active profile
 	activeProfile, err := loader.GetActiveProfile()
 	if err != nil {
@@ -167,7 +175,7 @@ func loadActiveProfile(loader *profile.Loader) (*profile.Profile, error) {
 		}
 	}
 
-	return loader.LoadProfile(activeProfile.Name)
+	return loader.LoadProfile(ctx, activeProfile.Name)
 }
 
 // IsAutocomplete returns true if the CLI is being run in an autocomplete

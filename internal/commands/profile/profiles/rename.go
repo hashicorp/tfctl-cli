@@ -97,7 +97,7 @@ func renameRun(ctx context.Context, opts *RenameOpts) error {
 	}
 
 	// Load the existing profile
-	existing, err := opts.Profiles.LoadProfile(opts.ExistingName)
+	existing, err := opts.Profiles.LoadProfile(ctx, opts.ExistingName)
 	if err != nil {
 		if errors.Is(err, profile.ErrNoProfileFilePresent) {
 			return fmt.Errorf("profile %q does not exist", opts.ExistingName)

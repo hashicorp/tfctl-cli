@@ -249,7 +249,7 @@ func (i *Invocation) applyGlobalFlags(_ *Command) error {
 			return err
 		}
 
-		p, err := l.LoadProfile(i.flags.profile)
+		p, err := l.LoadProfile(i.ShutdownCtx, i.flags.profile)
 		if err != nil {
 			return err
 		}
