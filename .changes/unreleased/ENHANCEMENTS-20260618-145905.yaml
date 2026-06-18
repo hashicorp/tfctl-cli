@@ -1,0 +1,3 @@
+kind: ENHANCEMENTS
+body: The `api` command now accepts arbitrary URLs, such as Archivist, but does not send tokens to any host except the configured API host.
+time: 2026-06-18T14:59:05.436321-06:00
