@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/skills"
 	"github.com/hashicorp/tfctl-cli/version"
+	"github.com/posener/complete"
 )
 
 // InstallOpts defines the options for the `harness install` command.
@@ -58,6 +59,7 @@ func NewCmdHarnessInstall(inv *cmd.Invocation) *cmd.Command {
 			},
 		},
 		Args: cmd.PositionalArguments{
+			Autocomplete: complete.PredictSet(skills.AgentNames...),
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "AGENT",
