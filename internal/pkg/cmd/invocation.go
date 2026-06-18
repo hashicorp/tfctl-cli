@@ -152,7 +152,7 @@ func ConfigureRootCommand(i *Invocation, cmd *Command) {
 		global:        true,
 	}, &Flag{
 		Name:          "quiet",
-		Description:   "Minimizes output and disables interactive prompting.",
+		Description:   "Minimizes output to stdout.",
 		Value:         flagvalue.Simple(false, &i.flags.Quiet),
 		IsBooleanFlag: true,
 		global:        true,

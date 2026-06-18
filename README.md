@@ -218,7 +218,7 @@ Use the `--help` flag to print out detailed usage instructions. For example, `tf
   - Data type: String
   - Optional parameter.
 
-- `--quiet`: Minimizes output and disables interactive prompting.
+- `--quiet`: Minimizes output to stdout.
   - Data type: Boolean flag
   - Defaults to `false`.
 
