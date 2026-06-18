@@ -41,6 +41,7 @@ You can uninstall shell completion with the `tfctl --autocomplete-uninstall` com
 
 The `tfctl` CLI ships with an agent skill that gives AI coding agents access to HCP Terraform through the `tfctl` command, but discourages non-human delete operations. You can install it using the `tfctl harness install` command or NPX. Replace `<agent>` with one of the following supported AI agents:
 
+- `amp`
 - `antigravity`
 - `bob` 
 - `claude`
