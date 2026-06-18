@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/posener/complete"
+
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -15,7 +17,6 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/skills"
 	"github.com/hashicorp/tfctl-cli/version"
-	"github.com/posener/complete"
 )
 
 // InstallOpts defines the options for the `harness install` command.
