@@ -65,6 +65,21 @@ func registerAgents() map[string]AgentSpec {
 	}
 
 	return map[string]AgentSpec{
+		"amp": {
+			Name:        "amp",
+			DisplayName: "Amp CLI",
+			SkillsDir:   ".agents/skills",
+			GlobalSkillsDir: func() string {
+				path, _ := homedir.Expand("~/.config/agents/skills")
+				return path
+			},
+			Detect: func() bool {
+				return detectHomeDirPath(".config/amp")
+			},
+			DetectParentProcess: func() bool {
+				return os.Getenv("AGENT") == "amp"
+			},
+		},
 		"antigravity": {
 			Name:        "antigravity",
 			DisplayName: "Antigravity CLI",

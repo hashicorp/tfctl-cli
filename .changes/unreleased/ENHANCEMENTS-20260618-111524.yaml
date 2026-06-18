@@ -1,0 +1,3 @@
+kind: ENHANCEMENTS
+body: The `tfctl harness install amp` command now supports installing the `tfctl` skill into the directories that Amp looks for.
+time: 2026-06-18T11:15:24.079775-04:00
