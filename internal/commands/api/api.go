@@ -416,8 +416,9 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 	if contentType != "" && requestHeaders.Get("Content-Type") == "" {
 		requestHeaders.Set("Content-Type", contentType)
 	}
+
 	if requestHeaders.Get("Accept") == "" {
-		requestHeaders.Set("Accept", "application/vnd.api+json")
+		requestHeaders.Set("Accept", "*/*")
 	}
 
 	// Interactive prompt required for DELETE requests to prevent accidental data loss

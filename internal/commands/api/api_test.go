@@ -54,7 +54,7 @@ func TestRunAPI_DefaultGet(t *testing.T) {
 
 	require.Equal(t, "GET", recorder.Last().Method)
 	require.Equal(t, "/api/v2/workspaces", recorder.Last().Path)
-	require.Equal(t, "application/vnd.api+json", recorder.Last().Headers.Get("Accept"))
+	require.Equal(t, "*/*", recorder.Last().Headers.Get("Accept"))
 	require.Contains(t, io.Output.String(), "alpha")
 	require.Empty(t, io.Error.String())
 }
@@ -91,7 +91,7 @@ func TestRunAPI_GetContainingQuotes(t *testing.T) {
 
 	require.Equal(t, "GET", recorder.Last().Method)
 	require.Equal(t, "/api/v2/thing", recorder.Last().Path)
-	require.Equal(t, "application/vnd.api+json", recorder.Last().Headers.Get("Accept"))
+	require.Equal(t, "*/*", recorder.Last().Headers.Get("Accept"))
 	require.Contains(t, io.Output.String(), "big-goose")
 	require.Empty(t, io.Error.String())
 }
