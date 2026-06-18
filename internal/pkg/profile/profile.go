@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -277,9 +278,50 @@ func (p *Profile) SetHostname(hostname string) error {
 	return nil
 }
 
+func identifyIP(s string) (normalized string, isIP bool) {
+	host, port, err := net.SplitHostPort(s)
+	if err != nil {
+		// If SplitHostPort fails, it's either because there is no port
+		// or the address is malformed.
+		host = s
+		port = ""
+
+		// Handle IPv6 addresses that might be wrapped in brackets but don't have a port.
+		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+			host = host[1 : len(host)-1]
+		}
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		// Not an IP address (likely a hostname)
+		return s, false
+	}
+
+	if ip.To4() != nil {
+		// IPv4
+		if port != "" {
+			return fmt.Sprintf("%s:%s", ip.String(), port), true
+		}
+		return ip.String(), true
+	}
+
+	// IPv6
+	// IPv6 addresses are normalized to always include brackets for consistency,
+	// especially useful if a port is ever appended later.
+	if port != "" {
+		return fmt.Sprintf("[%s]:%s", ip.String(), port), true
+	}
+	return fmt.Sprintf("[%s]", ip.String()), true
+}
+
 // NormalizeHostname validates and normalizes the given hostname by stripping any extra URL data,
 // like paths. It also converts domain names to their idna ASCII form.
 func NormalizeHostname(hostname string) (string, error) {
+	if ip, isIP := identifyIP(hostname); isIP {
+		return ip, nil
+	}
+
 	u, err := url.Parse(hostname)
 	if err != nil {
 		return "", fmt.Errorf("invalid hostname %q: must be a valid hostname (with optional port)", hostname)

@@ -157,6 +157,36 @@ func TestNormalizeHostname(t *testing.T) {
 			Input:    "täst.com",
 			Expected: "xn--tst-qla.com",
 		},
+		{
+			Name:     "ipv4 hostname with port",
+			Input:    "127.0.0.1:9000",
+			Expected: "127.0.0.1:9000",
+		},
+		{
+			Name:  "looks like an IP but isn't",
+			Input: "[00:0:0:0:0:ffff:",
+			Error: `invalid hostname "[00:0:0:0:0:ffff:": must be a valid hostname (with optional port)`,
+		},
+		{
+			Name:     "localhost with port",
+			Input:    "localhost:8080",
+			Expected: "localhost:8080",
+		},
+		{
+			Name:     "ipv6 hostname with port",
+			Input:    "[::1]:8080",
+			Expected: "[::1]:8080",
+		},
+		{
+			Name:     "ipv4 hostname with scheme, port and path",
+			Input:    "https://127.0.0.1:9000/some/path",
+			Expected: "127.0.0.1:9000",
+		},
+		{
+			Name:     "ipv6 without brackets",
+			Input:    "2001:db8::1",
+			Expected: "[2001:db8::1]",
+		},
 	}
 
 	for _, c := range cases {
