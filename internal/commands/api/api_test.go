@@ -96,6 +96,34 @@ func TestRunAPI_GetContainingQuotes(t *testing.T) {
 	require.Empty(t, io.Error.String())
 }
 
+func TestRunAPI_GetArbitraryURL(t *testing.T) {
+	t.Parallel()
+
+	// Tests that RunAPI can handle URL's that don't match the client's BaseURL and do not send the
+	// token header to such hosts.
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"GET /some/path": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Content-Type", "application/octet-stream")
+			w.Write([]byte(`Terraform v1.2.8
+on linux_amd64
+Initializing plugins and modules...
+{"@level":"info","@message":"Terraform 1.2.8","@module":"terraform.ui","@timestamp":"2024-04-20T13:06:29.930400Z","terraform":"1.2.8","type":"version","ui":"1.0"}`))
+		},
+	})
+	defer server.Close()
+
+	differentURL := mustResolveTestURL(t, "https://example-tfe-server.hq", "/")
+
+	io := iostreams.Test()
+	err := RunAPI(context.Background(), newTestOpts(t, differentURL.String(), io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, server.URL, "/some/path")
+	}))
+	require.NoError(t, err)
+
+	require.Empty(t, recorder.Last().Headers.Get("Authorization"))
+	require.Contains(t, io.Output.String(), "Terraform 1.2.8")
+}
+
 func TestRunAPI_AttributesInferPostAndResourceType(t *testing.T) {
 	t.Parallel()
 
