@@ -6,7 +6,7 @@ Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise p
 
 The `tfctl` CLI  provides high-level commands for common workflows, such as managing runs, variables, and workspaces, and direct API access for advanced automation. It supports multiple configuration profiles, allowing you to switch between different HCP Terraform organizations and Terraform Enterprise instances. It also integrates with AI coding agents to facilitate agent-assisted management of Terraform workflows.
 
-![tfctl](assets/hero.png "tfctl")
+![tfctl](assets/hero.gif "tfctl")
 
 ## Installation
 You can install the CLI, command completion utility, and agent skill separately.  
