@@ -1,3 +1,0 @@
-kind: ENHANCEMENTS
-body: The `harness install` command supports shell autocompletion for supported coding agents and support for the Amp coding agent has been added.
-time: 2026-06-18T11:15:24.079775-04:00
