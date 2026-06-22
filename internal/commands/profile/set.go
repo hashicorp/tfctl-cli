@@ -150,7 +150,7 @@ func setRun(ctx context.Context, opts *SetOpts) error {
 	write := true
 	switch opts.Property {
 	case "hostname":
-		write, err = opts.validateHostname()
+		write, err = opts.setValidHostname()
 	case "organization":
 		write, err = opts.validateOrg()
 	}
@@ -188,7 +188,7 @@ func setRun(ctx context.Context, opts *SetOpts) error {
 	// Notify user about hostname changes
 	if hostnameChanged {
 		fmt.Fprintf(opts.IO.Err(), "\n%s Hostname changed to %q. Default organization and token settings have been cleared.\n",
-			opts.IO.ColorScheme().WarningLabel(), opts.Value)
+			opts.IO.ColorScheme().WarningLabel(), opts.Profile.Hostname)
 		fmt.Fprintf(opts.IO.Err(), "Please run %s to reconfigure your token for this hostname.\n\n",
 			opts.IO.ColorScheme().String(fmt.Sprintf("%s auth login", version.Name)).Bold())
 		fmt.Fprintf(opts.IO.Err(), "It's also recommended to run %s to set a default organization.\n\n",
@@ -198,7 +198,13 @@ func setRun(ctx context.Context, opts *SetOpts) error {
 	return nil
 }
 
-func (o *SetOpts) validateHostname() (bool, error) {
+func (o *SetOpts) setValidHostname() (bool, error) {
+	hostname, err := profile.NormalizeHostname(o.Profile.Hostname)
+	if err != nil {
+		return false, err
+	}
+	o.Profile.Hostname = hostname
+	o.Value = hostname
 	return true, nil
 }
 

@@ -114,7 +114,7 @@ func TestSet_Organization(t *testing.T) {
 	r := require.New(t)
 	io := iostreams.Test()
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	r.NoError(p.Write())
 	o := &SetOpts{
 		IO:       io,
@@ -133,7 +133,7 @@ func TestSet_Organization(t *testing.T) {
 	}
 
 	checkOrg := func(expected string) {
-		loadedProfile, err := l.LoadProfile(p.Name)
+		loadedProfile, err := l.LoadProfile(context.Background(), p.Name)
 		r.NoError(err)
 		r.Equal(expected, loadedProfile.DefaultOrganization)
 	}
@@ -169,7 +169,27 @@ func TestSetDryRun(t *testing.T) {
 	r.Equal("dry-run-org", o.Profile.DefaultOrganization)
 	r.Contains(io.Error.String(), `would set profile property "default_organization" to "dry-run-org"`)
 
-	reloaded, err := l.LoadProfile("test")
+	reloaded, err := l.LoadProfile(context.Background(), "test")
 	r.NoError(err)
 	r.Equal("original-org", reloaded.DefaultOrganization)
+}
+
+func TestSetInvalidHostname(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	l := profile.TestLoader(t)
+	io := iostreams.Test()
+
+	p, err := l.NewProfile("test")
+	r.NoError(err)
+	o := &SetOpts{
+		IO:       io,
+		Profile:  p,
+		Property: "hostname",
+		Value:    "my/deployment:8080",
+	}
+
+	err = setRun(context.Background(), o)
+	r.ErrorContains(err, "invalid hostname \"my/deployment:8080\": must be a valid hostname (with optional port)")
 }

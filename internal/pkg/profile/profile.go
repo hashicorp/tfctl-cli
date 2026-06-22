@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,6 +20,7 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/posener/complete"
+	"golang.org/x/net/idna"
 )
 
 const (
@@ -38,6 +41,8 @@ var (
 	// ErrInvalidProfileName is returned if a profile is created with an invalid
 	// profile name.
 	ErrInvalidProfileName = errors.New("profile name may only include a-z, A-Z, 0-9, or '_', must start with a letter, and can be no longer than 64 characters")
+
+	validHostnamePattern = regexp.MustCompile(`^[a-zA-Z0-9.-]+(:\d+)?$`)
 )
 
 // ActiveProfile stores the active profile.
@@ -179,7 +184,8 @@ func (p *Profile) Write() error {
 	path := fmt.Sprintf("%s/%s.hcl", p.dir, p.Name)
 	f := hclwrite.NewEmptyFile()
 	gohcl.EncodeIntoBody(p, f.Body())
-	return os.WriteFile(path, f.Bytes(), 0o666)
+
+	return os.WriteFile(path, f.Bytes(), os.FileMode(0o600))
 }
 
 // String returns an HCL formatted string representation of the profile.
@@ -254,6 +260,92 @@ func (p *Profile) GetHostname() string {
 	}
 
 	return p.Hostname
+}
+
+// SetHostname sets the profile's hostname after validating it. The hostname should be a hostname
+// with an optional port, and should not include a scheme. If the hostname includes a scheme, the
+// scheme will be stripped.
+func (p *Profile) SetHostname(hostname string) error {
+	if p == nil {
+		return nil
+	}
+
+	hostname, err := NormalizeHostname(hostname)
+	if err != nil {
+		return err
+	}
+	p.Hostname = hostname
+	return nil
+}
+
+func identifyIP(s string) (normalized string, isIP bool) {
+	host, port, err := net.SplitHostPort(s)
+	if err != nil {
+		// If SplitHostPort fails, it's either because there is no port
+		// or the address is malformed.
+		host = s
+		port = ""
+
+		// Handle IPv6 addresses that might be wrapped in brackets but don't have a port.
+		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+			host = host[1 : len(host)-1]
+		}
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		// Not an IP address (likely a hostname)
+		return s, false
+	}
+
+	if ip.To4() != nil {
+		// IPv4
+		if port != "" {
+			return fmt.Sprintf("%s:%s", ip.String(), port), true
+		}
+		return ip.String(), true
+	}
+
+	// IPv6
+	// IPv6 addresses are normalized to always include brackets for consistency,
+	// especially useful if a port is ever appended later.
+	if port != "" {
+		return fmt.Sprintf("[%s]:%s", ip.String(), port), true
+	}
+	return fmt.Sprintf("[%s]", ip.String()), true
+}
+
+// NormalizeHostname validates and normalizes the given hostname by stripping any extra URL data,
+// like paths. It also converts domain names to their idna ASCII form.
+func NormalizeHostname(hostname string) (string, error) {
+	if ip, isIP := identifyIP(hostname); isIP {
+		return ip, nil
+	}
+
+	u, err := url.Parse(hostname)
+	if err != nil {
+		return "", fmt.Errorf("invalid hostname %q: must be a valid hostname (with optional port)", hostname)
+	}
+
+	if err == nil && u.Host != "" {
+		hostname = u.Host
+	}
+
+	if asciiHost, err := idna.Lookup.ToASCII(hostname); err == nil {
+		return asciiHost, nil
+	}
+
+	if !validHostnamePattern.MatchString(hostname) {
+		return "", fmt.Errorf("invalid hostname %q: must be a valid hostname (with optional port)", hostname)
+	}
+
+	return hostname, nil
+}
+
+// IsHCPTerraform returns true if the profile's hostname is a known HCP Terraform hostname
+// in any geo.
+func (p *Profile) IsHCPTerraform() bool {
+	return p.GetHostname() == "app.terraform.io" || p.GetHostname() == "app.eu.terraform.io"
 }
 
 // SetDefaultOrganization sets the default organization.

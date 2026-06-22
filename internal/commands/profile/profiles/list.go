@@ -56,7 +56,7 @@ type ListOpts struct {
 	Profiles *profile.Loader
 }
 
-func listRun(_ context.Context, opts *ListOpts) error {
+func listRun(ctx context.Context, opts *ListOpts) error {
 	profileNames, err := opts.Profiles.ListProfiles()
 	if err != nil {
 		return fmt.Errorf("failed to list profiles: %w", err)
@@ -64,7 +64,7 @@ func listRun(_ context.Context, opts *ListOpts) error {
 
 	profiles := make([]*profile.Profile, len(profileNames))
 	for i, n := range profileNames {
-		p, err := opts.Profiles.LoadProfile(n)
+		p, err := opts.Profiles.LoadProfile(ctx, n)
 		if err != nil {
 			return fmt.Errorf("failed to load profile %q: %w", n, err)
 		}

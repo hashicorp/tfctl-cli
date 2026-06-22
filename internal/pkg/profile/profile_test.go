@@ -5,7 +5,9 @@ package profile
 
 import (
 	"context"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -121,6 +123,153 @@ func TestCore_Getters(t *testing.T) {
 	r.Equal("token-from-env", p.GetToken())
 }
 
+func TestNormalizeHostname(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		Name     string
+		Input    string
+		Expected string
+		Error    string
+	}{
+		{
+			Name:     "valid hostname",
+			Input:    "example.com",
+			Expected: "example.com",
+		},
+		{
+			Name:     "hostname with scheme",
+			Input:    "https://example.com",
+			Expected: "example.com",
+		},
+		{
+			Name:  "hostname with path",
+			Input: "example.com/some/path",
+			Error: `invalid hostname "example.com/some/path": must be a valid hostname (with optional port)`,
+		},
+		{
+			Name:  "invalid hostname",
+			Input: "invalid/hostname",
+			Error: `invalid hostname "invalid/hostname": must be a valid hostname (with optional port)`,
+		},
+		{
+			Name:     "hostname with unicode characters",
+			Input:    "täst.com",
+			Expected: "xn--tst-qla.com",
+		},
+		{
+			Name:     "ipv4 hostname with port",
+			Input:    "127.0.0.1:9000",
+			Expected: "127.0.0.1:9000",
+		},
+		{
+			Name:  "looks like an IP but isn't",
+			Input: "[00:0:0:0:0:ffff:",
+			Error: `invalid hostname "[00:0:0:0:0:ffff:": must be a valid hostname (with optional port)`,
+		},
+		{
+			Name:     "localhost with port",
+			Input:    "localhost:8080",
+			Expected: "localhost:8080",
+		},
+		{
+			Name:     "ipv6 hostname with port",
+			Input:    "[::1]:8080",
+			Expected: "[::1]:8080",
+		},
+		{
+			Name:     "ipv4 hostname with scheme, port and path",
+			Input:    "https://127.0.0.1:9000/some/path",
+			Expected: "127.0.0.1:9000",
+		},
+		{
+			Name:     "ipv6 without brackets",
+			Input:    "2001:db8::1",
+			Expected: "[2001:db8::1]",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			t.Parallel()
+			r := require.New(t)
+
+			output, err := NormalizeHostname(c.Input)
+			if c.Error == "" {
+				r.NoError(err)
+				r.Equal(c.Expected, output)
+			} else {
+				r.ErrorContains(err, c.Error)
+			}
+		})
+	}
+}
+
+func TestProfile_SetHostname(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		Name     string
+		Hostname string
+		Error    string
+		Expected string
+	}{
+		{
+			Name:     "valid hostname",
+			Hostname: "example.com",
+			Error:    "",
+			Expected: "example.com",
+		},
+		{
+			Name:     "valid hostname with port",
+			Hostname: "example.com:8080",
+			Error:    "",
+			Expected: "example.com:8080",
+		},
+		{
+			Name:     "hostname with scheme",
+			Hostname: "https://example.com",
+			Error:    "",
+			Expected: "example.com",
+		},
+		{
+			Name:     "invalid hostname with slash",
+			Hostname: "invalid/hostname",
+			Error:    `invalid hostname "invalid/hostname": must be a valid hostname (with optional port)`,
+		},
+		{
+			Name:     "cannot be parsed",
+			Hostname: "http://[invalid:hostname]",
+			Error:    `invalid hostname "http://[invalid:hostname]": must be a valid hostname (with optional port)`,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			p := &Profile{}
+			r := require.New(t)
+			err := p.SetHostname(c.Hostname)
+			if c.Error == "" {
+				r.NoError(err)
+			} else {
+				r.ErrorContains(err, c.Error)
+			}
+
+			if c.Expected != "" {
+				r.Equal(c.Expected, p.GetHostname())
+			}
+		})
+	}
+
+	t.Run("nil profile", func(t *testing.T) {
+		p := (*Profile)(nil)
+		r := require.New(t)
+		err := p.SetHostname("example.com")
+		r.NoError(err)
+		r.Equal("", p.GetHostname())
+	})
+}
+
 func TestProfile_HostCache(t *testing.T) {
 	t.Parallel()
 	r := require.New(t)
@@ -138,4 +287,22 @@ func TestProfile_HostCache(t *testing.T) {
 	r.NoError(err)
 
 	r.FileExists(path.Join(h.dir, "test.json"))
+}
+
+func TestProfile_WritePermissions(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	p := &Profile{
+		Name: "test",
+		dir:  t.TempDir(),
+	}
+	err := p.Write()
+	r.NoError(err)
+
+	path := filepath.Join(p.dir, "test.hcl")
+
+	info, err := os.Stat(path)
+	r.NoError(err)
+	r.Equal(os.FileMode(0o600), info.Mode().Perm())
 }

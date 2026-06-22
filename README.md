@@ -6,7 +6,7 @@ Comprehensive, official CLI access to the HCP Terraform / Terraform Enterprise p
 
 The `tfctl` CLI  provides high-level commands for common workflows, such as managing runs, variables, and workspaces, and direct API access for advanced automation. It supports multiple configuration profiles, allowing you to switch between different HCP Terraform organizations and Terraform Enterprise instances. It also integrates with AI coding agents to facilitate agent-assisted management of Terraform workflows.
 
-![tfctl](assets/hero.gif "tfctl")
+![tfctl](assets/demo.gif "tfctl demo")
 
 ## Installation
 You can install the CLI, command completion utility, and agent skill separately.  
@@ -41,6 +41,7 @@ You can uninstall shell completion with the `tfctl --autocomplete-uninstall` com
 
 The `tfctl` CLI ships with an agent skill that gives AI coding agents access to HCP Terraform through the `tfctl` command, but discourages non-human delete operations. You can install it using the `tfctl harness install` command or NPX. Replace `<agent>` with one of the following supported AI agents:
 
+- `amp`
 - `antigravity`
 - `bob` 
 - `claude`
@@ -89,9 +90,9 @@ Verify that the login is successful before leaving the token page in your browse
 
 If the CLI does not find a token configured for the active profile, it checks your Terraform configuration for a matching token. Refer to [Terraform tokens](#terraform-tokens) for more information.
 
-### Set organization
+### Set default organization
 
-Run the `tfctl profile set default_organization` command to set the organization. Replace `<name>` with your HCP Terraform or Terraform Enterprise organization name.
+Run the `tfctl profile set default_organization` command to set the default organization. Replace `<name>` with your HCP Terraform or Terraform Enterprise organization name.
 
 ```bash
 $ tfctl profile set default_organization <name>
@@ -172,7 +173,7 @@ If you have not configured a particular option for the active profile, `tfctl` c
 
 `TFCTL_HOSTNAME`: The Terraform Enterprise or HCP Terraform hostname to use. Defaults to `app.terraform.io`.
 
-`TFCTL_TOKEN`: An HCP Terraform API token to use in conjunction with the default profile.
+`TFCTL_TOKEN`: An HCP Terraform API token to use in conjunction with the default profile. This variable is not used in conjunction with any other profile.
 
 `TFCTL_TOKEN_<profile>`: An HCP Terraform API token to use in conjunction with the named profile.
 
@@ -218,7 +219,7 @@ Use the `--help` flag to print out detailed usage instructions. For example, `tf
   - Data type: String
   - Optional parameter.
 
-- `--quiet`: Minimizes output and disables interactive prompting.
+- `--quiet`: Minimizes output to stdout.
   - Data type: Boolean flag
   - Defaults to `false`.
 

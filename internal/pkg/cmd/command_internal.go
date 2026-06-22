@@ -58,13 +58,18 @@ func (c *Command) errorToExitCode(_ []string, inv *Invocation, err error) int {
 			fmt.Fprintf(io.Err(), "%s Server error: %s\n", cs.ErrorLabel(), apiErr)
 			return 5
 		}
-		fmt.Fprint(io.Err(), heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
-%s Request error: %s.
+		if len(apiErr.Details) > 0 {
+			fmt.Fprint(io.Err(), heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
+	%s Request error: %s.
 
-{{ Bold "Error Details" }}
-  - %s
+	{{ Bold "Error Details" }}
+		- %s
 
-`, cs.ErrorLabel(), apiErr.Message, strings.Join(apiErr.Details, "\n  - ")))
+	`, cs.ErrorLabel(), apiErr.Message, strings.Join(apiErr.Details, "\n  - ")))
+		} else {
+			fmt.Fprintf(io.Err(), "%s Request error: %s\n", cs.ErrorLabel(), apiErr)
+		}
+
 		return 1
 	} else if errors.As(err, &exitCodeErr) {
 		exitCode = exitCodeErr.Code

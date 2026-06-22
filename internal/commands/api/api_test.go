@@ -20,8 +20,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 func TestRunAPI_DefaultGet(t *testing.T) {
@@ -52,7 +54,7 @@ func TestRunAPI_DefaultGet(t *testing.T) {
 
 	require.Equal(t, "GET", recorder.Last().Method)
 	require.Equal(t, "/api/v2/workspaces", recorder.Last().Path)
-	require.Equal(t, "application/vnd.api+json", recorder.Last().Headers.Get("Accept"))
+	require.Equal(t, "*/*", recorder.Last().Headers.Get("Accept"))
 	require.Contains(t, io.Output.String(), "alpha")
 	require.Empty(t, io.Error.String())
 }
@@ -89,9 +91,37 @@ func TestRunAPI_GetContainingQuotes(t *testing.T) {
 
 	require.Equal(t, "GET", recorder.Last().Method)
 	require.Equal(t, "/api/v2/thing", recorder.Last().Path)
-	require.Equal(t, "application/vnd.api+json", recorder.Last().Headers.Get("Accept"))
+	require.Equal(t, "*/*", recorder.Last().Headers.Get("Accept"))
 	require.Contains(t, io.Output.String(), "big-goose")
 	require.Empty(t, io.Error.String())
+}
+
+func TestRunAPI_GetArbitraryURL(t *testing.T) {
+	t.Parallel()
+
+	// Tests that RunAPI can handle URL's that don't match the client's BaseURL and do not send the
+	// token header to such hosts.
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"GET /some/path": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Content-Type", "application/octet-stream")
+			w.Write([]byte(`Terraform v1.2.8
+on linux_amd64
+Initializing plugins and modules...
+{"@level":"info","@message":"Terraform 1.2.8","@module":"terraform.ui","@timestamp":"2024-04-20T13:06:29.930400Z","terraform":"1.2.8","type":"version","ui":"1.0"}`))
+		},
+	})
+	defer server.Close()
+
+	differentURL := mustResolveTestURL(t, "https://example-tfe-server.hq", "/")
+
+	io := iostreams.Test()
+	err := RunAPI(context.Background(), newTestOpts(t, differentURL.String(), io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, server.URL, "/some/path")
+	}))
+	require.NoError(t, err)
+
+	require.Empty(t, recorder.Last().Headers.Get("Authorization"))
+	require.Contains(t, io.Output.String(), "Terraform 1.2.8")
 }
 
 func TestRunAPI_AttributesInferPostAndResourceType(t *testing.T) {
@@ -305,6 +335,25 @@ func TestRunAPI_InlineQueryParamsSparseFieldsets(t *testing.T) {
 	require.Equal(t, "GET", req.Method)
 	require.Equal(t, "/api/v2/organizations/my-org/workspaces", req.Path)
 	require.Equal(t, "name", req.Query.Get("fields[workspaces]"))
+}
+
+func TestNewCmdAPI_NonHTTPSReturnsError(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	inv := &cmd.Invocation{
+		IO:          io,
+		Output:      format.New(io),
+		ShutdownCtx: context.Background(),
+		Profile: &profile.Profile{
+			Name:     "test",
+			Hostname: "example.com",
+			Token:    "test-token",
+		},
+	}
+	cmd := NewCmdAPI(inv)
+	err := cmd.RunF(cmd, []string{"http://example.com/api/v2/things"})
+	require.ErrorContains(t, err, "must use https scheme")
 }
 
 func TestRunAPI_InlineQueryParamsMergedWithFlags(t *testing.T) {

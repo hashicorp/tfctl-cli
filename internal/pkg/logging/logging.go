@@ -16,7 +16,17 @@ import (
 
 type ctxKey struct{}
 
-var loggingKey = ctxKey{}
+const (
+	// LevelDefault is the default logging level for the application, which is error.
+	LevelDefault = hclog.Error
+
+	// LevelDebug is the logging level that includes debug messages, which is more verbose than the default.
+	LevelDebug = hclog.Debug
+)
+
+var (
+	loggingKey = ctxKey{}
+)
 
 // WithLogger returns a new context with the provided logger.
 func WithLogger(ctx context.Context, logger hclog.Logger) context.Context {
@@ -32,11 +42,11 @@ func FromContext(ctx context.Context) hclog.Logger {
 }
 
 // NewLogger constructs a new logger configured based on the provided IOStreams.
-func NewLogger(io iostreams.IOStreams) hclog.Logger {
+func NewLogger(io iostreams.IOStreams, initialLevel hclog.Level) hclog.Logger {
 	// Create the Logger
 	logOpt := &hclog.LoggerOptions{
 		Name:       version.Name,
-		Level:      hclog.Error,
+		Level:      initialLevel,
 		Output:     io.Err(),
 		TimeFn:     time.Now,
 		TimeFormat: "15:04:05.000",

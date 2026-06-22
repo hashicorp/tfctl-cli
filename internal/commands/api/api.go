@@ -252,9 +252,14 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 				path = resolvedPath
 			}
 
+			// URL safety validation
 			resolvedURL, err := client.ResolveURL(*apiClient.BaseURL, path)
 			if err != nil {
 				return fmt.Errorf("invalid input path/URL %q", path)
+			}
+
+			if resolvedURL.Scheme != "https" {
+				return fmt.Errorf("invalid input path/URL %q: must use https scheme", path)
 			}
 
 			opts.URL = resolvedURL
@@ -411,8 +416,9 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 	if contentType != "" && requestHeaders.Get("Content-Type") == "" {
 		requestHeaders.Set("Content-Type", contentType)
 	}
+
 	if requestHeaders.Get("Accept") == "" {
-		requestHeaders.Set("Accept", "application/vnd.api+json")
+		requestHeaders.Set("Accept", "*/*")
 	}
 
 	// Interactive prompt required for DELETE requests to prevent accidental data loss

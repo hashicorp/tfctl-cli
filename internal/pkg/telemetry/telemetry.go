@@ -258,9 +258,14 @@ func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.
 
 	if info.Profile != nil {
 		attrs = append(attrs,
-			attribute.String("hostname", info.Profile.GetHostname()),
 			attribute.Bool("is_named_profile", info.Profile.Name != profile.ProfileNameDefault),
 		)
+		hostname := info.Profile.GetHostname()
+		if !info.Profile.IsHCPTerraform() {
+			hostname = generateStableID(info.Profile.GetHostname(), 0)
+		}
+
+		attrs = append(attrs, attribute.String("hostname", hostname))
 	}
 
 	if agent := detectAgent(); agent != "" {

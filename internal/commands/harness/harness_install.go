@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/posener/complete"
+
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
@@ -58,6 +60,7 @@ func NewCmdHarnessInstall(inv *cmd.Invocation) *cmd.Command {
 			},
 		},
 		Args: cmd.PositionalArguments{
+			Autocomplete: complete.PredictSet(skills.AgentNames...),
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "AGENT",

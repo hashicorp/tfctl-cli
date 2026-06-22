@@ -83,7 +83,7 @@ func TestUnset(t *testing.T) {
 			r.NoError(err)
 
 			// Load the profile from disk
-			reread, err := l.LoadProfile("test")
+			reread, err := l.LoadProfile(context.Background(), "test")
 			r.NoError(err)
 			c.CheckProfile(reread, r)
 		})
@@ -112,7 +112,7 @@ func TestUnsetDryRun(t *testing.T) {
 	r.NoError(unsetRun(context.Background(), o))
 	r.Contains(io.Error.String(), `would unset profile property "default_organization"`)
 
-	reloaded, err := l.LoadProfile("test")
+	reloaded, err := l.LoadProfile(context.Background(), "test")
 	r.NoError(err)
 	r.Equal("keep-me", reloaded.DefaultOrganization)
 }

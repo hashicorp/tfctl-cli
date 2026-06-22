@@ -68,3 +68,42 @@ func TestCreateDryRun(t *testing.T) {
 	r.NoError(err)
 	r.NotContains(profiles, "dry_run_profile")
 }
+
+func TestCreateInvalidHostname(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	l := profile.TestLoader(t)
+	io := iostreams.Test()
+
+	opts := &CreateOpts{
+		IO:       io,
+		Profiles: l,
+		Name:     "invalid_hostname_profile",
+		Hostname: "invalidhostname/with/slash",
+	}
+
+	r.EqualError(createRun(context.Background(), opts), `invalid hostname "invalidhostname/with/slash": must be a valid hostname (with optional port)`)
+}
+
+func TestCreateHostnameWithScheme(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+	l := profile.TestLoader(t)
+	io := iostreams.Test()
+
+	opts := &CreateOpts{
+		IO:       io,
+		Profiles: l,
+		Name:     "hostname_with_scheme",
+		Hostname: "https://example.com:8080",
+	}
+
+	r.NoError(createRun(context.Background(), opts))
+	profiles, err := l.ListProfiles()
+	r.NoError(err)
+	r.Contains(profiles, "hostname_with_scheme")
+
+	p, err := l.LoadProfile(context.Background(), "hostname_with_scheme")
+	r.NoError(err)
+	r.Equal("example.com:8080", p.GetHostname())
+}

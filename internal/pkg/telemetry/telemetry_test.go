@@ -257,9 +257,11 @@ func TestStartCommand_CreatesSpanWithAttributes(t *testing.T) {
 
 	tel, exporter := newTestTelemetry(t)
 
+	p := profile.TestProfile(t)
+
 	ctx := tel.StartCommand(context.Background(), CommandInfo{
 		Command: "run start",
-		Profile: profile.TestProfile(t),
+		Profile: p,
 		DryRun:  true,
 	})
 	require.NotNil(t, ctx)
@@ -285,6 +287,8 @@ func TestStartCommand_CreatesSpanWithAttributes(t *testing.T) {
 	assert.Equal(t, false, attrs["is_tty"])
 	assert.NotEmpty(t, attrs["os"])
 	assert.NotEmpty(t, attrs["arch"])
+	assert.NotEqual(t, attrs["hostname"], p.GetHostname(), "Value must be a hashed value of the test profile hostname")
+	assert.NotEmpty(t, attrs["hostname"])
 }
 
 func TestStartCommand_IncludesCIAttribute(t *testing.T) {

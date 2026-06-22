@@ -146,7 +146,7 @@ func TestLoader_LoadProfile(t *testing.T) {
 		r := require.New(t)
 		l := TestLoader(t)
 
-		p, err := l.LoadProfile("test")
+		p, err := l.LoadProfile(context.Background(), "test")
 		r.Nil(p)
 		r.ErrorIs(err, ErrNoProfileFilePresent)
 	})
@@ -161,7 +161,7 @@ func TestLoader_LoadProfile(t *testing.T) {
 		path := filepath.Join(l.configDir, ProfileDir, fmt.Sprintf("%s.hcl", name))
 		r.NoError(os.WriteFile(path, []byte("invalid!"), 0x777))
 
-		p, err := l.LoadProfile(name)
+		p, err := l.LoadProfile(context.Background(), name)
 		r.Nil(p)
 		r.ErrorContains(err, "failed to decode profile")
 	})
@@ -178,7 +178,7 @@ func TestLoader_LoadProfile(t *testing.T) {
 default_organization = "123"`,
 		), 0x777))
 
-		p, err := l.LoadProfile(name)
+		p, err := l.LoadProfile(context.Background(), name)
 		r.Nil(p)
 		r.ErrorContains(err, "profile path name does not match name in file")
 	})
@@ -193,7 +193,7 @@ default_organization = "123"`,
 		p.DefaultOrganization = "123"
 		r.NoError(p.Write())
 
-		out, err := l.LoadProfile(p.Name)
+		out, err := l.LoadProfile(context.Background(), p.Name)
 		r.NotNil(out)
 		r.Equal(p.Name, out.Name)
 		r.Equal(p.DefaultOrganization, out.DefaultOrganization)
@@ -239,9 +239,42 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 		r := require.New(t)
 		l, err := newLoader(t.TempDir())
 		r.NoError(err)
-		prof := l.DefaultProfile()
+		prof := l.DefaultProfile(context.Background())
 
 		r.Equal("xyz", prof.DefaultOrganization)
+	})
+
+	t.Run("default profile, hostname env set", func(t *testing.T) {
+		t.Setenv(envVarHostname, "https://example.com/with/path")
+
+		r := require.New(t)
+		l, err := newLoader(t.TempDir())
+		r.NoError(err)
+		prof := l.DefaultProfile(context.Background())
+
+		r.Equal("example.com", prof.Hostname)
+	})
+
+	t.Run("default profile, hostname with port env set", func(t *testing.T) {
+		t.Setenv(envVarHostname, "example.com:8080")
+
+		r := require.New(t)
+		l, err := newLoader(t.TempDir())
+		r.NoError(err)
+		prof := l.DefaultProfile(context.Background())
+
+		r.Equal("example.com:8080", prof.Hostname)
+	})
+
+	t.Run("default profile, invalid hostname env set", func(t *testing.T) {
+		t.Setenv(envVarHostname, "example/youtube")
+
+		r := require.New(t)
+		l, err := newLoader(t.TempDir())
+		r.NoError(err)
+		prof := l.DefaultProfile(context.Background())
+
+		r.Equal(DefaultHostname, prof.Hostname)
 	})
 
 	//nolint:paralleltest
@@ -255,66 +288,10 @@ func TestLoader_LoadProfileEnv(t *testing.T) {
 
 		t.Setenv(envVarOrganization, "xyz")
 
-		out, err := l.LoadProfile(p.Name)
+		out, err := l.LoadProfile(context.Background(), p.Name)
 		r.NoError(err)
 		r.NotNil(out)
 		r.Equal("xyz", out.DefaultOrganization)
-	})
-}
-
-func TestLoader_LoadProfiles(t *testing.T) {
-	t.Parallel()
-
-	t.Run("no profile", func(t *testing.T) {
-		t.Parallel()
-		r := require.New(t)
-		l := TestLoader(t)
-
-		profiles, err := l.LoadProfiles()
-		r.Nil(profiles)
-		r.NoError(err)
-	})
-
-	t.Run("valid profile", func(t *testing.T) {
-		t.Parallel()
-		r := require.New(t)
-		l := TestLoader(t)
-
-		p, err := l.NewProfile("test")
-		r.NoError(err)
-		p.DefaultOrganization = "123"
-		r.NoError(p.Write())
-
-		out, err := l.LoadProfiles()
-		r.NoError(err)
-		r.Len(out, 1)
-		r.Equal(p.Name, out[0].Name)
-		r.Equal(p.DefaultOrganization, out[0].DefaultOrganization)
-		r.NoError(err)
-	})
-
-	t.Run("valid profiles", func(t *testing.T) {
-		t.Parallel()
-		r := require.New(t)
-		l := TestLoader(t)
-
-		p, err := l.NewProfile("test")
-		r.NoError(err)
-		p.DefaultOrganization = "123"
-		r.NoError(p.Write())
-
-		p2, err := l.NewProfile("test2")
-		r.NoError(err)
-		p2.DefaultOrganization = "456"
-		r.NoError(p2.Write())
-
-		out, err := l.LoadProfiles()
-		r.NoError(err)
-		r.NotNil(out)
-		r.Equal(p.Name, out[0].Name)
-		r.Equal(p.DefaultOrganization, out[0].DefaultOrganization)
-		r.Equal(p2.Name, out[1].Name)
-		r.Equal(p2.DefaultOrganization, out[1].DefaultOrganization)
 	})
 }
 
@@ -344,7 +321,7 @@ func TestLoader_DeleteProfile(t *testing.T) {
 		path := filepath.Join(l.configDir, ProfileDir, fmt.Sprintf("%s.hcl", name))
 		r.NoError(os.WriteFile(path, []byte("invalid!"), 0x777))
 
-		p, err := l.LoadProfile(name)
+		p, err := l.LoadProfile(context.Background(), name)
 		r.Nil(p)
 		r.ErrorContains(err, "failed to decode profile")
 	})

@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/mitchellh/go-homedir"
-	"golang.org/x/net/idna"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/version"
@@ -80,7 +79,7 @@ func newLoader(dir string) (*Loader, error) {
 	if err != nil {
 		// If the directory doesn't exist, create it.
 		if errors.Is(err, fs.ErrNotExist) {
-			if err := os.MkdirAll(path, 0766); err != nil {
+			if err := os.MkdirAll(path, 0700); err != nil {
 				return nil, fmt.Errorf("failed to created %s config directory %q: %w", version.Name, path, err)
 			}
 		} else {
@@ -94,7 +93,7 @@ func newLoader(dir string) (*Loader, error) {
 	if err != nil {
 		// If the directory doesn't exist, create it.
 		if errors.Is(err, fs.ErrNotExist) {
-			if err := os.MkdirAll(profilesDir, 0766); err != nil {
+			if err := os.MkdirAll(profilesDir, 0700); err != nil {
 				return nil, fmt.Errorf("failed to created %s profiles directory %q: %w", version.Name, profilesDir, err)
 			}
 		} else {
@@ -196,7 +195,8 @@ func (l *Loader) ListProfiles() ([]string, error) {
 // LoadProfile loads a profile given its name. If the profile can not be found,
 // ErrNoProfileFilePresent will be returned. Otherwise, an error will be
 // returned if the profile is invalid.
-func (l *Loader) LoadProfile(name string) (*Profile, error) {
+func (l *Loader) LoadProfile(ctx context.Context, name string) (*Profile, error) {
+	logger := logging.FromContext(ctx)
 	// Expand the directory.
 	path := filepath.Join(l.profilesDir, fmt.Sprintf("%s.hcl", name))
 
@@ -224,27 +224,43 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 	// If there's no default organization set, use the environment variable if it's set.
 	if c.DefaultOrganization == "" {
 		if orgID, ok := os.LookupEnv(envVarOrganization); ok && orgID != "" {
+			logger.Debug("Setting default_organization from "+envVarOrganization, "organization", orgID)
 			c.DefaultOrganization = orgID
 		}
 	}
 
-	// If there's no token set, check the credentials file and environment variables.
-	if c.Token == "" {
-		credsToken, err := tokenFromCredentials(c.Hostname)
-		if err != nil {
-			return nil, err
-		}
-		c.tokenFromEnv = credsToken
+	// If there's no token set, check the credentials file and environment variables. These are
+	// checked in a careful order of precedence.
+
+	if c.Token != "" {
+		logger.Debug("Using token from profile", "name", c.Name)
 	}
 
-	if c.Token == "" {
+	// 1. Check for a token specific to tfctl (TFCTL_TOKEN_{profileName} or TFCTL_TOKEN for the default profile)
+	if c.GetToken() == "" {
 		if envToken := os.Getenv(profileTokenEnvVar(c.Name)); envToken != "" {
+			logger.Debug("Setting token from environment", "var", profileTokenEnvVar(c.Name))
 			c.tokenFromEnv = envToken
 		}
 	}
 
-	if c.Token == "" {
-		if envToken := os.Getenv(legacyTokenEnvVar(c.Hostname)); envToken != "" {
+	// 2. Check for a token in the terraform credentials file that matches the hostname of the profile
+	if c.GetToken() == "" {
+		credsToken, err := tokenFromCredentials(c.GetHostname())
+		if err != nil {
+			return nil, err
+		}
+		if credsToken != "" {
+			logger.Debug("Setting token from terraform credentials file", "hostname", c.GetHostname())
+			c.tokenFromEnv = credsToken
+		}
+	}
+
+	// 3. Check for a token in the terraform environment variable that matches the hostname of the
+	// profile (support for TF_TOKEN_{normalizedHostname}
+	if c.GetToken() == "" {
+		if envToken := os.Getenv(terraformTokenEnvVar(c.GetHostname())); envToken != "" {
+			logger.Debug("Setting token from terraform environment", "var", terraformTokenEnvVar(c.GetHostname()))
 			c.tokenFromEnv = envToken
 		}
 	}
@@ -254,25 +270,6 @@ func (l *Loader) LoadProfile(name string) (*Profile, error) {
 	c.hostCacheDir = hostCacheDir
 
 	return &c, nil
-}
-
-// LoadProfiles loads all the available profiles.
-func (l *Loader) LoadProfiles() ([]*Profile, error) {
-	profileNames, err := l.ListProfiles()
-	if err != nil {
-		return nil, err
-	}
-
-	var profiles []*Profile
-	for _, n := range profileNames {
-		p, err := l.LoadProfile(n)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load profile %q: %w", n, err)
-		}
-		profiles = append(profiles, p)
-	}
-
-	return profiles, nil
 }
 
 // DeleteProfile deletes the profile with the given name. If the profile can not be found,
@@ -304,7 +301,8 @@ const (
 
 // DefaultProfile returns the minimal default profile. If environment
 // variables related to organization and project are set, they are honored here.
-func (l *Loader) DefaultProfile() *Profile {
+func (l *Loader) DefaultProfile(ctx context.Context) *Profile {
+	logger := logging.FromContext(ctx)
 	profile, err := l.NewProfile(ProfileNameDefault)
 	if err != nil {
 		panic("The default profile should always be valid. This is always a developer error: " + err.Error())
@@ -317,7 +315,14 @@ func (l *Loader) DefaultProfile() *Profile {
 
 	hostname := DefaultHostname
 	if envHostname, ok := os.LookupEnv(envVarHostname); ok && envHostname != "" {
-		hostname = envHostname
+		hostnameNormal, err := NormalizeHostname(envHostname)
+		if err != nil {
+			logger.Debug("Invalid hostname set by environment (using default)", "error", err)
+			hostnameNormal = DefaultHostname
+		} else {
+			logger.Debug("Using hostname from "+envVarHostname, "hostname", hostnameNormal)
+		}
+		hostname = hostnameNormal
 	}
 
 	profile.Hostname = hostname
@@ -335,17 +340,6 @@ func (l *Loader) NewProfile(name string) (*Profile, error) {
 	return p, p.Validate()
 }
 
-func normalizeHostname(hostname string) string {
-	hostname = strings.TrimSpace(hostname)
-	hostname = strings.TrimPrefix(hostname, "https://")
-	hostname = strings.TrimPrefix(hostname, "http://")
-	hostname = strings.TrimRight(hostname, "/")
-	if asciiHost, err := idna.Lookup.ToASCII(hostname); err == nil {
-		return asciiHost
-	}
-	return hostname
-}
-
 func profileTokenEnvVar(profileName string) string {
 	if profileName == "" || profileName == "default" {
 		return envVarToken
@@ -353,8 +347,11 @@ func profileTokenEnvVar(profileName string) string {
 	return fmt.Sprintf(envVarTokenProfileFormat, profileName)
 }
 
-func legacyTokenEnvVar(hostname string) string {
-	hostname = normalizeHostname(hostname)
+func terraformTokenEnvVar(hostname string) string {
+	hostname, err := NormalizeHostname(hostname)
+	if err != nil {
+		return ""
+	}
 
 	var b strings.Builder
 	b.WriteString("TF_TOKEN_")
@@ -393,7 +390,11 @@ func tokenFromCredentials(hostname string) (string, error) {
 		return "", fmt.Errorf("parse %s: %w", path, err)
 	}
 
-	hostname = normalizeHostname(hostname)
+	hostname, err = NormalizeHostname(hostname)
+	if err != nil {
+		return "", err
+	}
+
 	entry, ok := creds.Credentials[hostname]
 	if !ok {
 		return "", nil

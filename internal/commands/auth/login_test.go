@@ -59,7 +59,7 @@ func TestLoginFromStdin(t *testing.T) {
 
 	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
@@ -76,7 +76,7 @@ func TestLoginFromStdin(t *testing.T) {
 	r.Contains(io.Error.String(), "Successfully logged in")
 	r.Contains(io.Error.String(), "testuser")
 
-	loaded, err := l.LoadProfile(p.Name)
+	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	r.Equal("my-test-token", loaded.Token)
 }
@@ -87,7 +87,7 @@ func TestLoginFromStdin_CustomHostname(t *testing.T) {
 
 	srv := newFakeTFE(t, "admin")
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
@@ -110,7 +110,7 @@ func TestLoginFromStdin_EmptyToken(t *testing.T) {
 	r := require.New(t)
 
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -132,7 +132,7 @@ func TestLoginFromStdin_NoInput(t *testing.T) {
 	r := require.New(t)
 
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -153,7 +153,7 @@ func TestLoginFromStdin_WhitespaceToken(t *testing.T) {
 	r := require.New(t)
 
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -176,7 +176,7 @@ func TestLoginFromStdin_TokenWithWhitespace(t *testing.T) {
 
 	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
@@ -191,7 +191,7 @@ func TestLoginFromStdin_TokenWithWhitespace(t *testing.T) {
 
 	r.NoError(runLogin(t, opts))
 
-	loaded, err := l.LoadProfile(p.Name)
+	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	r.Equal("my-token-with-spaces", loaded.Token)
 }
@@ -201,7 +201,7 @@ func TestLoginInteractive_NoTTY(t *testing.T) {
 	r := require.New(t)
 
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	r.NoError(p.Write())
 
 	io := iostreams.Test()
@@ -223,7 +223,7 @@ func TestLoginInteractive_Success(t *testing.T) {
 
 	srv := newFakeTFE(t, "interactive-user")
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
@@ -246,7 +246,7 @@ func TestLoginInteractive_Success(t *testing.T) {
 	r.Contains(io.Error.String(), "Successfully logged in")
 	r.Contains(io.Error.String(), "interactive-user")
 
-	loaded, err := l.LoadProfile(p.Name)
+	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	r.Equal("interactive-token", loaded.Token)
 }
@@ -280,11 +280,11 @@ func TestLoginFromStdin_DifferentProfile(t *testing.T) {
 	r.NoError(runLogin(t, &LoginOpts{IO: io, Profile: p2, Token: true}))
 
 	// Verify tokens were saved to the correct profiles
-	loadedProd, err := l.LoadProfile("production")
+	loadedProd, err := l.LoadProfile(context.Background(), "production")
 	r.NoError(err)
 	r.Equal("prod-token", loadedProd.Token)
 
-	loadedStaging, err := l.LoadProfile("staging")
+	loadedStaging, err := l.LoadProfile(context.Background(), "staging")
 	r.NoError(err)
 	r.Equal("staging-token", loadedStaging.Token)
 }
@@ -295,11 +295,11 @@ func TestLoginFromStdin_DryRun(t *testing.T) {
 
 	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
-	initial, err := l.LoadProfile(p.Name)
+	initial, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	initialToken := initial.Token
 
@@ -317,7 +317,7 @@ func TestLoginFromStdin_DryRun(t *testing.T) {
 	r.Contains(io.Error.String(), "would save token")
 	r.Contains(io.Error.String(), p.Name)
 
-	loaded, err := l.LoadProfile(p.Name)
+	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	r.Equal(initialToken, loaded.Token)
 	r.NotEqual("my-new-token", loaded.Token)
@@ -329,11 +329,11 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 
 	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
-	initial, err := l.LoadProfile(p.Name)
+	initial, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	initialToken := initial.Token
 
@@ -353,7 +353,7 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 	r.NoError(runLogin(t, opts))
 	r.Contains(io.Error.String(), "would save token")
 
-	loaded, err := l.LoadProfile(p.Name)
+	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	r.Equal(initialToken, loaded.Token)
 	r.NotEqual("interactive-token", loaded.Token)
@@ -365,7 +365,7 @@ func TestLoginFromStdin_QuietMode(t *testing.T) {
 
 	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
@@ -382,7 +382,7 @@ func TestLoginFromStdin_QuietMode(t *testing.T) {
 	r.NoError(runLogin(t, opts))
 	r.Empty(io.Error.String())
 
-	loaded, err := l.LoadProfile(p.Name)
+	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	r.Equal("my-token", loaded.Token)
 }
@@ -393,7 +393,7 @@ func TestLoginFromStdin_VerifyFails(t *testing.T) {
 
 	srv := newFakeTFE(t, "") // empty username → 401
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
@@ -410,7 +410,7 @@ func TestLoginFromStdin_VerifyFails(t *testing.T) {
 	r.Error(err)
 	r.Contains(err.Error(), "failed to verify token")
 
-	loaded, err := l.LoadProfile(p.Name)
+	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	r.NotEqual("bad-token", loaded.Token)
 }
@@ -421,7 +421,7 @@ func TestLoginInteractive_ConfirmOpensBrowserWithSource(t *testing.T) {
 
 	srv := newFakeTFE(t, "interactive-user")
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
@@ -453,7 +453,7 @@ func TestLoginInteractive_ConfirmOpensBrowserWithSource(t *testing.T) {
 	r.Contains(openedURL, "?source=tfctl-login")
 	r.Contains(io.Error.String(), "Do you want to proceed")
 
-	loaded, err := l.LoadProfile(p.Name)
+	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	r.Equal("interactive-token", loaded.Token)
 }
@@ -463,10 +463,10 @@ func TestLoginInteractive_DeclineDoesNotOpenBrowser(t *testing.T) {
 	r := require.New(t)
 
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	r.NoError(p.Write())
 
-	initial, err := l.LoadProfile(p.Name)
+	initial, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	initialToken := initial.Token
 
@@ -493,7 +493,7 @@ func TestLoginInteractive_DeclineDoesNotOpenBrowser(t *testing.T) {
 	r.False(opened, "browser must not open when the user declines")
 	r.Contains(io.Error.String(), "Login canceled.")
 
-	loaded, err := l.LoadProfile(p.Name)
+	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
 	r.Equal(initialToken, loaded.Token, "token is unchanged when login is declined")
 }
@@ -504,7 +504,7 @@ func TestLoginFromStdin_DoesNotPromptOrOpenBrowser(t *testing.T) {
 
 	srv := newFakeTFE(t, "testuser")
 	l := profile.TestLoader(t)
-	p := l.DefaultProfile()
+	p := l.DefaultProfile(context.Background())
 	p.Hostname = srv.URL
 	r.NoError(p.Write())
 
