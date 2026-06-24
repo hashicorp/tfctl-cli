@@ -1,8 +1,8 @@
 ---
 name: tfctl
 description: |
-  Interact with HCP Terraform / Terraform Cloud using the tfctl CLI. Full API coverage.
-  Use for ANY HCP Terraform or Terraform Cloud question or action — listing workspaces,
+  Interact with HCP Terraform / Terraform Cloud / Terraform Enterprise using the tfctl CLI. Full API coverage.
+  Use for ANY HCP Terraform or Terraform Cloud or Terraform Enterprise question or action — listing workspaces,
   starting/diagnosing runs, reading vars, modifying resources, calling API operations.
 license: MPL-2.0
 ---
