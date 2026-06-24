@@ -30,6 +30,10 @@ func TestInstallSkill(t *testing.T) {
 			expectedGlobalInstall: "~/.config/opencode/skills/tfctl/SKILL.md",
 		},
 		{
+			agentName:             "gemini",
+			expectedGlobalInstall: "~/.gemini/skills/tfctl/SKILL.md",
+		},
+		{
 			agentName:             "claude",
 			expectedGlobalInstall: "~/CustomClaudeDir/skills/tfctl/SKILL.md",
 			setup: func(t *testing.T) {

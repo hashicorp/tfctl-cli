@@ -48,6 +48,7 @@ The `tfctl` CLI ships with an agent skill that gives AI coding agents access to 
 - `copilot`
 - `opencode`
 - `pi`
+- `gemini`
 
 To install the skill with `tfctl harness install` command, run:
 

@@ -173,6 +173,21 @@ func registerAgents() map[string]AgentSpec {
 				return os.Getenv("PI_CODING_AGENT") == "true"
 			},
 		},
+		"gemini": {
+			Name:        "gemini",
+			DisplayName: "Gemini CLI",
+			SkillsDir:   ".gemini/skills",
+			GlobalSkillsDir: func() string {
+				path, _ := homedir.Expand("~/.gemini/skills")
+				return path
+			},
+			Detect: func() bool {
+				return detectHomeDirPath(".gemini")
+			},
+			DetectParentProcess: func() bool {
+				return os.Getenv("GEMINI_CLI") == "1"
+			},
+		},
 	}
 }
 
