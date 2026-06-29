@@ -1,3 +1,10 @@
+## v0.3.1-fake1 (June 29, 2026)
+
+
+BUG FIXES:
+
+* This is a test change that will never be added to the real CHANGELOG
+
 ## v0.3.0 (June 22, 2026)
 
 
