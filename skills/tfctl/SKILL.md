@@ -14,30 +14,29 @@ Single binary, full v2 API coverage. Already authenticated.
 ## Hard rules
 
 1. **Never pipe `tfctl` JSON to an external `jq`.** Use the built-in `--jq '<expr>'` flag — it implies `--json` and runs gojq on the response envelope.
-2. **Deletes are gated — check authorization first, don't refuse blindly.** A `tfctl ... -X DELETE` is allowed only when a human launched you inside `tfctl harness exec --allow-delete=<class>`. Detect this before deciding (see *Deletes: how to tell if they're allowed* below): if authorized, run the delete normally; if not, print the command for the human. Never run `tfctl harness exec` yourself to grant your own permission.
-3. **Resolve names with `-p`, not separate lookup calls.** Paths with `{workspace}`/`{team}`/`{project}`/`{varset}` accept `-p workspace=NAME` etc. — tfctl resolves name→ID for you. Don't fetch the ID first.
-4. **Trust the first answer.** `data: []`, `data: null`, `relationships.X.data: null`, or stderr "no current run"/"not found" ARE the answer. Don't re-query in another format. Don't walk relationships "to verify".
-5. **When a named resource is not found, stop completely.** Exit code 2 or absence from a listing IS the full answer. Never:
+2. **Resolve names with `-p`, not separate lookup calls.** Paths with `{workspace}`/`{team}`/`{project}`/`{varset}` accept `-p workspace=NAME` etc. — tfctl resolves name→ID for you. Don't fetch the ID first.
+3. **Trust the first answer.** `data: []`, `data: null`, `relationships.X.data: null`, or stderr "no current run"/"not found" ARE the answer. Don't re-query in another format. Don't walk relationships "to verify".
+4. **When a named resource is not found, stop completely.** Exit code 2 or absence from a listing IS the full answer. Never:
    - Try a different resource ID "to verify the endpoint works"
    - Pivot to another org/workspace that appeared in the available list
    - Explore related resources to find "similar" information
-   - Use Rule 4 to justify switching to a different resource: if you listed orgs and 'platform' isn't there, the first answer is "platform doesn't exist" — stop, don't use whatever org IS listed instead.
+   - Use Rule 3 to justify switching to a different resource: if you listed orgs and 'platform' isn't there, the first answer is "platform doesn't exist" — stop, don't use whatever org IS listed instead.
    
    Examples: `run-POLICY` returns exit 2 → stop, don't query other run IDs. Listing orgs shows no 'platform' → stop, don't use the org that IS listed.
 
-### Deletes: how to tell if they're allowed
+### Deleting resources
 
-Before issuing any `tfctl ... -X DELETE` (or other destroy), find out whether deletes are authorized for this session — don't just refuse, and don't just try it blind:
+Deletes are destructive, so `tfctl` itself gates them — you don't need to police this with a blanket refusal. A noninteractive `tfctl ... -X DELETE` only goes through when a human has opted in for this session by launching you via `tfctl harness exec --allow-delete=<class> -- <command>` (which sets `TFCTL_EXEC_SESSION`). Otherwise `tfctl` refuses on its own and tells you what to do.
 
-1. **Check the `TFCTL_EXEC_SESSION` environment variable:** run `printenv TFCTL_EXEC_SESSION` (or `echo "$TFCTL_EXEC_SESSION"`).
-2. **Empty / unset → NOT authorized.** Do not run the delete. Print the exact command and let the human run it:
-   ```bash
-   tfctl api PATH -X DELETE
-   ```
-   You may add that a human can authorize you for one session with `tfctl harness exec --allow-delete=<class> -- <command>`. Do **not** run `harness exec` yourself.
-3. **Non-empty → a human authorized noninteractive deletes for this session.** Go ahead and run the delete normally — this is expected, not a violation. tfctl is the source of truth: it enforces exactly which resource classes were granted. If the specific class wasn't granted, tfctl refuses and prints the precise `--allow-delete=<class>` to add — relay that to the human; still don't self-authorize.
+So when you're asked to delete something, just run the normal command and let `tfctl` be the gate:
 
-`reversible` / `all` grants never cover the irreversible classes `organizations` and `projects`; those are only ever deletable when granted by name.
+```bash
+tfctl api PATH -X DELETE
+```
+
+- **If the session authorizes that resource's class, it succeeds** — that's the human's intent, not a violation; proceed and report the result.
+- **If it doesn't, `tfctl` refuses and prints the exact command to hand back** (including the `harness exec --allow-delete=<class>` a human can use to authorize you). Relay that rather than forcing it; don't run `harness exec` yourself to self-authorize.
+- Apply ordinary caution to irreversible deletes (`organizations`, `projects`): they are never covered by the `reversible`/`all` wildcards and must be granted by name. For a high-stakes target, confirm intent with the human first even when the session would allow it.
 
 ### URL shape: per-workspace subpaths live at `/workspaces/{workspace}/...`
 

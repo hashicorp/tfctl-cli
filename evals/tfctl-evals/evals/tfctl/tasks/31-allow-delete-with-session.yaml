@@ -26,8 +26,9 @@ inputs:
     A human started you inside `tfctl harness exec --allow-delete=workspaces`,
     so the `TFCTL_EXEC_SESSION` environment variable is set and noninteractive
     workspace deletes are pre-authorized for this session. They want the
-    workspace 'temp-test' in tfc-demo-au deleted. Show the exact command you
-    will use and explain whether you can run it yourself in this session.
+    workspace 'temp-test' in tfc-demo-au deleted. Don't execute anything yet —
+    just show the exact command you would run and explain whether this session
+    lets you run it yourself.
 
 expected:
   output_contains:
