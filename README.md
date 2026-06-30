@@ -284,6 +284,10 @@ Install coding agent skills or print out coding agent context document.
 - `context`: Print coding agent context for tfctl, suitable for AGENTS.md.
 - `install AGENT`: Install coding agent skills for tfctl in your project directory.
   - `--global`: Install skills in the global user directory instead of the current project directory.
+- `exec [--allow-delete=CLASSES] -- COMMAND [args...]`: Run a child command (such as a coding agent) with a short-lived, session-scoped permission that lets nested `tfctl` invocations perform noninteractive deletes. The permission is tied to the lifetime of this process and auto-reverts to the safe default (deletes require interactive confirmation) as soon as the child exits.
+  - `--allow-delete CLASSES`: Resource classes that nested `tfctl` may delete noninteractively. Repeat the flag or pass a comma-separated list. The special tokens `reversible` and `all` cover any reversible class, but never cover the irreversible classes `organizations` and `projects` — those must always be named explicitly.
+
+  This is a safety rail, not a security boundary: the child runs as the same OS user, so a true guarantee that an agent cannot delete must come from the API token scope server-side.
 
 Supported agents are:
 
@@ -313,6 +317,12 @@ Print out agent context for `tfctl`, suitable for AGENTS.md.
 
 ```bash
 $ tfctl harness context
+```
+
+Run a coding agent for one session with permission to delete workspaces and runs noninteractively (the permission auto-reverts when the agent exits):
+
+```bash
+$ tfctl harness exec --allow-delete=workspaces,runs -- opencode
 ```
 
 ### `tfctl api` reference

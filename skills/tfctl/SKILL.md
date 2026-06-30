@@ -14,7 +14,7 @@ Single binary, full v2 API coverage. Already authenticated.
 ## Hard rules
 
 1. **Never pipe `tfctl` JSON to an external `jq`.** Use the built-in `--jq '<expr>'` flag — it implies `--json` and runs gojq on the response envelope.
-2. **Never issue `-X DELETE`.** All deletes need a human. If asked to delete, print the exact command and ask the user to run it.
+2. **Never authorize your own deletes.** Deletes need a human. Don't run `tfctl harness exec` yourself to grant delete permission — that defeats the human-in-the-loop. If a delete is needed, print the exact `tfctl api -X DELETE ...` command and ask the user to run it. (A human may instead pre-authorize you by launching you inside `tfctl harness exec --allow-delete=<class> -- <your command>`; if so, the matching noninteractive deletes will simply succeed — proceed normally, but only for the classes they granted.)
 3. **Resolve names with `-p`, not separate lookup calls.** Paths with `{workspace}`/`{team}`/`{project}`/`{varset}` accept `-p workspace=NAME` etc. — tfctl resolves name→ID for you. Don't fetch the ID first.
 4. **Trust the first answer.** `data: []`, `data: null`, `relationships.X.data: null`, or stderr "no current run"/"not found" ARE the answer. Don't re-query in another format. Don't walk relationships "to verify".
 5. **When a named resource is not found, stop completely.** Exit code 2 or absence from a listing IS the full answer. Never:

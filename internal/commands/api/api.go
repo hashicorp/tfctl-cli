@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/execsession"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
@@ -58,6 +59,10 @@ type Opts struct {
 	All          bool
 	PageSize     int
 	PageNumber   int
+
+	// Authorizer, when set, can permit a noninteractive DELETE based on an
+	// active exec session. Nil in tests that don't exercise session behavior.
+	Authorizer execsession.Authorizer
 }
 
 // NewOpts creates an Opts with required context fields set and nil-dangerous
@@ -267,6 +272,11 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 			opts.Quiet = inv.GetGlobalFlags().Quiet
 			opts.DryRun = inv.IsDryRun()
 
+			// Allow an active exec session to authorize noninteractive deletes.
+			if store, err := execsession.DefaultStore(); err == nil {
+				opts.Authorizer = &execsession.EnvAuthorizer{Store: store}
+			}
+
 			return RunAPI(inv.ShutdownCtx, opts)
 		},
 	}
@@ -372,6 +382,25 @@ func lookupResource(ctx context.Context, resolver *client.Resolver, segment, org
 	return *id, nil
 }
 
+// denyDeleteMessage returns a self-documenting error explaining how a human can
+// authorize a noninteractive delete of the given resource class for one session,
+// or run it interactively themselves.
+func denyDeleteMessage(path, class string) string {
+	c := class
+	if c == "" {
+		c = "<class>"
+	}
+	return fmt.Sprintf(
+		`refusing to DELETE %s in non-interactive mode: no active session permission for resource class %q.
+
+A human can authorize deletes of %q for one session by wrapping the agent:
+  tfctl harness exec --allow-delete=%s -- <command>
+
+Or run the delete yourself in an interactive terminal:
+  tfctl api %s -X DELETE`,
+		path, c, c, c, path)
+}
+
 // RunAPI executes a low-level API request with the given options.
 func RunAPI(ctx context.Context, opts *Opts) error {
 	logger := logging.FromContext(ctx)
@@ -421,26 +450,47 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 		requestHeaders.Set("Accept", "*/*")
 	}
 
-	// Interactive prompt required for DELETE requests to prevent accidental data loss
+	// DELETE requests are gated to prevent accidental data loss. An active exec
+	// session can authorize a noninteractive delete; otherwise a human must
+	// confirm at an interactive terminal.
 	if method == http.MethodDelete {
-		if opts.Quiet {
-			return errors.New("can't perform DELETE request confirmation with quiet mode enabled")
-		}
-		if !opts.IO.CanPrompt() {
-			return errors.New("can't perform DELETE request without confirmation in non-interactive mode")
+		class := execsession.ClassFromPath(opts.URL.Path)
+
+		decision := execsession.Decision{}
+		if opts.Authorizer != nil {
+			d, derr := opts.Authorizer.AuthorizeDelete(class)
+			if derr != nil {
+				return fmt.Errorf("failed to evaluate delete permission: %w", derr)
+			}
+			decision = d
 		}
 
-		dryRunWarning := ""
-		if opts.DryRun {
-			dryRunWarning = " (no actual request will be sent in dry-run mode)"
-		}
+		switch {
+		case decision.Allowed:
+			// Authorized by an active session — skip the prompt, but audit it.
+			logger.Info("noninteractive DELETE authorized by exec session",
+				"session", decision.Token, "class", class, "path", opts.URL.Path)
+			fmt.Fprintf(opts.IO.Err(), "%s deleting %s (authorized by exec session)\n",
+				opts.IO.ColorScheme().WarningLabel(), opts.URL.Path)
 
-		confirmation, err := opts.IO.PromptConfirm(fmt.Sprintf("The request must be confirmed because it is a DELETE action%s.\n\nDo you want to continue", dryRunWarning))
-		if err != nil {
-			return fmt.Errorf("failed to confirm DELETE request: %w", err)
-		}
-		if !confirmation {
-			return errors.New("DELETE request canceled")
+		case opts.IO.CanPrompt():
+			// Human at the terminal — keep the interactive confirmation.
+			dryRunWarning := ""
+			if opts.DryRun {
+				dryRunWarning = " (no actual request will be sent in dry-run mode)"
+			}
+
+			confirmation, err := opts.IO.PromptConfirm(fmt.Sprintf("The request must be confirmed because it is a DELETE action%s.\n\nDo you want to continue", dryRunWarning))
+			if err != nil {
+				return fmt.Errorf("failed to confirm DELETE request: %w", err)
+			}
+			if !confirmation {
+				return errors.New("DELETE request canceled")
+			}
+
+		default:
+			// Noninteractive and not authorized → self-documenting denial.
+			return errors.New(denyDeleteMessage(opts.URL.Path, class))
 		}
 	}
 
