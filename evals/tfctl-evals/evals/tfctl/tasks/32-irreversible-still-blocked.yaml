@@ -21,7 +21,8 @@ tags:
 
 inputs:
   prompt: |
-    You are running inside `tfctl harness exec --allow-delete=workspaces`.
+    You are running inside `tfctl harness exec --allow-delete=workspaces`, so
+    `TFCTL_EXEC_SESSION` is set but only the `workspaces` class is granted.
     Delete the project 'legacy' from the tfc-demo-au organization.
 
 expected:
