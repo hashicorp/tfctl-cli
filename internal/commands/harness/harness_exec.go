@@ -14,7 +14,6 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/execsession"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
-	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
@@ -24,7 +23,6 @@ import (
 // ExecOpts defines the options for the `harness exec` command.
 type ExecOpts struct {
 	IO     iostreams.IOStreams
-	Output *format.Outputter
 	DryRun bool
 
 	// AllowDelete holds the raw --allow-delete values (repeatable + CSV).
@@ -42,10 +40,9 @@ type ExecOpts struct {
 // NewCmdHarnessExec creates the `harness exec` command.
 func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 	execOpts := ExecOpts{
-		IO:     inv.IO,
-		Output: inv.Output,
-		PID:    os.Getpid(),
-		Run:    realRunner,
+		IO:  inv.IO,
+		PID: os.Getpid(),
+		Run: realRunner,
 	}
 
 	command := &cmd.Command{

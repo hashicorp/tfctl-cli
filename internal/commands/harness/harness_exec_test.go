@@ -15,7 +15,6 @@ import (
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/execsession"
-	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
@@ -36,7 +35,6 @@ func TestRunExec_DryRunCreatesNothing(t *testing.T) {
 	ran := false
 	opts := &ExecOpts{
 		IO:          ios,
-		Output:      format.New(ios),
 		DryRun:      true,
 		AllowDelete: []string{"workspaces"},
 		Argv:        []string{"echo", "hi"},
@@ -68,7 +66,6 @@ func TestRunExec_HappyPathInjectsTokenAndCleansUp(t *testing.T) {
 
 	opts := &ExecOpts{
 		IO:          ios,
-		Output:      format.New(ios),
 		AllowDelete: []string{"workspaces", "runs"},
 		Argv:        []string{"mychild", "--flag", "val"},
 		Store:       store,
@@ -107,7 +104,6 @@ func TestRunExec_ChildExitCodePropagates(t *testing.T) {
 
 	opts := &ExecOpts{
 		IO:          ios,
-		Output:      format.New(ios),
 		AllowDelete: []string{"workspaces"},
 		Argv:        []string{"child"},
 		Store:       store,
@@ -134,11 +130,10 @@ func TestRunExec_EmptyArgvIsUsageError(t *testing.T) {
 	store := &execsession.Store{Dir: t.TempDir()}
 
 	opts := &ExecOpts{
-		IO:     ios,
-		Output: format.New(ios),
-		Argv:   nil,
-		Store:  store,
-		PID:    os.Getpid(),
+		IO:    ios,
+		Argv:  nil,
+		Store: store,
+		PID:   os.Getpid(),
 		Run: func(_ context.Context, _, _ []string, _ iostreams.IOStreams) (int, error) {
 			return 0, nil
 		},
@@ -158,7 +153,6 @@ func TestRunExec_UnknownClassWarnsButRuns(t *testing.T) {
 	ran := false
 	opts := &ExecOpts{
 		IO:          ios,
-		Output:      format.New(ios),
 		AllowDelete: []string{"bogusclass"},
 		Argv:        []string{"child"},
 		Store:       store,

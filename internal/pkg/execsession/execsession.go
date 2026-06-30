@@ -243,7 +243,6 @@ type EnvAuthorizer struct {
 	Getenv   func(string) string // default os.Getenv
 	Ancestry AncestryFn          // default ParentPID (platform)
 	Self     int                 // default os.Getpid()
-	Now      func() time.Time    // default time.Now
 }
 
 func (a *EnvAuthorizer) getenv(key string) string {
