@@ -4,11 +4,42 @@
 package execsession
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestAllowDeleteCompletions(t *testing.T) {
+	t.Parallel()
+
+	got := AllowDeleteCompletions()
+
+	// The sentinels must be offered so a human can tab-complete them.
+	assert.Contains(t, got, SentinelReversible)
+	assert.Contains(t, got, SentinelAll)
+
+	// Every known class must be offered, including the irreversible ones so a
+	// human can explicitly name organizations/projects.
+	for class := range KnownClasses {
+		assert.Contains(t, got, class, "known class %q must be completable", class)
+	}
+	assert.Contains(t, got, "organizations")
+	assert.Contains(t, got, "projects")
+
+	// The result must be sorted and free of duplicates for deterministic
+	// completion output.
+	assert.True(t, sort.StringsAreSorted(got), "completions must be sorted")
+	seen := make(map[string]bool, len(got))
+	for _, c := range got {
+		require.False(t, seen[c], "duplicate completion %q", c)
+		seen[c] = true
+	}
+
+	// Exactly the known classes plus the two sentinels, nothing else.
+	assert.Len(t, got, len(KnownClasses)+2)
+}
 
 func TestClassFromPath(t *testing.T) {
 	t.Parallel()

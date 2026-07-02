@@ -5,6 +5,7 @@ package execsession
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -54,6 +55,21 @@ const (
 	// irreversible classes.
 	SentinelAll = "all"
 )
+
+// AllowDeleteCompletions returns the suggested values for --allow-delete: every
+// known resource class plus the reversible/all sentinels, sorted and
+// deduplicated. The irreversible classes are intentionally included so a human
+// can tab-complete them when naming them explicitly (wildcards never cover
+// them, but explicit grants are allowed).
+func AllowDeleteCompletions() []string {
+	out := make([]string, 0, len(KnownClasses)+2)
+	out = append(out, SentinelReversible, SentinelAll)
+	for class := range KnownClasses {
+		out = append(out, class)
+	}
+	sort.Strings(out)
+	return out
+}
 
 // AllowsDelete reports whether class is permitted by the granted set. Explicit
 // class names always match (including irreversible classes). The reversible/all

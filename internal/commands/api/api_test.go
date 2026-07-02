@@ -649,6 +649,37 @@ func TestRunAPI_DeleteAuthorizedBySession(t *testing.T) {
 	require.Contains(t, io.Error.String(), "authorized by exec session")
 }
 
+func TestRunAPI_DeleteAuthorizedBySessionAuditSurvivesQuiet(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"DELETE /api/v2/workspaces/ws-1": func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/vnd.api+json")
+			w.WriteHeader(http.StatusNoContent)
+		},
+	})
+	defer server.Close()
+
+	// Quiet, non-interactive IO; the session authorizes the delete. The
+	// destructive-action audit line must still be shown: --quiet must not
+	// silence the record of a noninteractive delete.
+	io := iostreams.Test()
+	io.SetQuiet(true)
+	auth := &fakeAuthorizer{decision: execsession.Decision{Allowed: true, Token: "TOKEN123", Reason: execsession.ReasonGranted}}
+
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
+		opts.Method = http.MethodDelete
+		opts.Authorizer = auth
+		opts.Quiet = true
+	}))
+	require.NoError(t, err)
+
+	require.Equal(t, http.MethodDelete, recorder.Last().Method)
+	require.Contains(t, io.Error.String(), "authorized by exec session",
+		"delete audit must survive --quiet via LoudErr")
+}
+
 func TestRunAPI_DeleteNoSessionReturnsDenyMessage(t *testing.T) {
 	t.Parallel()
 

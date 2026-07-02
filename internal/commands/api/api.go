@@ -468,13 +468,18 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 		switch {
 		case decision.Allowed:
 			// Authorized by an active session — skip the prompt, but audit it.
+			// The audit line is emitted by the nested tfctl while the human is
+			// not watching each command, so it must survive --quiet: route it
+			// through LoudErr rather than the quiet-aware Err().
 			logger.Info("noninteractive DELETE authorized by exec session",
 				"session", decision.Token, "class", class, "path", opts.URL.Path)
-			fmt.Fprintf(opts.IO.Err(), "%s deleting %s (authorized by exec session)\n",
+			fmt.Fprintf(iostreams.UseLoud(opts.IO).Err(), "%s deleting %s (authorized by exec session)\n",
 				opts.IO.ColorScheme().WarningLabel(), opts.URL.Path)
 
 		case opts.IO.CanPrompt():
 			// Human at the terminal — keep the interactive confirmation.
+			logger.Debug("no exec-session authorization for DELETE; prompting for interactive confirmation",
+				"class", class, "path", opts.URL.Path, "reason", decision.Reason)
 			dryRunWarning := ""
 			if opts.DryRun {
 				dryRunWarning = " (no actual request will be sent in dry-run mode)"
@@ -490,6 +495,8 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 
 		default:
 			// Noninteractive and not authorized → self-documenting denial.
+			logger.Debug("refusing noninteractive DELETE: no exec-session authorization",
+				"class", class, "path", opts.URL.Path, "reason", decision.Reason)
 			return errors.New(denyDeleteMessage(opts.URL.Path, class))
 		}
 	}

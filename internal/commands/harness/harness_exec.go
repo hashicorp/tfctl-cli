@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/posener/complete"
+
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/execsession"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
@@ -74,6 +76,12 @@ func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 			// The child command + args are passed through verbatim; bypass count
 			// validation and enforce "at least one" inside runExec so we can emit
 			// a helpful usage message.
+			//
+			// No Autocomplete is offered here: only the first token is an
+			// executable, while everything after it is the child's own
+			// arguments/flags, which we cannot meaningfully predict. Completing
+			// those tokens as files or executables would mislead, so we predict
+			// nothing rather than predict wrongly.
 			Validate: cmd.ArbitraryArgs,
 			Args: []cmd.PositionalArgument{
 				{
@@ -91,6 +99,7 @@ func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 					Description:  "Resource classes that nested tfctl may delete noninteractively (repeatable, CSV). Special tokens: reversible, all. organizations/projects must be named explicitly.",
 					Repeatable:   true,
 					Value:        flagvalue.SimpleSlice(nil, &execOpts.AllowDelete),
+					Autocomplete: complete.PredictSet(execsession.AllowDeleteCompletions()...),
 				},
 			},
 		},
@@ -150,6 +159,7 @@ func runExec(ctx context.Context, opts *ExecOpts) error {
 	if runErr != nil {
 		return fmt.Errorf("failed to run %q: %w", opts.Argv[0], runErr)
 	}
+	logger.Debug("child command exited", "command", opts.Argv[0], "code", code)
 	if code != 0 {
 		return cmd.NewExitError(code, nil)
 	}
