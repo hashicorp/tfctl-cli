@@ -1,0 +1,3 @@
+kind: ENHANCEMENTS
+body: Adds a `--plan-only` flag to `run start` that creates a speculative plan-only run which is never applied, regardless of the workspace's auto-apply setting.
+time: 2026-07-08T16:58:46-04:00
