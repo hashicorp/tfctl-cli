@@ -21,6 +21,7 @@ import (
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/execsession"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
@@ -597,12 +598,154 @@ func TestRunAPI_DeleteQuietMode(t *testing.T) {
 	io.SetQuiet(true)
 	io.Input.Write([]byte("y\n"))
 
+	// Quiet mode makes CanPrompt() false. With no authorizing session, the
+	// delete is refused with the self-documenting message.
 	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
 		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
 		opts.Method = http.MethodDelete
 		opts.Quiet = true
 	}))
-	require.ErrorContains(t, err, "can't perform DELETE request confirmation with quiet mode enabled")
+	require.ErrorContains(t, err, "harness exec --allow-delete=workspaces")
+}
+
+// fakeAuthorizer is a programmable execsession.Authorizer for tests.
+type fakeAuthorizer struct {
+	decision   execsession.Decision
+	err        error
+	gotClasses []string
+}
+
+func (f *fakeAuthorizer) AuthorizeDelete(class string) (execsession.Decision, error) {
+	f.gotClasses = append(f.gotClasses, class)
+	return f.decision, f.err
+}
+
+func TestRunAPI_DeleteAuthorizedBySession(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"DELETE /api/v2/workspaces/ws-1": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/vnd.api+json")
+			w.WriteHeader(http.StatusNoContent)
+		},
+	})
+	defer server.Close()
+
+	// Non-interactive IO (no TTY); the session authorizes the delete.
+	io := iostreams.Test()
+	auth := &fakeAuthorizer{decision: execsession.Decision{Allowed: true, Token: "TOKEN123", Reason: execsession.ReasonGranted}}
+
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
+		opts.Method = http.MethodDelete
+		opts.Authorizer = auth
+	}))
+	require.NoError(t, err)
+
+	// The request was actually sent (no prompt), and the class was evaluated.
+	require.Equal(t, http.MethodDelete, recorder.Last().Method)
+	require.Equal(t, []string{"workspaces"}, auth.gotClasses)
+	// An audit notice is written to stderr.
+	require.Contains(t, io.Error.String(), "authorized by exec session")
+}
+
+func TestRunAPI_DeleteAuthorizedBySessionAuditSurvivesQuiet(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"DELETE /api/v2/workspaces/ws-1": func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/vnd.api+json")
+			w.WriteHeader(http.StatusNoContent)
+		},
+	})
+	defer server.Close()
+
+	// Quiet, non-interactive IO; the session authorizes the delete. The
+	// destructive-action audit line must still be shown: --quiet must not
+	// silence the record of a noninteractive delete.
+	io := iostreams.Test()
+	io.SetQuiet(true)
+	auth := &fakeAuthorizer{decision: execsession.Decision{Allowed: true, Token: "TOKEN123", Reason: execsession.ReasonGranted}}
+
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
+		opts.Method = http.MethodDelete
+		opts.Authorizer = auth
+		opts.Quiet = true
+	}))
+	require.NoError(t, err)
+
+	require.Equal(t, http.MethodDelete, recorder.Last().Method)
+	require.Contains(t, io.Error.String(), "authorized by exec session",
+		"delete audit must survive --quiet via LoudErr")
+}
+
+func TestRunAPI_DeleteNoSessionReturnsDenyMessage(t *testing.T) {
+	t.Parallel()
+
+	server, _ := newAPITestServer(map[string]http.HandlerFunc{})
+	defer server.Close()
+
+	// Non-interactive IO and a session decision of no-session.
+	io := iostreams.Test()
+	auth := &fakeAuthorizer{decision: execsession.Decision{Allowed: false, Reason: execsession.ReasonNoSession}}
+
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
+		opts.Method = http.MethodDelete
+		opts.Authorizer = auth
+	}))
+	require.ErrorContains(t, err, "harness exec --allow-delete=workspaces")
+	require.ErrorContains(t, err, "non-interactive mode")
+}
+
+func TestRunAPI_DeleteUnauthorizedStillPromptsWhenInteractive(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"DELETE /api/v2/workspaces/ws-1": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/vnd.api+json")
+			w.WriteHeader(http.StatusNoContent)
+		},
+	})
+	defer server.Close()
+
+	// Interactive IO with a not-allowed decision should still prompt (today's path).
+	io := iostreams.Test()
+	io.ErrorTTY = true
+	io.InputTTY = true
+	io.Input.Write([]byte("y\n"))
+	auth := &fakeAuthorizer{decision: execsession.Decision{Allowed: false, Reason: execsession.ReasonNoSession}}
+
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
+		opts.Method = http.MethodDelete
+		opts.Authorizer = auth
+	}))
+	require.NoError(t, err)
+	require.Equal(t, http.MethodDelete, recorder.Last().Method)
+}
+
+func TestRunAPI_DeleteAuthorizedSessionSkipsRequestInDryRun(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{})
+	defer server.Close()
+
+	io := iostreams.Test()
+	auth := &fakeAuthorizer{decision: execsession.Decision{Allowed: true, Token: "TOKEN123", Reason: execsession.ReasonGranted}}
+
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
+		opts.Method = http.MethodDelete
+		opts.Authorizer = auth
+		opts.DryRun = true
+	}))
+	require.NoError(t, err)
+	// Permission is still evaluated, but no request is sent in dry-run.
+	require.Equal(t, []string{"workspaces"}, auth.gotClasses)
+	require.Empty(t, recorder.All())
+	require.Contains(t, io.Error.String(), "would send DELETE")
 }
 
 func TestRunAPI_ErrorResponseSummarizesJSONAPIErrors(t *testing.T) {

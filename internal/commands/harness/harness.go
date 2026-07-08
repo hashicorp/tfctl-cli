@@ -22,6 +22,7 @@ func NewCmdHarness(inv *cmd.Invocation) *cmd.Command {
 
 	cmd.AddChild(NewCmdHarnessContext(inv))
 	cmd.AddChild(NewCmdHarnessInstall(inv))
+	cmd.AddChild(NewCmdHarnessExec(inv))
 
 	return cmd
 }
