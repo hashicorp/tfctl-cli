@@ -227,6 +227,44 @@ func TestLoader_GetDeviceID(t *testing.T) {
 	require.Equal(t, id, id2)
 }
 
+func TestTerraformTokenEnvVar(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		hostname string
+		expected string
+	}{
+		{
+			name:     "hcp terraform hostname uses lowercase, matching terraform",
+			hostname: "app.terraform.io",
+			expected: "TF_TOKEN_app_terraform_io",
+		},
+		{
+			name:     "mixed-case hostname is normalized to lowercase",
+			hostname: "App.Terraform.IO",
+			expected: "TF_TOKEN_app_terraform_io",
+		},
+		{
+			name:     "hyphens are encoded as double underscores",
+			hostname: "my-tfe.example.com",
+			expected: "TF_TOKEN_my__tfe_example_com",
+		},
+		{
+			name:     "invalid hostname returns an empty string",
+			hostname: "invalid/hostname",
+			expected: "",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, c.expected, terraformTokenEnvVar(c.hostname))
+		})
+	}
+}
+
 //nolint:paralleltest
 func TestLoader_LoadProfileEnv(t *testing.T) {
 	// These tests aren't parallel because they manipulate the environment
