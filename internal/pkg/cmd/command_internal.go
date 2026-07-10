@@ -165,10 +165,10 @@ func (c *Command) Run(args []string, inv *Invocation) int {
 
 func notFoundErrorHelp(io iostreams.IOStreams, hostname string) string {
 	return heredoc.New(io, heredoc.WithPreserveNewlines(), heredoc.WithWidth(0)).Mustf(`
-		Resource not found on {{ Bold "%s" }} or you are unauthorized to this action. Check your account permissions.
+		Resource or path not found on {{ Bold "%s" }}. Verify the API path and any resource IDs are correct.
 
-		  {{ Bold "$ %s auth status" }}
-	`, hostname, version.Name)
+		If the path is correct, your token may not have permission to access this resource.
+	`, hostname)
 }
 
 // authErrorHelp returns a help message for recovering from authentication errors.
