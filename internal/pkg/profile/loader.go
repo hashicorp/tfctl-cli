@@ -354,11 +354,13 @@ func terraformTokenEnvVar(hostname string) string {
 	}
 
 	// Match Terraform CLI's TF_TOKEN_<host> naming scheme so that variables like
-	// TF_TOKEN_app_terraform_io are honored. The (already normalized, lowercase,
-	// punycode) hostname is encoded by replacing hyphens with double underscores
+	// TF_TOKEN_app_terraform_io are honored. Terraform lowercases the hostname;
+	// NormalizeHostname doesn't when a port is present, so lowercase explicitly.
+	// The hostname is then encoded by replacing hyphens with double underscores
 	// and periods with single underscores. Any other character that isn't a
 	// letter or digit is also replaced with a single underscore.
 	// See https://developer.hashicorp.com/terraform/cli/config/config-file#environment-variable-credentials
+	hostname = strings.ToLower(hostname)
 	hostname = strings.ReplaceAll(hostname, "-", "__")
 
 	var b strings.Builder

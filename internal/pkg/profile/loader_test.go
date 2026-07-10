@@ -246,6 +246,11 @@ func TestTerraformTokenEnvVar(t *testing.T) {
 			expected: "TF_TOKEN_app_terraform_io",
 		},
 		{
+			name:     "mixed-case hostname with port is normalized to lowercase",
+			hostname: "App.Terraform.IO:8443",
+			expected: "TF_TOKEN_app_terraform_io_8443",
+		},
+		{
 			name:     "hyphens are encoded as double underscores",
 			hostname: "my-tfe.example.com",
 			expected: "TF_TOKEN_my__tfe_example_com",
