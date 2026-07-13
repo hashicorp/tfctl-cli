@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/hcl/v2/hclsimple"
@@ -256,11 +255,11 @@ func (l *Loader) LoadProfile(ctx context.Context, name string) (*Profile, error)
 		}
 	}
 
-	// 3. Check for a token in the terraform environment variable that matches the hostname of the
-	// profile (support for TF_TOKEN_{normalizedHostname}
+	// 3. Check for a token in a terraform environment variable that matches the hostname of the
+	// profile (support for TF_TOKEN_{host}).
 	if c.GetToken() == "" {
-		if envToken := os.Getenv(terraformTokenEnvVar(c.GetHostname())); envToken != "" {
-			logger.Debug("Setting token from terraform environment", "var", terraformTokenEnvVar(c.GetHostname()))
+		if envToken := tokenFromTerraformEnv(c.GetHostname()); envToken != "" {
+			logger.Debug("Setting token from terraform environment", "hostname", c.GetHostname())
 			c.tokenFromEnv = envToken
 		}
 	}
@@ -347,32 +346,57 @@ func profileTokenEnvVar(profileName string) string {
 	return fmt.Sprintf(envVarTokenProfileFormat, profileName)
 }
 
-func terraformTokenEnvVar(hostname string) string {
-	hostname, err := NormalizeHostname(hostname)
+// tokenFromTerraformEnv returns the token from a Terraform-style TF_TOKEN_<host>
+// environment variable that matches the given hostname, mirroring Terraform CLI's
+// resolution. Terraform scans every environment variable with the TF_TOKEN_ prefix
+// and decodes the remainder of the name back into a hostname: double underscores
+// become hyphens and any remaining single underscore becomes a period. This means a
+// single hostname may be expressed by several variable names (for example the
+// punycode host xn--caf-dma.fr can be written as TF_TOKEN_xn--caf-dma_fr,
+// TF_TOKEN_xn--caf-dma.fr, or TF_TOKEN_xn____caf__dma_fr). If multiple variables
+// resolve to the same hostname, the one defined last wins.
+// See https://developer.hashicorp.com/terraform/cli/config/config-file#environment-variable-credentials
+func tokenFromTerraformEnv(hostname string) string {
+	target, err := NormalizeHostname(hostname)
 	if err != nil {
 		return ""
 	}
+	// Terraform's encoding can only produce periods (via single underscores), so a
+	// hostname's port separator (":") is indistinguishable from a period once
+	// encoded. Normalize both sides to periods so ported hosts like
+	// app.terraform.io:8443 still match TF_TOKEN_app_terraform_io_8443.
+	target = normalizeTerraformTokenHost(target)
 
-	// Match Terraform CLI's TF_TOKEN_<host> naming scheme so that variables like
-	// TF_TOKEN_app_terraform_io are honored. Terraform lowercases the hostname;
-	// NormalizeHostname doesn't when a port is present, so lowercase explicitly.
-	// The hostname is then encoded by replacing hyphens with double underscores
-	// and periods with single underscores. Any other character that isn't a
-	// letter or digit is also replaced with a single underscore.
-	// See https://developer.hashicorp.com/terraform/cli/config/config-file#environment-variable-credentials
-	hostname = strings.ToLower(hostname)
-	hostname = strings.ReplaceAll(hostname, "-", "__")
-
-	var b strings.Builder
-	b.WriteString("TF_TOKEN_")
-	for _, r := range hostname {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
-			b.WriteRune(r)
+	const prefix = "TF_TOKEN_"
+	var token string
+	for _, env := range os.Environ() {
+		name, value, ok := strings.Cut(env, "=")
+		if !ok || !strings.HasPrefix(name, prefix) {
 			continue
 		}
-		b.WriteRune('_')
+
+		// Decode Terraform's encoding of the hostname portion: double underscores
+		// are hyphens, and any remaining single underscore is a period.
+		rawHost := name[len(prefix):]
+		rawHost = strings.ReplaceAll(rawHost, "__", "-")
+		rawHost = strings.ReplaceAll(rawHost, "_", ".")
+
+		candidate, err := NormalizeHostname(rawHost)
+		if err != nil {
+			continue
+		}
+		if normalizeTerraformTokenHost(candidate) == target {
+			// Keep going so the last-defined matching variable wins.
+			token = value
+		}
 	}
-	return b.String()
+	return token
+}
+
+// normalizeTerraformTokenHost lowercases a hostname and treats the port separator
+// as a period so that encoded and decoded forms compare equal.
+func normalizeTerraformTokenHost(hostname string) string {
+	return strings.ReplaceAll(strings.ToLower(hostname), ":", ".")
 }
 
 type credentialsFile struct {

@@ -1,3 +1,3 @@
 kind: BUG FIXES
-body: Honor the standard Terraform `TF_TOKEN_<hostname>` environment variables (such as `TF_TOKEN_app_terraform_io`) during authentication. The hostname is no longer uppercased when building the variable name, so these tokens are now detected as documented.
+body: Detect Terraform's `TF_TOKEN_<hostname>` environment variables (such as `TF_TOKEN_app_terraform_io`) during authentication, matching Terraform CLI's resolution. This includes punycode hostnames and the interchangeable dash encodings (literal `-` or double underscore). Previously these tokens were not detected.
 time: 2026-07-09T16:32:23.267381-04:00
