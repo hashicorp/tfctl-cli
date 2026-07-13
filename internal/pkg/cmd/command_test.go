@@ -137,7 +137,7 @@ func TestCommand_GlobalExitCode(t *testing.T) {
 	}{
 		{err: ErrDisplayHelp, expected: cli.RunResultHelp},
 		{err: ErrDisplayUsage, expected: 1},
-		{err: tfe.ErrNotFound, expected: 2, errContains: "Resource not found on app.test.terraform.io or you are unauthorized to this action"},
+		{err: tfe.ErrNotFound, expected: 2, errContains: "Resource or path not found on app.test.terraform.io. Verify the API path and any resource IDs are correct."},
 		{err: tfe.ErrUnauthorized, expected: 3, errContains: "tfctl auth login"},
 		{err: opErr, expected: 4, errContains: "network error"},
 		{err: tfe.ErrInternalServer, expected: 5, errContains: "Internal Server Error"},
