@@ -220,6 +220,14 @@ func resourceAsMap(item any) (map[string]any, bool) {
 		return nil, false
 	}
 
+	// Copy attributes into the row. We must not mutate attrMap directly: it is
+	// shared with the raw payload that backs --json / --jq output, and pulling
+	// relationship IDs into it would pollute that output with keys the server
+	// never returned under "attributes".
+	for key, value := range attrMap {
+		row[key] = value
+	}
+
 	// Look for one-to-one relationships and pull the ID up to the top level of the row for display.
 	rels, ok := obj["relationships"]
 	if ok {
@@ -233,14 +241,11 @@ func resourceAsMap(item any) (map[string]any, bool) {
 				continue
 			}
 			if oneToOne, isOneToOne := data.(map[string]any); isOneToOne {
-				attrMap[rel] = oneToOne["id"]
+				row[rel] = oneToOne["id"]
 			}
 		}
 	}
 
-	for key, value := range attrMap {
-		row[key] = value
-	}
 	flattenRow(row)
 	return row, true
 }
