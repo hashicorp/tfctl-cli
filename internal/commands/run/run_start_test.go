@@ -256,6 +256,58 @@ func TestRunStart(t *testing.T) {
 		assert.Contains(t, io.Error.String(), "run-fromname")
 	})
 
+	t.Run("plan-only run sets plan-only attribute", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+
+		c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch route(r) {
+			case "GET /api/v2/workspaces/ws-abc123":
+				jsonapi(w, map[string]any{
+					"data": map[string]any{
+						"id": "ws-resolved", "type": "workspaces",
+						"attributes": map[string]any{"name": "foobar"},
+						"relationships": map[string]any{
+							"organization": map[string]any{
+								"data": map[string]any{
+									"id": "org-resolved", "type": "organizations",
+								},
+							},
+						},
+					},
+				})
+			case "POST /api/v2/runs":
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				data := body["data"].(map[string]any)
+				attrs := data["attributes"].(map[string]any)
+				assert.Equal(t, true, attrs["plan-only"])
+
+				jsonapi(w, map[string]any{
+					"data": map[string]any{
+						"id": "run-planonly", "type": "runs",
+						"attributes": map[string]any{"status": "pending"},
+					},
+				})
+			default:
+				http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+			}
+		}))
+
+		err := runStart(context.Background(), StartOpts{
+			IO:        io,
+			APIClient: c,
+			Profile:   profile.TestProfile(t),
+			Workspace: "ws-abc123",
+			DryRun:    false,
+		}, CreateOpts{
+			PlanOnly: true,
+		})
+
+		require.NoError(t, err)
+		assert.Contains(t, io.Error.String(), "run-planonly")
+	})
+
 	t.Run("API error on run creation", func(t *testing.T) {
 		t.Parallel()
 		io := iostreams.Test()

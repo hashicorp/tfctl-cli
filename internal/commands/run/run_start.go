@@ -37,6 +37,7 @@ type CreateOpts struct {
 	DebuggingMode   bool
 	Message         string
 	AllowEmptyApply bool
+	PlanOnly        bool
 }
 
 // NewCmdRunStart creates the `run start` command.
@@ -54,6 +55,8 @@ func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 		ShortHelp: "Start a new run on a workspace.",
 		LongHelp: heredoc.New(inv.IO, heredoc.WithPreserveNewlines()).Mustf(`
 		The {{ template "mdCodeOrBold" "%s run start" }} command creates a new plan and apply run with the most recent configuration. {{ Bold "If auto-apply is enabled and no errors occur, the plan will be automatically applied." }}
+
+		Use {{ template "mdCodeOrBold" "--plan-only" }} to create a speculative plan-only run that is never applied, regardless of the workspace's auto-apply setting.
 
 		The ID argument can be:
 		- A workspace ID ({{ template "mdCodeOrBold" "ws-abc123" }})
@@ -91,6 +94,12 @@ func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 					Value:         flagvalue.Simple(false, &runOpts.AllowEmptyApply),
 					IsBooleanFlag: true,
 				},
+				{
+					Name:          "plan-only",
+					Description:   "Create a speculative plan-only run that is never applied, regardless of the workspace's auto-apply setting.",
+					Value:         flagvalue.Simple(false, &runOpts.PlanOnly),
+					IsBooleanFlag: true,
+				},
 			},
 		},
 		Examples: []cmd.Example{
@@ -101,6 +110,10 @@ func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 			{
 				Preamble: "Start a new run in a workspace by name",
 				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start my-workspace --organization my-org`, version.Name),
+			},
+			{
+				Preamble: "Start a plan-only run that will not be applied",
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start ws-abc123 --plan-only`, version.Name),
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
@@ -201,6 +214,7 @@ func buildRunsEnvelope(wsID string, ro CreateOpts) *models.RunsEnvelope {
 	attributes := models.NewRuns_attributes()
 	attributes.SetMessage(&ro.Message)
 	attributes.SetAllowEmptyApply(&ro.AllowEmptyApply)
+	attributes.SetPlanOnly(&ro.PlanOnly)
 
 	if ro.DebuggingMode {
 		// This attribute is missing from the API spec! If you are reading this, it's been added by now
