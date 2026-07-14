@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -225,6 +226,103 @@ func TestLoader_GetDeviceID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, id, string(data))
 	require.Equal(t, id, id2)
+}
+
+//nolint:paralleltest // manipulates the environment, can't run in parallel
+func TestTokenFromTerraformEnv(t *testing.T) {
+	cases := []struct {
+		name     string
+		hostname string
+		env      map[string]string
+		expected string
+	}{
+		{
+			name:     "hcp terraform token via lowercase variable",
+			hostname: "app.terraform.io",
+			env:      map[string]string{"TF_TOKEN_app_terraform_io": "tok"},
+			expected: "tok",
+		},
+		{
+			name:     "uppercase variable name still matches",
+			hostname: "app.terraform.io",
+			env:      map[string]string{"TF_TOKEN_APP_TERRAFORM_IO": "tok"},
+			expected: "tok",
+		},
+		{
+			name:     "hostname with port matches",
+			hostname: "app.terraform.io:8443",
+			env:      map[string]string{"TF_TOKEN_app_terraform_io_8443": "tok"},
+			expected: "tok",
+		},
+		{
+			name:     "hyphenated hostname via literal dashes",
+			hostname: "my-tfe.example.com",
+			env:      map[string]string{"TF_TOKEN_my-tfe_example_com": "tok"},
+			expected: "tok",
+		},
+		{
+			name:     "hyphenated hostname via double underscores",
+			hostname: "my-tfe.example.com",
+			env:      map[string]string{"TF_TOKEN_my__tfe_example_com": "tok"},
+			expected: "tok",
+		},
+		{
+			name:     "punycode hostname via literal dashes and period",
+			hostname: "café.fr",
+			env:      map[string]string{"TF_TOKEN_xn--caf-dma.fr": "tok"},
+			expected: "tok",
+		},
+		{
+			name:     "punycode hostname via literal dashes",
+			hostname: "café.fr",
+			env:      map[string]string{"TF_TOKEN_xn--caf-dma_fr": "tok"},
+			expected: "tok",
+		},
+		{
+			name:     "punycode hostname via double underscores",
+			hostname: "café.fr",
+			env:      map[string]string{"TF_TOKEN_xn____caf__dma_fr": "tok"},
+			expected: "tok",
+		},
+		{
+			name:     "no matching variable returns empty",
+			hostname: "app.terraform.io",
+			env:      map[string]string{"TF_TOKEN_other_example_com": "tok"},
+			expected: "",
+		},
+		{
+			name:     "invalid hostname returns empty",
+			hostname: "invalid/hostname",
+			env:      map[string]string{"TF_TOKEN_app_terraform_io": "tok"},
+			expected: "",
+		},
+	}
+
+	for _, c := range cases {
+		//nolint:paralleltest // uses t.Setenv
+		t.Run(c.name, func(t *testing.T) {
+			clearTerraformTokenEnv(t)
+			for k, v := range c.env {
+				t.Setenv(k, v)
+			}
+			require.Equal(t, c.expected, tokenFromTerraformEnv(c.hostname))
+		})
+	}
+}
+
+// clearTerraformTokenEnv removes any TF_TOKEN_* variables already present in the
+// test runner's environment so the test controls exactly which ones are set. The
+// original values are restored when the test finishes.
+func clearTerraformTokenEnv(t *testing.T) {
+	t.Helper()
+	for _, env := range os.Environ() {
+		name, _, ok := strings.Cut(env, "=")
+		if !ok || !strings.HasPrefix(name, "TF_TOKEN_") {
+			continue
+		}
+		t.Setenv(name, "") // registers restoration of the original value
+		require.NoError(t, os.Unsetenv(name))
+	}
 }
 
 //nolint:paralleltest

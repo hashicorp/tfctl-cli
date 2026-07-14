@@ -158,6 +158,18 @@ func TestNormalizeHostname(t *testing.T) {
 			Expected: "xn--tst-qla.com",
 		},
 		{
+			// Documented Terraform example: https://developer.hashicorp.com/terraform/cli/config/config-file#environment-variable-credentials
+			Name:     "unicode hostname converts to punycode (café.fr)",
+			Input:    "café.fr",
+			Expected: "xn--caf-dma.fr",
+		},
+		{
+			// Documented Terraform example for a non-ASCII host.
+			Name:     "unicode hostname converts to punycode (例えば.com)",
+			Input:    "例えば.com",
+			Expected: "xn--r8j3dr99h.com",
+		},
+		{
 			Name:     "ipv4 hostname with port",
 			Input:    "127.0.0.1:9000",
 			Expected: "127.0.0.1:9000",
