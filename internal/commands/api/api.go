@@ -694,7 +694,10 @@ func paginateResponse(ctx context.Context, apiClient *client.Client, initial *ht
 
 	combined, nextURL, err := parsePaginationPayload(initialBody)
 	if err != nil || nextURL == nil {
-
+		// io.ReadAll above consumed initial.Body. There is nothing to paginate
+		// (single page, or the payload isn't a paginated collection), so restore
+		// the body for the caller to read.
+		initial.Body = io.NopCloser(bytes.NewReader(initialBody))
 		return initial, err
 	}
 
