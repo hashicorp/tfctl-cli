@@ -10,7 +10,7 @@
 git clone https://github.com/hashicorp/tfctl-cli
 cd tfctl-cli
 scripts/setup.sh      # Install toolchain and dev tools
-make build            # Build
+make bin              # Build binary for your os/arch
 make check            # Verify everything passes before creating PR
 ```
 
