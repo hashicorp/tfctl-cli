@@ -155,6 +155,12 @@ type PositionalArguments struct {
 
 	// Autocomplete allows configuring autocompletion of arguments.
 	Autocomplete complete.Predictor
+
+	// SkipInputValidation opts the command out of the framework's input-hygiene
+	// check on positional arguments (see inputguard.Validate). Set this only for
+	// commands that legitimately accept arbitrary bytes, such as a pass-through
+	// child command line. This is not a security control.
+	SkipInputValidation bool
 }
 
 // PositionalArgument documents a positional argument.

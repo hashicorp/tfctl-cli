@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/tfctl-cli/internal/pkg/inputguard"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
@@ -15,6 +16,11 @@ import (
 func ResolvePathParams(path string, params map[string]string) (string, error) {
 	result := path
 	for k, v := range params {
+		// Input hygiene: reject control characters and invalid UTF-8 in values
+		// that become URL path segments. This is not a security boundary.
+		if err := inputguard.Validate(v); err != nil {
+			return "", fmt.Errorf("invalid value for path param {%s}: %w", k, err)
+		}
 		result = strings.ReplaceAll(result, "{"+k+"}", v)
 	}
 

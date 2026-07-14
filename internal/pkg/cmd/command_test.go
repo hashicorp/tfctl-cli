@@ -189,3 +189,50 @@ func TestCommand_CommandPath(t *testing.T) {
 	// Grandchild: should return full path excluding root.
 	r.Equal("run start", start.CommandPath())
 }
+
+func TestCommand_ValidatesArgInput(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		args     []string
+		skip     bool
+		wantCode int
+		wantRun  bool
+	}{
+		{name: "clean args run", args: []string{"ws-abc", "my-org"}, wantCode: 0, wantRun: true},
+		{name: "control char rejected", args: []string{"bad\x1b[31m"}, wantCode: 1, wantRun: false},
+		{name: "newline rejected", args: []string{"a\nb"}, wantCode: 1, wantRun: false},
+		{name: "invalid utf8 rejected", args: []string{"a\xffb"}, wantCode: 1, wantRun: false},
+		{name: "skip opt-out allows control char", args: []string{"raw\x1b[0m"}, skip: true, wantCode: 0, wantRun: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := require.New(t)
+
+			io := iostreams.Test()
+			cCtx := &Invocation{IO: io}
+
+			ran := false
+			root := &Command{
+				Name: "root",
+				io:   io,
+				Args: PositionalArguments{
+					Validate:            ArbitraryArgs,
+					SkipInputValidation: tc.skip,
+				},
+				RunF: func(c *Command, args []string) error {
+					ran = true
+					return nil
+				},
+			}
+
+			r.Equal(tc.wantCode, root.Run(tc.args, cCtx))
+			r.Equal(tc.wantRun, ran)
+			if !tc.wantRun {
+				r.Contains(io.Error.String(), "invalid input")
+			}
+		})
+	}
+}
