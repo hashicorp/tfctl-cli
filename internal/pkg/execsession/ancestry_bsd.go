@@ -5,8 +5,14 @@
 
 package execsession
 
-// ParentPID is not implemented on the BSDs. It always reports ok=false so that
-// callers gracefully degrade rather than fail to build on these platforms.
+import "os"
+
+// ParentPID is only partially implemented on the BSDs: it can resolve the
+// parent of the current process via os.Getppid, but not of an arbitrary pid.
+
 func ParentPID(pid int) (int, bool) {
+	if pid == os.Getpid() {
+		return os.Getppid(), true
+	}
 	return 0, false
 }
