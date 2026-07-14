@@ -19,10 +19,8 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
-        with:
-          version: v2.12
+      - name: Install tools
+        run: make tools
 
       - name: Run go test
-        run: go test ./... -v
+        run: make check
