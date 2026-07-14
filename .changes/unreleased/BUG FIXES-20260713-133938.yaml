@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: Fix `api` `--json` and `--jq` output incorrectly including one-to-one relationship IDs under `attributes`. Those IDs are surfaced for table and pretty output only, and are no longer written back into the raw JSON payload.
+time: 2026-07-13T13:39:38-04:00
