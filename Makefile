@@ -66,7 +66,6 @@ fmt-check:
 tools:
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$$(cat .golangci-lint-version | head -n 1)
 	@command -v changie >/dev/null 2>&1 || { \
-		if [ -n "$$GITHUB_ACTION" ]; then echo "Skipping changie install in CI"; exit 0; fi; \
 		echo "Installing changie..."; \
 		if command -v brew >/dev/null 2>&1; then brew install changie; \
 		else echo "Could not auto-install changie: https://changie.dev/guide/installation/" && exit 1; \
