@@ -43,7 +43,7 @@ HashiCorp does not collect or transmit your data and takes steps to redact and o
 
 ### Network Request Span (One span per network request)
 
-| Key                 | Type              | Source                              |
+| Key                 | Example Value     | Source                              |
 |---------------------|-------------------|-------------------------------------|
 | http.path           | “/workspaces/:id” | API request path, with IDs redacted |
 | http.method         | "GET"             | API request verb                    |
