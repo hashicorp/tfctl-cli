@@ -44,8 +44,8 @@ const (
 	ReasonNoSession = "no-session"
 	// ReasonStale indicates the env var was set but the session file is gone.
 	ReasonStale = "stale"
-	// ReasonNotAnAncestor indicates the granting process is not a live ancestor.
-	ReasonNotAnAncestor = "not-an-ancestor"
+	// ReasonNotLive indicates the granting process is no longer alive.
+	ReasonNotLive = "not-live"
 	// ReasonClassNotGranted indicates the resource class was not permitted.
 	ReasonClassNotGranted = "class-not-granted"
 	// ReasonGranted indicates the delete is authorized.
@@ -140,7 +140,8 @@ func (s *Store) path(token string) (string, bool) {
 }
 
 // Create issues a new token, writes the session file with 0600 permissions, and
-// acquires an exclusive advisory lock held open in the returned Handle.
+// acquires a shared advisory lock held open in the returned Handle. The lock is
+// held for the process lifetime so authorizers can detect liveness.
 func (s *Store) Create(perms Permissions, pid int) (*Handle, error) {
 	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create exec session directory %q: %w", s.Dir, err)
@@ -235,14 +236,20 @@ type Decision struct {
 	Reason string
 }
 
+// LivenessFn reports whether the process that granted the session file at path
+// is still alive. It is the seam that lets authorization be tested without real
+// processes. It reports alive=true when the granting process still holds its
+// shared lock on the file, and alive=false once that lock has been released
+// (the process exited or was killed).
+type LivenessFn func(path string) (alive bool, err error)
+
 // EnvAuthorizer is the runtime Authorizer. It reads the session token from the
-// environment, loads the session, and verifies liveness/ancestry before
-// checking the granted classes.
+// environment, loads the session, and verifies the granting process is still
+// alive before checking the granted classes.
 type EnvAuthorizer struct {
 	Store    *Store
 	Getenv   func(string) string // default os.Getenv
-	Ancestry AncestryFn          // default ParentPID (platform)
-	Self     int                 // default os.Getpid()
+	Liveness LivenessFn          // default probeLiveness
 }
 
 func (a *EnvAuthorizer) getenv(key string) string {
@@ -252,18 +259,11 @@ func (a *EnvAuthorizer) getenv(key string) string {
 	return os.Getenv(key)
 }
 
-func (a *EnvAuthorizer) ancestry() AncestryFn {
-	if a.Ancestry != nil {
-		return a.Ancestry
+func (a *EnvAuthorizer) liveness() LivenessFn {
+	if a.Liveness != nil {
+		return a.Liveness
 	}
-	return ParentPID
-}
-
-func (a *EnvAuthorizer) self() int {
-	if a.Self != 0 {
-		return a.Self
-	}
-	return selfPID()
+	return probeLiveness
 }
 
 // AuthorizeDelete implements Authorizer.
@@ -282,10 +282,21 @@ func (a *EnvAuthorizer) AuthorizeDelete(class string) (Decision, error) {
 		return Decision{}, fmt.Errorf("failed to load exec session: %w", err)
 	}
 
-	// Liveness + anti-leak: the granting PID must be a live ancestor of this
-	// process. A dead PID will not appear in the ancestor walk.
-	if !IsAncestor(sess.PID, a.self(), a.ancestry()) {
-		return Decision{Allowed: false, Token: sess.Token, Reason: ReasonNotAnAncestor}, nil
+	// Liveness: the granting process holds a shared lock on the session file for
+	// its lifetime. If we can take an exclusive lock, the holder is gone and the
+	// grant no longer applies. The token itself is the authorization boundary;
+	// possession plus a live holder is sufficient.
+	path, ok := a.Store.path(token)
+	if !ok {
+		// Load already validated the token, so this should be unreachable.
+		return Decision{Allowed: false, Reason: ReasonStale}, nil
+	}
+	alive, err := a.liveness()(path)
+	if err != nil {
+		return Decision{}, fmt.Errorf("failed to check exec session liveness: %w", err)
+	}
+	if !alive {
+		return Decision{Allowed: false, Token: sess.Token, Reason: ReasonNotLive}, nil
 	}
 
 	if !AllowsDelete(sess.AllowDelete, class) {
