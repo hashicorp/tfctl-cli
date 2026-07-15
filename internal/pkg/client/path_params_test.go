@@ -69,8 +69,26 @@ func TestResolvePathParams_RepeatedParam(t *testing.T) {
 	assert.Equal(t, "/workspaces/ws-123/varsets/ws-123", result)
 }
 
-func TestParsePathParams(t *testing.T) {
+func TestResolvePathParams_RejectsControlCharValues(t *testing.T) {
 	t.Parallel()
+	_, err := ResolvePathParams("/workspaces/{workspace_id}", map[string]string{
+		"workspace_id": "ws-abc\x1b[31m",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace_id")
+	assert.Contains(t, err.Error(), "invalid input")
+}
+
+func TestResolvePathParams_AllowsIDShapedValues(t *testing.T) {
+	t.Parallel()
+	result, err := ResolvePathParams("/workspaces/{workspace_id}", map[string]string{
+		"workspace_id": "ws-abc123",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "/workspaces/ws-abc123", result)
+}
+
+func TestParsePathParams(t *testing.T) {
 	tests := []struct {
 		name     string
 		path     string

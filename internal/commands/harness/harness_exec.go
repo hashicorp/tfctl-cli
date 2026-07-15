@@ -83,6 +83,10 @@ func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 			// those tokens as files or executables would mislead, so we predict
 			// nothing rather than predict wrongly.
 			Validate: cmd.ArbitraryArgs,
+			// The child command line is passed through verbatim to another
+			// program, so it may legitimately contain characters (tabs, escapes)
+			// that the framework's input-hygiene check would otherwise reject.
+			SkipInputValidation: true,
 			Args: []cmd.PositionalArgument{
 				{
 					Name:          "COMMAND",

@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/inputguard"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/ld"
 	"github.com/hashicorp/tfctl-cli/version"
@@ -155,12 +156,38 @@ func (c *Command) Run(args []string, inv *Invocation) int {
 		return 1
 	}
 
+	// Apply input-hygiene checks to positional arguments (rejecting control
+	// characters and invalid UTF-8). This is not a security boundary; it keeps
+	// malformed values out of requests and out of any text tfctl echoes back.
+	if err := c.validateArgsInput(parsedArgs); err != nil {
+		fmt.Fprintf(io.Err(), "%s %s\n", cs.ErrorLabel(), err)
+		fmt.Fprintln(io.Err())
+		fmt.Fprint(io.Err(), c.usageHelp())
+		return 1
+	}
+
 	// Run the command
 	if err := c.RunF(c, parsedArgs); err != nil {
 		return c.errorToExitCode(args, inv, err)
 	}
 
 	return 0
+}
+
+// validateArgsInput applies input-hygiene checks to each positional argument,
+// unless the command opts out via Args.SkipInputValidation.
+func (c *Command) validateArgsInput(args []string) error {
+	if c.Args.SkipInputValidation {
+		return nil
+	}
+
+	for _, a := range args {
+		if err := inputguard.Validate(a); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func notFoundErrorHelp(io iostreams.IOStreams, hostname string) string {
