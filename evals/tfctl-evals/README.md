@@ -26,6 +26,22 @@ from the device flow above.
 
 ## Running evals
 
+Behavioral delete tasks shell out to `tfctl`, so install the binary under test
+(from HEAD, not a stale release) and provide a fake token so it clears its auth
+gate. Deletes are refused client-side before any request is sent, so no real
+credentials or backend are needed:
+
+```bash
+# from the repo root: put the HEAD binary on PATH ($GOPATH/bin)
+go install ./cmd/tfctl
+
+# fake token so nested tfctl reaches the client-side delete gate
+export TFCTL_TOKEN=eval-fake-token
+
+# isolate tfctl config in a throwaway dir so evals never touch your real profile
+export TFCTL_CONFIG_DIR="$(mktemp -d)"
+```
+
 ```bash
 # full suite against claude sonnet
 unset GITHUB_TOKEN

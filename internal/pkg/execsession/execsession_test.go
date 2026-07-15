@@ -12,6 +12,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDefaultStoreHonorsConfigDirOverride(t *testing.T) {
+	// DefaultStore must root the exec dir under the same config dir the rest of
+	// tfctl uses, so setting TFCTL_CONFIG_DIR isolates sessions too.
+	dir := t.TempDir()
+	t.Setenv("TFCTL_CONFIG_DIR", dir)
+
+	store, err := DefaultStore()
+	require.NoError(t, err)
+	require.NotNil(t, store)
+
+	expected := filepath.Join(dir, "exec")
+	assert.Equal(t, expected, store.Dir)
+	assert.DirExists(t, expected)
+}
+
 func TestStoreCreateLoadRoundTrip(t *testing.T) {
 	t.Parallel()
 
