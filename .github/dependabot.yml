@@ -1,0 +1,42 @@
+version: 2
+# Update docker, github-actions, and gomod dependencies weekly with a semver-
+# sensitive cooldown and maximum open PR limits.
+updates:
+  - package-ecosystem: "docker"
+    open-pull-requests-limit: 1
+    directory: "/"
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    schedule:
+      interval: "weekly"
+    labels:
+      - dependencies
+      - automated
+
+  - package-ecosystem: "github-actions"
+    open-pull-requests-limit: 3
+    directory: "/"
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    schedule:
+      interval: "weekly"
+    labels:
+      - dependencies
+      - automated
+
+  - package-ecosystem: "gomod"
+    open-pull-requests-limit: 5
+    directory: "/"
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    schedule:
+      interval: "weekly"
+    labels:
+      - dependencies
+      - automated
