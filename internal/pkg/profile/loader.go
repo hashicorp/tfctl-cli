@@ -22,8 +22,9 @@ import (
 )
 
 var (
-	// ConfigDir is the directory that contains CLI configuration.
-	ConfigDir = fmt.Sprintf("~/.config/%s/", version.Name)
+	// defaultConfigDir is the default directory that contains CLI
+	// configuration when TFCTL_CONFIG_DIR is not set.
+	defaultConfigDir = fmt.Sprintf("~/.config/%s/", version.Name)
 )
 
 const (
@@ -60,10 +61,32 @@ type Loader struct {
 	profilesDir string
 }
 
+// ConfigDir returns the resolved CLI configuration directory. It honors the
+// TFCTL_CONFIG_DIR override and expands a leading ~ to the user's home
+// directory. This is the single source of truth for where tfctl reads and
+// writes configuration, so every consumer (profiles, exec sessions, caches)
+// resolves the same location.
+func ConfigDir() (string, error) {
+	dir := defaultConfigDir
+	if envDir := os.Getenv(envVarConfigDir); envDir != "" {
+		dir = envDir
+	}
+	path, err := homedir.Expand(dir)
+	if err != nil {
+		return "", fmt.Errorf("error expanding %s config directory path %q: %w", version.Name, dir, err)
+	}
+	return path, nil
+}
+
 // NewLoader returns a new loader or an error if the loader can't be
-// instantiated.
+// instantiated. The configuration directory defaults to ~/.config/tfctl but can
+// be overridden with the TFCTL_CONFIG_DIR environment variable.
 func NewLoader() (*Loader, error) {
-	return newLoader(ConfigDir)
+	dir, err := ConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	return newLoader(dir)
 }
 
 // newLoader returns a new loader for the given config directory.
@@ -296,6 +319,12 @@ const (
 	envVarOrganization       = "TFCTL_ORGANIZATION"
 	envVarToken              = "TFCTL_TOKEN"
 	envVarTokenProfileFormat = "TFCTL_TOKEN_%s"
+
+	// envVarConfigDir overrides the CLI configuration directory. It lets
+	// callers (e.g. test harnesses and evals) point tfctl at a throwaway
+	// config dir instead of ~/.config/tfctl, so they never read or mutate a
+	// developer's real profiles.
+	envVarConfigDir = "TFCTL_CONFIG_DIR"
 )
 
 // DefaultProfile returns the minimal default profile. If environment

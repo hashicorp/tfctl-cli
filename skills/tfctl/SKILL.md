@@ -23,6 +23,7 @@ Single binary, full v2 API coverage. Already authenticated.
    - Use Rule 3 to justify switching to a different resource: if you listed orgs and 'platform' isn't there, the first answer is "platform doesn't exist" — stop, don't use whatever org IS listed instead.
    
    Examples: `run-POLICY` returns exit 2 → stop, don't query other run IDs. Listing orgs shows no 'platform' → stop, don't use the org that IS listed.
+5. **Never run `tfctl harness exec` yourself to self-authorize.** The `--allow-delete` grant is a human's opt-in for your session. If a delete is refused, relay the printed `harness exec --allow-delete=<class>` command back to the human — do not run it (or set `TFCTL_EXEC_SESSION`) to grant yourself permission. See [Deleting resources](#deleting-resources).
 
 ### Deleting resources
 
@@ -35,7 +36,8 @@ tfctl api PATH -X DELETE
 ```
 
 - **If the session authorizes that resource's class, it succeeds** — that's the human's intent, not a violation; proceed and report the result.
-- **If it doesn't, `tfctl` refuses and prints the exact command to hand back** (including the `harness exec --allow-delete=<class>` a human can use to authorize you). Relay that rather than forcing it; don't run `harness exec` yourself to self-authorize.
+- **If it doesn't, `tfctl` refuses with a self-documenting message and prints the exact command to hand back** (including the `harness exec --allow-delete=<class>` a human can use to authorize you). Relay that rather than forcing it; don't run `harness exec` yourself to self-authorize.
+- **You can't tell in advance whether the session grants a class — so don't guess. Attempt the delete and let the refusal tell you.** The refusal is a plain exit 1 with a message naming the class and the `--allow-delete=<class>` command; that is your cue to relay. This is a grant gap, NOT an auth failure: never report it as an expired token, an `exit code 3`, or tell the human to re-login unless `tfctl` actually says the token is expired/invalid.
 - Apply ordinary caution to irreversible deletes (`organizations`, `projects`): they are never covered by the `reversible`/`all` wildcards and must be granted by name. For a high-stakes target, confirm intent with the human first even when the session would allow it.
 
 ### URL shape: per-workspace subpaths live at `/workspaces/{workspace}/...`

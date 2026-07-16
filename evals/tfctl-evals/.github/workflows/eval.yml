@@ -31,6 +31,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install tfctl from HEAD
+        # Behavioral delete evals shell out to `tfctl`; install the binary under
+        # test (not a stale release) into $GOPATH/bin, which is on PATH.
+        run: go install ./cmd/tfctl
+
       - name: Install waza
         run: curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash
 
@@ -40,6 +50,13 @@ jobs:
           # Uses the Actions-provided GITHUB_TOKEN if org has Copilot enabled.
           # Falls back to COPILOT_TOKEN secret if that doesn't work.
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_TOKEN || github.token }}
+          # Fake token so nested `tfctl` clears its auth gate and reaches the
+          # client-side delete gate. Delete evals are gated before any request
+          # is sent, so no real credentials or backend are needed.
+          TFCTL_TOKEN: eval-fake-token
+          # Isolate tfctl config in a throwaway dir so evals never read or
+          # mutate a real profile.
+          TFCTL_CONFIG_DIR: ${{ runner.temp }}/tfctl-config
         run: |
           ARGS="--model ${{ inputs.model }}"
           if [ -n "${{ inputs.tasks }}" ]; then

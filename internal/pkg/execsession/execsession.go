@@ -22,9 +22,8 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/hcl/v2/hclwrite"
-	"github.com/mitchellh/go-homedir"
 
-	"github.com/hashicorp/tfctl-cli/version"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 )
 
 // EnvVar is the environment variable a wrapper sets so nested tfctl invocations
@@ -112,18 +111,21 @@ func (h *Handle) Close() error {
 // Store abstracts the directory holding session files so tests can use a temp
 // dir.
 type Store struct {
-	// Dir is the directory session files live in. The default is
-	// ~/.config/<name>/exec.
+	// Dir is the directory session files live in. The default is the
+	// <config-dir>/exec subdirectory resolved by profile.ConfigDir.
 	Dir string
 }
 
-// DefaultStore returns a Store rooted at ~/.config/<name>/exec, creating the
-// directory with 0700 permissions if needed.
+// DefaultStore returns a Store rooted at <config-dir>/exec, creating the
+// directory with 0700 permissions if needed. The config dir is resolved by
+// profile.ConfigDir, so it honors TFCTL_CONFIG_DIR and stays consistent with
+// where the rest of tfctl reads its configuration.
 func DefaultStore() (*Store, error) {
-	dir, err := homedir.Expand(fmt.Sprintf("~/.config/%s/exec", version.Name))
+	configDir, err := profile.ConfigDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to expand exec session directory: %w", err)
+		return nil, fmt.Errorf("failed to resolve exec session directory: %w", err)
 	}
+	dir := filepath.Join(configDir, "exec")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create exec session directory %q: %w", dir, err)
 	}

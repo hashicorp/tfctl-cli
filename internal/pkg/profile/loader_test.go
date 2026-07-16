@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mitchellh/go-homedir"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,6 +29,37 @@ func TestLoader_New(t *testing.T) {
 	// Check the directory and the profiles sub-dir was created.
 	r.DirExists(dir)
 	r.DirExists(filepath.Join(dir, ProfileDir))
+}
+
+func TestLoader_NewConfigDirOverride(t *testing.T) {
+	r := require.New(t)
+
+	// TFCTL_CONFIG_DIR overrides the default ~/.config/tfctl location so a
+	// caller can isolate tfctl from a developer's real profiles.
+	dir := filepath.Join(t.TempDir(), "isolated")
+	t.Setenv(envVarConfigDir, dir)
+
+	l, err := NewLoader()
+	r.NoError(err)
+	r.NotNil(l)
+	r.Equal(dir, l.configDir)
+	r.DirExists(dir)
+	r.DirExists(filepath.Join(dir, ProfileDir))
+}
+
+func TestLoader_NewConfigDirDefault(t *testing.T) {
+	r := require.New(t)
+
+	// With the override unset, NewLoader falls back to the default config dir.
+	t.Setenv(envVarConfigDir, "")
+
+	l, err := NewLoader()
+	r.NoError(err)
+	r.NotNil(l)
+
+	expected, err := homedir.Expand(defaultConfigDir)
+	r.NoError(err)
+	r.Equal(expected, l.configDir)
 }
 
 func TestLoader_GetActiveProfile(t *testing.T) {
