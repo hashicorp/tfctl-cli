@@ -40,9 +40,6 @@ export TFCTL_TOKEN=eval-fake-token
 
 # isolate tfctl config in a throwaway dir so evals never touch your real profile
 export TFCTL_CONFIG_DIR="$(mktemp -d)"
-```
-
-```bash
 # full suite against claude sonnet
 unset GITHUB_TOKEN
 waza run evals/tfctl/eval.yaml --model claude-sonnet-4.6
