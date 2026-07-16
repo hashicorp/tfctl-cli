@@ -13,6 +13,8 @@ package inputguard
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -20,6 +22,23 @@ import (
 // maxErrorValueLen bounds how much of an offending value is echoed in an error
 // so a pathological input cannot flood the terminal.
 const maxErrorValueLen = 80
+
+var (
+	// Redactions should use capture groups to identify sensitive segments of a path, which
+	// will be replaced with a redaction placeholder.
+	redactions = []*regexp.Regexp{
+		// API paths:
+		regexp.MustCompile("/organizations/([^/]+)/workspaces/([^/]+)"),
+		regexp.MustCompile("/organizations/([^/]+)"),
+
+		// Archivist Paths:
+		regexp.MustCompile("/v1/object/([a-zA-Z0-9]+)"),
+
+		// Registry paths:
+		regexp.MustCompile("/v1/modules/([^/]+)/([^/]+)/([^/]+)"),
+		regexp.MustCompile("/registry-providers/private/([^/]+)/([^/]+)"),
+	}
+)
 
 // InvalidInputError describes why a value failed validation. The offending value
 // is always rendered with %q so control characters are escaped rather than
@@ -62,4 +81,45 @@ func Validate(s string) error {
 	}
 
 	return nil
+}
+
+// RedactPath returns a version of an HTTP path suitable for logging or error messages, with
+// sensitive segments replaced with a redaction placeholder. It is
+// intended for use in telemetry and audit logs, not for security-critical
+// redaction of secrets.
+func RedactPath(path string) string {
+	for _, re := range redactions {
+		// Find the start/end indexes of the full match AND all capture groups
+		indices := re.FindStringSubmatchIndex(path)
+		if len(indices) == 0 {
+			continue
+		}
+
+		var result strings.Builder
+		lastIndex := 0
+
+		// indices[0] and indices[1] are the start/end of the FULL match.
+		// Capture groups start at index 2 (indices[2] to indices[3] is Group 1, etc.)
+		for i := 1; i < len(indices)/2; i++ {
+			groupStart := indices[2*i]
+			groupEnd := indices[2*i+1]
+
+			// Handle cases where an optional group didn't match
+			if groupStart < 0 || groupEnd < 0 {
+				continue
+			}
+
+			result.WriteString(path[lastIndex:groupStart])
+			result.WriteString("<redacted>")
+			lastIndex = groupEnd
+		}
+
+		// Write whatever remains of the path after the last redacted group
+		result.WriteString(path[lastIndex:])
+
+		// Update path and continue to next regex
+		path = result.String()
+	}
+
+	return path
 }

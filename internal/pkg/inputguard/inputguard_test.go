@@ -64,3 +64,56 @@ func TestInvalidInputErrorEscapesAndTruncates(t *testing.T) {
 		t.Fatalf("expected truncated value in %q", msg)
 	}
 }
+
+func TestRedactPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "organization path",
+			input:    "/api/v2/organizations/my-org",
+			expected: "/api/v2/organizations/<redacted>",
+		},
+		{
+			name:     "workspace path",
+			input:    "/api/v2/organizations/my-org/workspaces/my-workspace",
+			expected: "/api/v2/organizations/<redacted>/workspaces/<redacted>",
+		},
+		{
+			name:     "archivist path",
+			input:    "/v1/object/abc123",
+			expected: "/v1/object/<redacted>",
+		},
+		{
+			name:     "projects path",
+			input:    "/organizations/my-org/projects",
+			expected: "/organizations/<redacted>/projects",
+		},
+		{
+			name:     "don't redact too much",
+			input:    "/api/v2/organizations/organizations/workspaces/organizations",
+			expected: "/api/v2/organizations/<redacted>/workspaces/<redacted>",
+		},
+		{
+			name:     "registry provider path",
+			input:    "/registry-providers/private/hashicorp/aws",
+			expected: "/registry-providers/private/<redacted>/<redacted>",
+		},
+		{
+			name:     "registry v1 modules path",
+			input:    "/v1/modules/hashicorp/consul/aws/versions",
+			expected: "/v1/modules/<redacted>/<redacted>/<redacted>/versions",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := RedactPath(tc.input)
+			if result != tc.expected {
+				t.Errorf("RedactPath(%q) = %q; want %q", tc.input, result, tc.expected)
+			}
+		})
+	}
+}
