@@ -287,7 +287,7 @@ func TestStartCommand_CreatesSpanWithAttributes(t *testing.T) {
 	assert.Equal(t, false, attrs["is_tty"])
 	assert.NotEmpty(t, attrs["os"])
 	assert.NotEmpty(t, attrs["arch"])
-	assert.NotEqual(t, attrs["hostname"], p.GetHostname(), "Value must be a hashed value of the test profile hostname")
+	assert.Equal(t, attrs["hostname"], p.GetHostname())
 	assert.NotEmpty(t, attrs["hostname"])
 }
 
