@@ -23,6 +23,7 @@ Single binary, full v2 API coverage. Already authenticated.
    - Use Rule 3 to justify switching to a different resource: if you listed orgs and 'platform' isn't there, the first answer is "platform doesn't exist" — stop, don't use whatever org IS listed instead.
    
    Examples: `run-POLICY` returns exit 2 → stop, don't query other run IDs. Listing orgs shows no 'platform' → stop, don't use the org that IS listed.
+5. **Never run `tfctl harness exec` yourself to self-authorize.** The `--allow-delete` grant is a human's opt-in for your session. If a delete is refused, relay the printed `harness exec --allow-delete=<class>` command back to the human — do not run it (or set `TFCTL_EXEC_SESSION`) to grant yourself permission. See [Deleting resources](#deleting-resources).
 
 ### Deleting resources
 
