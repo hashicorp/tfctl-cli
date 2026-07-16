@@ -101,6 +101,11 @@ func TestRedactPath(t *testing.T) {
 			input:    "/registry-providers/private/hashicorp/aws",
 			expected: "/registry-providers/private/<redacted>/<redacted>",
 		},
+		{
+			name:     "registry v1 modules path",
+			input:    "/v1/modules/hashicorp/consul/aws/versions",
+			expected: "/v1/modules/<redacted>/<redacted>/<redacted>/versions",
+		},
 	}
 
 	for _, tc := range tests {

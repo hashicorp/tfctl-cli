@@ -35,7 +35,7 @@ var (
 		regexp.MustCompile("/v1/object/([a-zA-Z0-9]+)"),
 
 		// Registry paths:
-		regexp.MustCompile("/v1/modules/([^/]+)"),
+		regexp.MustCompile("/v1/modules/([^/]+)/([^/]+)/([^/]+)"),
 		regexp.MustCompile("/registry-providers/private/([^/]+)/([^/]+)"),
 	}
 )
@@ -99,7 +99,7 @@ func RedactPath(path string) string {
 		lastIndex := 0
 
 		// indices[0] and indices[1] are the start/end of the FULL match.
-		// Capture groups start at index index 2 (indices[2] to indices[3] is Group 1, etc.)
+		// Capture groups start at index 2 (indices[2] to indices[3] is Group 1, etc.)
 		for i := 1; i < len(indices)/2; i++ {
 			groupStart := indices[2*i]
 			groupEnd := indices[2*i+1]
@@ -117,7 +117,7 @@ func RedactPath(path string) string {
 		// Write whatever remains of the path after the last redacted group
 		result.WriteString(path[lastIndex:])
 
-		// Update path and return (or continue to next regex if paths can match multiple rules)
+		// Update path and continue to next regex
 		path = result.String()
 	}
 

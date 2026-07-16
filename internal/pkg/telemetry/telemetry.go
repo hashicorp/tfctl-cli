@@ -265,7 +265,7 @@ func (t *Telemetry) StartCommand(ctx context.Context, info CommandInfo) context.
 			attribute.Bool("is_named_profile", info.Profile.Name != profile.ProfileNameDefault),
 		)
 		hostname := info.Profile.GetHostname()
-		if !info.Profile.IsHCPTerraform() && hostname != "archivist.terraform.io" && hostname != "archivist.eu.terraform.io" {
+		if !strings.HasSuffix(hostname, ".terraform.io") {
 			hostname = generateStableID(info.Profile.GetHostname(), 0)
 		}
 

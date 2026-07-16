@@ -43,11 +43,11 @@ HashiCorp does not collect or transmit your data and takes steps to redact and o
 
 ### Network Request Span (One span per network request)
 
-| Key                 | Example Value            | Source                              |
-|---------------------|--------------------------|-------------------------------------|
-| http.path           | “/workspaces/<redacted>” | API request path, with IDs redacted |
-| http.method         | "GET"                    | API request verb                    |
-| http.status_code    | 200                      | HTTP response status                |
-| http.content_length | 121070                   | Response byte size                  |
-| http.duration_ms    | 855                      | Request latency                     |
+| Key                 | Example Value               | Source                              |
+|---------------------|-----------------------------|-------------------------------------|
+| http.path           | “/organizations/<redacted>” | API request path, with IDs redacted |
+| http.method         | "GET"                       | API request verb                    |
+| http.status_code    | 200                         | HTTP response status                |
+| http.content_length | 121070                      | Response byte size                  |
+| http.duration_ms    | 855                         | Request latency                     |
 
