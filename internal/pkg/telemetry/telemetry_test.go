@@ -377,6 +377,64 @@ func TestStartNetwork_ParentIsCommandSpan(t *testing.T) {
 		"network span must belong to the same trace as the command span")
 }
 
+func TestStartNetwork_RedactsSensitivePaths(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "archivist path",
+			input:    "https://archivist.terraform.io/v1/object/asjfgahsdgljashdglsdfjnnnnnOJSFDHGKSNB142",
+			expected: "/v1/object/<redacted>",
+		},
+		{
+			name:     "projects index",
+			input:    "https://app.terraform.io/api/v2/organizations/my-org/projects",
+			expected: "/api/v2/organizations/<redacted>/projects",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			clearEnv(t)
+
+			tel, exporter := newTestTelemetry(t)
+
+			// Start the command span — returns a context carrying the command span.
+			cmdCtx := tel.StartCommand(context.Background(), CommandInfo{
+				Command: "api get",
+				Profile: profile.TestProfile(t),
+			})
+
+			req, err := http.NewRequestWithContext(cmdCtx, http.MethodGet, tc.input, nil)
+			require.NoError(t, err)
+
+			_, netSpan := tel.StartNetwork(cmdCtx, "HTTP GET", req)
+			netSpan.End()
+			tel.span.End()
+
+			require.NoError(t, tel.sdkTP.ForceFlush(context.Background()))
+
+			spans := exporter.GetSpans()
+			require.Len(t, spans, 2)
+
+			// Identify spans by name.
+			var networkSpan tracetest.SpanStub
+			for _, s := range spans {
+				if s.Name == "HTTP GET" {
+					networkSpan = s
+				}
+			}
+
+			require.NotEmpty(t, networkSpan.Name, "network span not found")
+
+			attrs := spanAttrMap(networkSpan)
+			assert.Equal(t, tc.expected, attrs["http.path"])
+		})
+	}
+}
+
 func TestStartNetwork_WithoutCommandContext_NoParent(t *testing.T) {
 	clearEnv(t)
 

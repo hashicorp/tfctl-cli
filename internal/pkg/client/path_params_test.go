@@ -119,6 +119,11 @@ func TestParsePathParams(t *testing.T) {
 			path:     "/varsets/{varset_id}/relationships/vars",
 			expected: map[string]string{"varset_id": "varsets"},
 		},
+		{
+			name:     "unaccompanied braces",
+			path:     "/varsets/{varset_id/oops",
+			expected: map[string]string{},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

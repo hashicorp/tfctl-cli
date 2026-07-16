@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/hashicorp/tfctl-cli/internal/pkg/inputguard"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/skills"
 	"github.com/hashicorp/tfctl-cli/version"
@@ -226,7 +227,7 @@ func detectAgent() string {
 func (t *Telemetry) StartNetwork(ctx context.Context, name string, req *http.Request) (context.Context, trace.Span) {
 	// Build attributes from Request
 	attrs := []attribute.KeyValue{
-		attribute.String("http.path", req.URL.Path),
+		attribute.String("http.path", inputguard.RedactPath(req.URL.Path)),
 		attribute.String("http.method", req.Method),
 	}
 
