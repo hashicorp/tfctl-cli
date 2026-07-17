@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-tfe/v2/api/models"
 
@@ -30,6 +31,14 @@ type StartOpts struct {
 	Workspace    string
 	DryRun       bool
 	Organization string
+	// Wait blocks until the run reaches a terminal state, then prints its
+	// status and exits non-zero if the run failed.
+	Wait bool
+	// Timeout bounds how long Wait polls (0 means wait indefinitely).
+	Timeout time.Duration
+	// PollInterval overrides the wait poll cadence (0 uses defaultPollInterval).
+	// Primarily a test seam.
+	PollInterval time.Duration
 }
 
 // CreateOpts defines the options for running a run start, which may be shared with other commands.
@@ -99,6 +108,17 @@ func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 					Description:   "Create a speculative plan-only run that is never applied, regardless of the workspace's auto-apply setting.",
 					Value:         flagvalue.Simple(false, &runOpts.PlanOnly),
 					IsBooleanFlag: true,
+				},
+				{
+					Name:          "wait",
+					Description:   "Wait for the run to reach a terminal state, printing status as it progresses. Exits non-zero if the run fails.",
+					Value:         flagvalue.Simple(false, &startOpts.Wait),
+					IsBooleanFlag: true,
+				},
+				{
+					Name:        "timeout",
+					Description: "With --wait, the maximum time to wait for the run to finish (e.g. 30m). Defaults to waiting indefinitely.",
+					Value:       flagvalue.Duration(0, &startOpts.Timeout),
 				},
 			},
 		},
@@ -187,14 +207,69 @@ func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 
 	newRunID := *response.GetData().GetId()
 
-	fmt.Fprintln(io.Err(), heredoc.New(io).Mustf(`
+	runURL := fmt.Sprintf("https://%s/app/%s/workspaces/%s/runs/%s",
+		opts.Profile.GetHostname(), *organizationName, *ws.GetAttributes().GetName(), newRunID)
+
+	if !opts.Wait {
+		fmt.Fprintln(io.Err(), heredoc.New(io).Mustf(`
 %s %s created. You can monitor the status of the run using:
 
 {{ Bold "$ %s run status %s" }}
 
-or by visiting {{ Bold "https://%s/app/%s/workspaces/%s/runs/%s" }}
-`, cs.SuccessIcon(), newRunID, version.Name, newRunID, opts.Profile.GetHostname(), *organizationName, *ws.GetAttributes().GetName(), newRunID))
-	fmt.Fprintln(io.Err())
+or by visiting {{ Bold "%s" }}
+`, cs.SuccessIcon(), newRunID, version.Name, newRunID, runURL))
+		fmt.Fprintln(io.Err())
+		return nil
+	}
+
+	return waitForRunAndReport(ctx, opts, newRunID, runURL)
+}
+
+// waitForRunAndReport polls a freshly created run to a terminal state, renders
+// its status summary (reusing the same displayer as `run status`), and maps the
+// outcome to an exit code: failed runs return cmd.ErrUnderlyingError.
+func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL string) error {
+	io := opts.IO
+	cs := io.ColorScheme()
+
+	start := time.Now()
+	fmt.Fprintf(io.Err(), "%s %s created; waiting for it to finish...\n", cs.SuccessIcon(), runID)
+
+	_, outcome, err := pollRunUntilSettled(ctx, opts.APIClient, runID, io, opts.PollInterval, opts.Timeout)
+	if err != nil {
+		// The wait was interrupted (timeout or cancel), but the run itself keeps
+		// running in HCP Terraform. Point the user at it before returning.
+		fmt.Fprintf(io.Err(), "%s Stopped waiting; the run may still be running in HCP Terraform:\n  %s\n",
+			cs.FailureIcon(), runURL)
+		return err
+	}
+
+	summary, err := client.NewRunSummary(ctx, opts.APIClient, runID)
+	if err != nil {
+		return err
+	}
+	// For an awaiting-confirmation run the raw summary message is the generic
+	// "Run status: planned"; replace it with something actionable so the final
+	// line reads as cleanly as the succeeded/failed cases.
+	if outcome == runAwaitingConfirm {
+		summary.Message = "Plan finished; a manual apply is required (auto-apply is off)."
+	}
+	if err := opts.Output.Display(&summaryDisplayer{summary: summary, io: io}); err != nil {
+		return err
+	}
+
+	// Report elapsed wait time and always surface the run URL so a waited run
+	// stays click-through-able.
+	elapsed := time.Since(start).Round(time.Second)
+	switch outcome {
+	case runFailed:
+		fmt.Fprintf(io.Err(), "%s Failed after %s. View the run at %s\n", cs.FailureIcon(), elapsed, runURL)
+		return cmd.ErrUnderlyingError
+	case runAwaitingConfirm:
+		fmt.Fprintf(io.Err(), "%s Planned in %s. Confirm the apply at %s\n", cs.SuccessIcon(), elapsed, runURL)
+	default: // runSucceeded
+		fmt.Fprintf(io.Err(), "%s Completed in %s. View the run at %s\n", cs.SuccessIcon(), elapsed, runURL)
+	}
 	return nil
 }
 
