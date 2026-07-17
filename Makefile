@@ -34,7 +34,7 @@ clean:
 
 .PHONY: gen/screenshot
 gen/screenshot: go/install # Create a screenshot of the tfctl CLI
-	@go run github.com/homeport/termshot/cmd/termshot@v0.6.1 -c -f $(ASSETS)/tfctl.png -- tfctl
+	@go run github.com/homeport/termshot/cmd/termshot@v0.6.1 -c -f $(ASSETS)/tfctl.png -- tfctl --help
 
 .PHONY: gen/logo
 gen/logo: logotools
