@@ -6,10 +6,12 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/hashicorp/cli"
@@ -27,6 +29,9 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
 	"github.com/hashicorp/tfctl-cli/version"
 )
+
+//go:embed logo.txt
+var Logo string
 
 func main() {
 	os.Exit(realMain())
@@ -150,6 +155,21 @@ func realMain() int {
 		},
 	}
 
+	onlyFlagsInArgs := true
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, "-") {
+			onlyFlagsInArgs = false
+			break
+		}
+	}
+
+	// If the user is running the root command, without --help or --version
+	// show the banner and exit.
+	if !c.IsVersion() && !c.IsHelp() && onlyFlagsInArgs {
+		showBanner(io)
+		return 0
+	}
+
 	status, err := c.Run()
 	if err != nil {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
@@ -165,6 +185,27 @@ func realMain() int {
 	}
 
 	return status
+}
+
+func showBanner(io iostreams.IOStreams) {
+	if io.ColorEnabled() && io.IsOutputTTY() {
+		cs := io.ColorScheme()
+		// Prepends two spaces before every line of the logo and after the final line
+		fmt.Fprintf(io.ErrUnessential(), "  %s", strings.Join(strings.Split(Logo, "\n"), "\n  "))
+		fmt.Fprintf(io.ErrUnessential(), "%s\n", cs.String(version.Version).Color(cs.Purple()).Bold())
+		fmt.Fprintln(io.ErrUnessential(), "")
+	} else {
+		fmt.Fprintln(io.ErrUnessential(), version.Version)
+	}
+
+	fmt.Fprintln(io.Err(), heredoc.New(io).Mustf(`Get started by running {{ template "mdCodeOrBold" "%s auth login" }}
+to authenticate with your user account or run {{ template "mdCodeOrBold" "%s --help" }} for usage
+information. Release notes for this version are available at
+{{ template "mdCodeOrBold" "https://github.com/hashicorp/tfctl-cli/blob/%s/CHANGELOG.md" }}
+`, version.Name, version.Name, version.Version))
+	fmt.Fprintln(io.Err(), "")
+
+	checkForNewVersion(io)
 }
 
 func checkForNewVersion(io iostreams.IOStreams) {
