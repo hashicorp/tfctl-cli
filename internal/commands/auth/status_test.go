@@ -5,11 +5,14 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
+	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
@@ -200,8 +203,12 @@ func TestStatus_Unauthorized(t *testing.T) {
 
 	err := runStatus(context.Background(), opts)
 	r.Error(err)
-	r.Contains(io.Error.String(), "Unauthorized")
-	r.Contains(io.Error.String(), srv.URL)
+	out := io.Error.String()
+	r.Contains(out, "rejected")
+	r.Contains(out, "HTTP 401")
+	r.Contains(out, srv.URL)
+	r.Contains(out, "SSO")
+	r.Contains(out, "auth login")
 }
 
 func TestStatus_NoToken(t *testing.T) {
@@ -224,8 +231,63 @@ func TestStatus_NoToken(t *testing.T) {
 
 	err := runStatus(context.Background(), opts)
 	r.Error(err)
-	r.Contains(io.Error.String(), "Unauthorized")
-	r.Contains(io.Error.String(), "app.terraform.io")
+	out := io.Error.String()
+	r.Contains(out, "No token configured")
+	r.Contains(out, "app.terraform.io")
+	r.Contains(out, "auth login")
+}
+
+func TestStatus_Unauthorized_JSON(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	srv := newFakeStatusTFE(t, "", "", "", "")
+	p := profile.TestProfile(t)
+	p.Hostname = srv.URL
+	p.Token = "bad-token"
+	r.NoError(p.Write())
+
+	io := iostreams.Test()
+	output := format.New(io)
+	output.SetFormat(format.JSON)
+
+	opts := &StatusOpts{
+		IO:        io,
+		Profile:   p,
+		Output:    output,
+		APIClient: newStatusClient(t, srv),
+	}
+
+	err := runStatus(context.Background(), opts)
+	r.Error(err)
+	out := io.Output.String()
+	r.Contains(out, `"active"`)
+	r.Contains(out, `"reason"`)
+	r.Contains(out, `"rejected"`)
+}
+
+func TestClassifyAuthError(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	// A 401 means the token itself was rejected.
+	f := classifyAuthError(&tfe.APIError{StatusCode: http.StatusUnauthorized})
+	r.Equal(reasonRejected, f.reason)
+	r.Equal(http.StatusUnauthorized, f.status)
+
+	// The real error is wrapped in a *url.Error; errors.As must still find it.
+	wrapped := &url.Error{Op: "Get", URL: "https://tfe.example.com", Err: &tfe.APIError{StatusCode: http.StatusUnauthorized}}
+	f = classifyAuthError(wrapped)
+	r.Equal(reasonRejected, f.reason)
+
+	// Any other HTTP status is a server-side problem, not an auth failure.
+	f = classifyAuthError(&tfe.APIError{StatusCode: http.StatusInternalServerError})
+	r.Equal(reasonServerError, f.reason)
+	r.Equal(http.StatusInternalServerError, f.status)
+
+	// An error with no HTTP status is a connectivity problem.
+	f = classifyAuthError(errors.New("dial tcp: connection refused"))
+	r.Equal(reasonUnreachable, f.reason)
 }
 
 func TestStatus_JSONOutput(t *testing.T) {

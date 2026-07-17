@@ -6,10 +6,14 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
+
+	tfe "github.com/hashicorp/go-tfe/v2"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
@@ -73,6 +77,9 @@ type StatusResult struct {
 	TokenType string     `json:"token_type,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	Active    bool       `json:"active"`
+	// Reason is a machine-readable cause when Active is false: one of
+	// "no_token", "rejected", "server_error", or "unreachable".
+	Reason string `json:"reason,omitempty"`
 }
 
 func runStatus(ctx context.Context, opts *StatusOpts) error {
@@ -80,7 +87,7 @@ func runStatus(ctx context.Context, opts *StatusOpts) error {
 
 	// No token configured at all.
 	if opts.Profile.GetToken() == "" {
-		return displayUnauthorized(opts, hostname)
+		return displayAuthFailure(opts, hostname, &authFailure{reason: reasonNoToken})
 	}
 
 	apiClient := opts.APIClient
@@ -88,7 +95,7 @@ func runStatus(ctx context.Context, opts *StatusOpts) error {
 	// Call /account/details.
 	resp, err := apiClient.TFE.API.Account().Details().Get(ctx, nil)
 	if err != nil {
-		return displayUnauthorized(opts, hostname)
+		return displayAuthFailure(opts, hostname, classifyAuthError(err))
 	}
 
 	data := resp.GetData()
@@ -146,17 +153,74 @@ func runStatus(ctx context.Context, opts *StatusOpts) error {
 	return opts.Output.Display(&statusDisplayer{result: result, io: opts.IO})
 }
 
-// displayUnauthorized emits a machine-readable inactive result for JSON/agent
-// consumers and writes the human-readable failure message to stderr. It always
+// Machine-readable failure reasons surfaced in StatusResult.Reason.
+const (
+	reasonNoToken     = "no_token"
+	reasonRejected    = "rejected"
+	reasonServerError = "server_error"
+	reasonUnreachable = "unreachable"
+)
+
+// authFailure describes why `auth status` could not confirm an active session.
+type authFailure struct {
+	reason string // one of the reason* constants
+	status int    // HTTP status when known (0 otherwise)
+	err    error  // underlying transport/server error, when relevant
+}
+
+// classifyAuthError turns an /account/details error into an authFailure. A 401
+// means the token was rejected — expired or revoked, or (on SAML-SSO-protected
+// Terraform Enterprise) a browser SSO session that has lapsed. Any other HTTP
+// status is a server-side problem, and an error carrying no HTTP status is a
+// connectivity problem; neither of those is an authentication failure, so we
+// say so rather than reporting a misleading "unauthorized".
+//
+// The go-tfe *APIError is wrapped in a *url.Error, so we rely on errors.As to
+// walk the chain rather than matching the concrete top-level type.
+func classifyAuthError(err error) *authFailure {
+	var apiErr *tfe.APIError
+	if errors.As(err, &apiErr) {
+		if apiErr.StatusCode == http.StatusUnauthorized {
+			return &authFailure{reason: reasonRejected, status: apiErr.StatusCode}
+		}
+		return &authFailure{reason: reasonServerError, status: apiErr.StatusCode, err: err}
+	}
+	return &authFailure{reason: reasonUnreachable, err: err}
+}
+
+// displayAuthFailure emits a machine-readable inactive result for JSON/agent
+// consumers and writes a cause-specific, actionable message to stderr. It always
 // returns cmd.ErrUnderlyingError so callers can tail-call it.
-func displayUnauthorized(opts *StatusOpts, hostname string) error {
+func displayAuthFailure(opts *StatusOpts, hostname string, f *authFailure) error {
 	if opts.Output.GetFormat().IsJSONOrAgent() {
-		result := &StatusResult{Active: false, Hostname: hostname}
+		result := &StatusResult{Active: false, Hostname: hostname, Reason: f.reason}
 		// Best-effort: ignore display errors since we are already in a failure path.
 		_ = opts.Output.Display(&statusDisplayer{result: result, io: opts.IO})
 	}
+
 	cs := opts.IO.ColorScheme()
-	fmt.Fprintf(opts.IO.Err(), "%s Unauthorized for %s\n", cs.FailureIcon(), hostname)
+	w := opts.IO.Err()
+	icon := cs.FailureIcon()
+
+	switch f.reason {
+	case reasonNoToken:
+		fmt.Fprintf(w, "%s No token configured for %s. Run '%s auth login' to authenticate.\n",
+			icon, hostname, version.Name)
+	case reasonRejected:
+		fmt.Fprintf(w, "%s Token for %s was rejected (HTTP 401).\n", icon, hostname)
+		fmt.Fprintf(w, "  - The token may be expired or revoked: run '%s auth login' to create a new one.\n", version.Name)
+		fmt.Fprintf(w, "  - On SSO-protected Terraform Enterprise, your browser SSO session may have lapsed: re-authenticate in the browser, then retry.\n")
+	case reasonServerError:
+		fmt.Fprintf(w, "%s %s returned HTTP %d (not an authentication problem). Retry, or check the instance status.\n",
+			icon, hostname, f.status)
+	default: // reasonUnreachable
+		if f.err != nil {
+			fmt.Fprintf(w, "%s Could not reach %s: %v\n", icon, hostname, f.err)
+		} else {
+			fmt.Fprintf(w, "%s Could not reach %s.\n", icon, hostname)
+		}
+	}
+
 	return cmd.ErrUnderlyingError
 }
 
