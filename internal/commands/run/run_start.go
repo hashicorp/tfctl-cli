@@ -187,14 +187,14 @@ func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 
 	newRunID := *response.GetData().GetId()
 
-	fmt.Fprintln(io.Err(), heredoc.New(io).Mustf(`
+	fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`
 %s %s created. You can monitor the status of the run using:
 
 {{ Bold "$ %s run status %s" }}
 
 or by visiting {{ Bold "https://%s/app/%s/workspaces/%s/runs/%s" }}
 `, cs.SuccessIcon(), newRunID, version.Name, newRunID, opts.Profile.GetHostname(), *organizationName, *ws.GetAttributes().GetName(), newRunID))
-	fmt.Fprintln(io.Err())
+	fmt.Fprintln(io.ErrUnessential())
 	return nil
 }
 

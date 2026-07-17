@@ -205,7 +205,7 @@ The `tfctl` command can manage HCP Terraform runs and variables with the corresp
 
 - `--profile=<name>`: The profile to use. If omitted, the CLI uses the current profile.
 
-- `--quiet`: Minimizes output to stdout.
+- `--quiet`: Minimizes output, rendering only essential content.
 
 - `--version`: Print the version of `tfctl` CLI.
 
@@ -271,16 +271,6 @@ Verify the installation:
 $ tfctl --version
 ```
 
-### Preparing your Change
+### Developers
 
-#### PR Preparation Checklist
-
-1. Run `npx changie new` to prepare a new changelog entry for the next set of release notes.
-1. Ensure any command changes are sensitive to these global flags:
-  - `--json` &mdash; Force machine readable output to stdout. Does not apply to stderr.
-  - `--markdown` &mdash; Force markdown output to stdout. Does not apply to stderr.
-  - `--dry-run` &mdash; Don't make any actual writes or other mutations. Describe what would have changed to stderr.
-  - `--quiet` &mdash; Don't render output to stdout.
-1. Get the logging interface from the context and add debug logging for interesting conditions and nonfatal situations.
-1. Run `make gen/screenshot` if the root command output changes.
-1. Add the `Autocomplete` field to positional arguments and flags to assist shell autocomplete.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for information about developing tfctl.

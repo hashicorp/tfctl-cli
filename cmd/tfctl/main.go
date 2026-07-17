@@ -55,11 +55,17 @@ func realMain() int {
 		}
 	}()
 
+	// Explore relevant global args before the command parses them to set up non-command output
 	initialLogLevel := logging.LevelDefault
 	for _, a := range args {
 		if a == "--debug" {
 			initialLogLevel = logging.LevelDebug
-			break
+		}
+		if a == "--no-color" {
+			io.ForceNoColor()
+		}
+		if a == "--quiet" {
+			io.SetQuiet(true)
 		}
 	}
 
@@ -95,12 +101,13 @@ func realMain() int {
 	if activeProfile != nil {
 		profileTelemetry = activeProfile.GetTelemetry()
 	}
+
 	tel := telemetry.Init(shutdownCtx, telemetry.Config{
 		DeviceID:         loader.GetDeviceID(shutdownCtx),
 		Hostname:         activeProfile.GetHostname(),
 		ProfileTelemetry: profileTelemetry,
 		Version:          version.Version,
-		ErrWriter:        io.Err(),
+		ErrWriter:        io.ErrUnessential(),
 		IsTTY:            io.IsOutputTTY(),
 	})
 

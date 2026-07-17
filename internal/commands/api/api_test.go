@@ -511,7 +511,29 @@ func TestMergePaginatedBody_UpdatesMeta(t *testing.T) {
 	require.Nil(t, links["next"])
 }
 
-func TestRunAPI_QuietSuppressesOutput(t *testing.T) {
+func TestRunAPI_QuietSuppressesOutputForPOST(t *testing.T) {
+	t.Parallel()
+
+	server, _ := newAPITestServer(map[string]http.HandlerFunc{
+		"POST /api/v2/workspaces": func(w http.ResponseWriter, r *http.Request) {
+			writeJSONAPIResponse(w, http.StatusOK, map[string]any{
+				"data": []any{map[string]any{"id": "ws-1", "type": "workspaces", "attributes": map[string]any{"name": "alpha"}}},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.Method = http.MethodPost
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces")
+		opts.Quiet = true
+	}))
+	require.NoError(t, err)
+	require.Empty(t, io.Output.String())
+}
+
+func TestRunAPI_QuietDoesNotSuppressesOutputForGet(t *testing.T) {
 	t.Parallel()
 
 	server, _ := newAPITestServer(map[string]http.HandlerFunc{
@@ -529,7 +551,7 @@ func TestRunAPI_QuietSuppressesOutput(t *testing.T) {
 		opts.Quiet = true
 	}))
 	require.NoError(t, err)
-	require.Empty(t, io.Output.String())
+	require.NotEmpty(t, io.Output.String())
 }
 
 func TestRunAPI_EmptyBodyNoOutput(t *testing.T) {

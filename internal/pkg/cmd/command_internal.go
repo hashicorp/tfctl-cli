@@ -94,7 +94,7 @@ func (c *Command) Run(args []string, inv *Invocation) int {
 			return cli.RunResultHelp
 		}
 
-		fmt.Fprintln(io.Err(), "Command has no run function or children. This is an invalid command")
+		fmt.Fprintln(io.Err(), "Command has no run function or children. This is an invalid command and is always a tfctl bug.")
 		return 1
 	}
 

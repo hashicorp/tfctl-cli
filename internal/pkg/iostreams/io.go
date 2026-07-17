@@ -37,6 +37,10 @@ type IOStreams interface {
 	// Err returns an io.Writer for outputting error output
 	Err() io.Writer
 
+	// ErrUnessential returns an io.Writer for outputting error, except
+	// when quiet mode is enabled.
+	ErrUnessential() io.Writer
+
 	// ColorEnabled returns if color is enabled.
 	ColorEnabled() bool
 
@@ -130,6 +134,10 @@ func (s *system) Out() io.Writer {
 }
 
 func (s *system) Err() io.Writer {
+	return s.err
+}
+
+func (s *system) ErrUnessential() io.Writer {
 	if s.quiet {
 		return io.Discard
 	}
