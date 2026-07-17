@@ -17,8 +17,10 @@ import (
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/profile/profiles"
 	"github.com/hashicorp/tfctl-cli/internal/commands/root"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/checkpoint"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
@@ -76,7 +78,9 @@ func realMain() int {
 	// the command execution lifecycle.
 	shutdownCtx = logging.WithLogger(shutdownCtx, logger)
 
-	// TODO: check version for updates?
+	// Run the checkpoint request in a separate goroutine. It's important to always execute
+	// this without condition because checkForNewVersion will block until it is complete
+	go checkpoint.Run(shutdownCtx, os.Getenv("CHECKPOINT_DISABLE") != "")
 
 	// Create the profile loader
 	loader, err := profile.NewLoader()
@@ -151,12 +155,31 @@ func realMain() int {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
 	}
 
+	if status == 0 && c.IsVersion() {
+		checkForNewVersion(io)
+	}
+
 	// Don't worry about telemetry errors at all
 	if err = tel.Shutdown(shutdownCtx, status); err != nil {
 		logger.Debug("Error occurred while shutting down telemetry", "error", err)
 	}
 
 	return status
+}
+
+func checkForNewVersion(io iostreams.IOStreams) {
+	cs := io.ColorScheme()
+	versionInfo := checkpoint.WaitForVersionCheck()
+	if versionInfo.Outdated {
+		fmt.Fprintf(io.ErrUnessential(), "A new version of %s is available: %s\n", version.Name, cs.String(fmt.Sprintf("v%s", versionInfo.Latest)).Color(cs.Purple()).Bold())
+	}
+	if len(versionInfo.Alerts) > 0 {
+		fmt.Fprintln(io.ErrUnessential(), "")
+		fmt.Fprintf(io.ErrUnessential(), "%s: %s\n", cs.WarningLabel(), "There are alerts regarding your current version.")
+		for _, alert := range versionInfo.Alerts {
+			fmt.Fprintln(io.ErrUnessential(), heredoc.New(io, heredoc.WithNoWrap()).Mustf(" - %s", alert))
+		}
+	}
 }
 
 // loadActiveProfile loads the active profile.
