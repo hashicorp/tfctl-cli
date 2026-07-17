@@ -1,0 +1,3 @@
+kind: ENHANCEMENTS
+body: '`run start` now accepts `--wait`, which blocks until the run reaches a terminal state, streaming each status transition and exiting non-zero if the run fails, is canceled, is discarded, or fails a mandatory policy. A run whose plan finishes but needs a manual apply (auto-apply disabled) stops instead of hanging. `--timeout` bounds how long to wait; if it elapses, tfctl stops watching and exits non-zero while the run continues in HCP Terraform. On completion the elapsed time and the run URL are printed.'
+time: 2026-07-17T02:39:23-04:00
