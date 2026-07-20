@@ -117,7 +117,7 @@ func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 				},
 				{
 					Name:        "timeout",
-					Description: "With --wait, the maximum time to wait for the run to finish (e.g. 30m). Defaults to waiting indefinitely.",
+					Description: "With --wait, the maximum time to wait for the run to finish. Defaults to waiting indefinitely. Examples include \"30s\", \"1.5h\" or \"2h45m\". Valid time units are \"s\", \"m\", \"h\".",
 					Value:       flagvalue.Duration(0, &startOpts.Timeout),
 				},
 			},
@@ -134,6 +134,10 @@ func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 			{
 				Preamble: "Start a plan-only run that will not be applied",
 				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start ws-abc123 --plan-only`, version.Name),
+			},
+			{
+				Preamble: "Wait for a run to terminate for up to 90 minutes",
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start ws-abc123 --wait --timeout 1.5h`, version.Name),
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
