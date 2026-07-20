@@ -5,6 +5,7 @@ package run
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -239,7 +240,12 @@ func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL stri
 	start := time.Now()
 	fmt.Fprintf(io.Err(), "%s %s created; waiting for it to finish...\n", cs.SuccessIcon(), runID)
 
-	_, outcome, err := pollRunUntilSettled(ctx, opts.APIClient, runID, io, opts.PollInterval, opts.Timeout)
+	ctx, cancel := context.WithTimeoutCause(ctx, opts.Timeout, errors.New("--wait timeout exceeded"))
+	defer cancel()
+
+	_, outcome, err := client.PollRunUntilTerminated(ctx, opts.APIClient, runID, io, opts.PollInterval, func(status string) {
+		fmt.Fprintln(io.Err(), cs.String("  ⋯ "+status).Faint().String())
+	})
 	if err != nil {
 		// The wait was interrupted (timeout or cancel), but the run itself keeps
 		// running in HCP Terraform. Point the user at it before returning.

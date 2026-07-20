@@ -1,14 +1,13 @@
 // Copyright IBM Corp. 2026
 // SPDX-License-Identifier: MPL-2.0
 
-package run
+package client
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
@@ -27,7 +26,7 @@ const (
 	runFailed
 )
 
-// defaultPollInterval is how often `--wait` polls the run when no interval is set.
+// defaultPollInterval is how often run is polled when no interval is set.
 const defaultPollInterval = 3 * time.Second
 
 // classifyRunStatus maps a run status string, plus whether the run is awaiting a
@@ -49,19 +48,13 @@ func classifyRunStatus(status string, confirmable bool) runOutcome {
 	return runInProgress
 }
 
-// pollRunUntilSettled polls the run until it reaches a settled state (finished,
-// failed, or awaiting manual confirmation), printing each status transition to
-// stderr. It returns the final status string and its classified outcome. It
-// stops early if ctx is canceled or the optional timeout elapses.
-func pollRunUntilSettled(ctx context.Context, c *client.Client, runID string, io iostreams.IOStreams, interval, timeout time.Duration) (string, runOutcome, error) {
+// PollRunUntilTerminated polls the run indefinitely until it reaches a settled state
+// (finished, failed, or awaiting manual confirmation), notifying on each status transition.
+// It returns the final status string and its classified outcome.
+func PollRunUntilTerminated(ctx context.Context, c *Client, runID string, io iostreams.IOStreams, interval time.Duration, statusUpdate func(string)) (string, runOutcome, error) {
 	if interval <= 0 {
 		interval = defaultPollInterval
 	}
-	var deadline time.Time
-	if timeout > 0 {
-		deadline = time.Now().Add(timeout)
-	}
-	cs := io.ColorScheme()
 
 	last := ""
 	for {
@@ -81,16 +74,14 @@ func pollRunUntilSettled(ctx context.Context, c *client.Client, runID string, io
 		}
 
 		if status != last {
-			fmt.Fprintln(io.Err(), cs.String("  ⋯ "+status).Faint().String())
+			if statusUpdate != nil {
+				statusUpdate(status)
+			}
 			last = status
 		}
 
 		if outcome := classifyRunStatus(status, confirmable); outcome != runInProgress {
 			return status, outcome, nil
-		}
-
-		if !deadline.IsZero() && time.Now().After(deadline) {
-			return status, runInProgress, fmt.Errorf("timed out after %s waiting for run %s (last status: %s)", timeout, runID, status)
 		}
 
 		select {
