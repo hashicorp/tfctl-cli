@@ -240,8 +240,11 @@ func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL stri
 	start := time.Now()
 	fmt.Fprintf(io.Err(), "%s %s created; waiting for it to finish...\n", cs.SuccessIcon(), runID)
 
-	ctx, cancel := context.WithTimeoutCause(ctx, opts.Timeout, errors.New("--wait timeout exceeded"))
-	defer cancel()
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeoutCause(ctx, opts.Timeout, errors.New("--wait timeout exceeded"))
+		defer cancel()
+	}
 
 	_, outcome, err := client.PollRunUntilTerminated(ctx, opts.APIClient, runID, io, opts.PollInterval, func(status string) {
 		fmt.Fprintln(io.Err(), cs.String("  ⋯ "+status).Faint().String())
@@ -258,27 +261,19 @@ func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL stri
 	if err != nil {
 		return err
 	}
-	// For an awaiting-confirmation run the raw summary message is the generic
-	// "Run status: planned"; replace it with something actionable so the final
-	// line reads as cleanly as the succeeded/failed cases.
-	if outcome == runAwaitingConfirm {
 		summary.Message = "Plan finished; a manual apply is required (auto-apply is off)."
+	summary.RunURL = runURL
+
+	if outcome == client.RunAwaitingConfirm {
+		summary.Message = "Plan finished; a manual apply is required (auto-apply is off). Confirm the apply by visiting the run URL."
 	}
+
 	if err := opts.Output.Display(&summaryDisplayer{summary: summary, io: io}); err != nil {
 		return err
 	}
 
-	// Report elapsed wait time and always surface the run URL so a waited run
-	// stays click-through-able.
-	elapsed := time.Since(start).Round(time.Second)
-	switch outcome {
-	case runFailed:
-		fmt.Fprintf(io.Err(), "%s Failed after %s. View the run at %s\n", cs.FailureIcon(), elapsed, runURL)
+	if outcome == client.RunFailed {
 		return cmd.ErrUnderlyingError
-	case runAwaitingConfirm:
-		fmt.Fprintf(io.Err(), "%s Planned in %s. Confirm the apply at %s\n", cs.SuccessIcon(), elapsed, runURL)
-	default: // runSucceeded
-		fmt.Fprintf(io.Err(), "%s Completed in %s. View the run at %s\n", cs.SuccessIcon(), elapsed, runURL)
 	}
 	return nil
 }

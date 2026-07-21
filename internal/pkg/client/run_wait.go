@@ -11,19 +11,19 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
 
-// runOutcome classifies a run's status for the purpose of `run start --wait`.
-type runOutcome int
+// RunOutcome classifies a run's status for the purpose of `run start --wait`.
+type RunOutcome int
 
 const (
-	// runInProgress means the run is still transitioning and should be polled again.
-	runInProgress runOutcome = iota
-	// runSucceeded means the run reached a successful terminal state.
-	runSucceeded
-	// runAwaitingConfirm means the plan finished but a manual apply is required
+	// RunInProgress means the run is still transitioning and should be polled again.
+	RunInProgress RunOutcome = iota
+	// RunSucceeded means the run reached a successful terminal state.
+	RunSucceeded
+	// RunAwaitingConfirm means the plan finished but a manual apply is required
 	// (the workspace does not auto-apply). Nothing more happens without a human.
-	runAwaitingConfirm
-	// runFailed means the run reached a failed or aborted terminal state.
-	runFailed
+	RunAwaitingConfirm
+	// RunFailed means the run reached a failed or aborted terminal state.
+	RunFailed
 )
 
 // defaultPollInterval is how often run is polled when no interval is set.
@@ -35,23 +35,23 @@ const defaultPollInterval = 3 * time.Second
 // planned/confirmed/applying on their own. A run that is confirmable has finished
 // planning but will not proceed without a human, so we stop there rather than
 // block forever on a non-auto-apply workspace.
-func classifyRunStatus(status string, confirmable bool) runOutcome {
+func classifyRunStatus(status string, confirmable bool) RunOutcome {
 	switch status {
 	case "applied", "planned_and_finished", "planned_and_saved":
-		return runSucceeded
+		return RunSucceeded
 	case "errored", "canceled", "discarded", "policy_soft_failed", "policy_override":
-		return runFailed
+		return RunFailed
 	}
 	if confirmable {
-		return runAwaitingConfirm
+		return RunAwaitingConfirm
 	}
-	return runInProgress
+	return RunInProgress
 }
 
 // PollRunUntilTerminated polls the run indefinitely until it reaches a settled state
 // (finished, failed, or awaiting manual confirmation), notifying on each status transition.
 // It returns the final status string and its classified outcome.
-func PollRunUntilTerminated(ctx context.Context, c *Client, runID string, io iostreams.IOStreams, interval time.Duration, statusUpdate func(string)) (string, runOutcome, error) {
+func PollRunUntilTerminated(ctx context.Context, c *Client, runID string, _ iostreams.IOStreams, interval time.Duration, statusUpdate func(string)) (string, RunOutcome, error) {
 	if interval <= 0 {
 		interval = defaultPollInterval
 	}
@@ -60,11 +60,11 @@ func PollRunUntilTerminated(ctx context.Context, c *Client, runID string, io ios
 	for {
 		resp, err := c.TFE.API.Runs().ById(runID).Get(ctx, nil)
 		if err != nil {
-			return "", runInProgress, fmt.Errorf("polling run %s: %w", runID, err)
+			return "", RunInProgress, fmt.Errorf("polling run %s: %w", runID, err)
 		}
 		attrs := resp.GetData().GetAttributes()
 		if attrs == nil || attrs.GetStatus() == nil {
-			return "", runInProgress, fmt.Errorf("run %s has no status", runID)
+			return "", RunInProgress, fmt.Errorf("run %s has no status", runID)
 		}
 		status := attrs.GetStatus().String()
 
@@ -80,13 +80,13 @@ func PollRunUntilTerminated(ctx context.Context, c *Client, runID string, io ios
 			last = status
 		}
 
-		if outcome := classifyRunStatus(status, confirmable); outcome != runInProgress {
+		if outcome := classifyRunStatus(status, confirmable); outcome != RunInProgress {
 			return status, outcome, nil
 		}
 
 		select {
 		case <-ctx.Done():
-			return status, runInProgress, ctx.Err()
+			return status, RunInProgress, ctx.Err()
 		case <-time.After(interval):
 		}
 	}

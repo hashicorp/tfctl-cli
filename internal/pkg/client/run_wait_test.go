@@ -41,23 +41,23 @@ func TestClassifyRunStatus(t *testing.T) {
 	cases := []struct {
 		status      string
 		confirmable bool
-		want        runOutcome
+		want        RunOutcome
 	}{
-		{"applied", false, runSucceeded},
-		{"planned_and_finished", false, runSucceeded},
-		{"planned_and_saved", false, runSucceeded},
-		{"errored", false, runFailed},
-		{"canceled", false, runFailed},
-		{"discarded", false, runFailed},
-		{"policy_soft_failed", false, runFailed},
-		{"policy_override", false, runFailed},
-		{"planning", false, runInProgress},
-		{"applying", false, runInProgress},
-		{"pending", false, runInProgress},
+		{"applied", false, RunSucceeded},
+		{"planned_and_finished", false, RunSucceeded},
+		{"planned_and_saved", false, RunSucceeded},
+		{"errored", false, RunFailed},
+		{"canceled", false, RunFailed},
+		{"discarded", false, RunFailed},
+		{"policy_soft_failed", false, RunFailed},
+		{"policy_override", false, RunFailed},
+		{"planning", false, RunInProgress},
+		{"applying", false, RunInProgress},
+		{"pending", false, RunInProgress},
 		// A confirmable plan is done but needs a manual apply; not in-progress.
-		{"planned", true, runAwaitingConfirm},
+		{"planned", true, RunAwaitingConfirm},
 		// Confirmable must not override a terminal failure state.
-		{"errored", true, runFailed},
+		{"errored", true, RunFailed},
 	}
 	for _, tc := range cases {
 		assert.Equalf(t, tc.want, classifyRunStatus(tc.status, tc.confirmable),
@@ -92,7 +92,7 @@ func TestPollRunUntilTerminated_Errored(t *testing.T) {
 	status, outcome, err := PollRunUntilTerminated(context.Background(), c, "run-x", io, time.Millisecond, noopStatus)
 	require.NoError(t, err)
 	assert.Equal(t, "errored", status)
-	assert.Equal(t, runFailed, outcome)
+	assert.Equal(t, RunFailed, outcome)
 }
 
 func TestPollRunUntilTerminated_Status(t *testing.T) {
@@ -114,7 +114,7 @@ func TestPollRunUntilTerminated_Status(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "errored", status)
-	assert.Equal(t, runFailed, outcome)
+	assert.Equal(t, RunFailed, outcome)
 	assert.True(t, sawPlanning, "expected to see planning status")
 	assert.True(t, sawErrored, "expected to see errored status")
 }
@@ -138,7 +138,7 @@ func TestPollRunUntilTerminated_AwaitingConfirm(t *testing.T) {
 	status, outcome, err := PollRunUntilTerminated(context.Background(), c, "run-x", io, time.Millisecond, noopStatus)
 	require.NoError(t, err)
 	assert.Equal(t, "planned", status)
-	assert.Equal(t, runAwaitingConfirm, outcome)
+	assert.Equal(t, RunAwaitingConfirm, outcome)
 }
 
 func TestPollRunUntilTerminated_Timeout(t *testing.T) {
@@ -155,5 +155,5 @@ func TestPollRunUntilTerminated_Timeout(t *testing.T) {
 	_, outcome, err := PollRunUntilTerminated(ctx, c, "run-x", io, time.Millisecond, noopStatus)
 	require.Error(t, err)
 	assert.Equal(t, "timed out!", context.Cause(ctx).Error())
-	assert.Equal(t, runInProgress, outcome)
+	assert.Equal(t, RunInProgress, outcome)
 }

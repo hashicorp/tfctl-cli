@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -409,10 +410,9 @@ func TestRunStart_Wait_Success(t *testing.T) {
 	assert.Contains(t, io.Error.String(), "planned_and_finished")
 	// The final run summary is rendered to stdout, same as `run status`.
 	assert.Contains(t, io.Output.String(), "Plan complete, no apply needed")
-	// Elapsed time and the run URL are always surfaced on completion.
-	assert.Contains(t, io.Error.String(), "Completed in")
-	assert.Contains(t, io.Error.String(), "View the run at")
-	assert.Contains(t, io.Error.String(), "workspaces/foobar/runs/run-waited")
+	// The run URL is surfaced in the displayer output.
+	assert.Contains(t, io.Output.String(), "View run:")
+	assert.Contains(t, io.Output.String(), "workspaces/foobar/runs/run-waited")
 }
 
 func TestRunStart_Wait_Timeout(t *testing.T) {
@@ -465,7 +465,11 @@ func TestRunStart_Wait_Timeout(t *testing.T) {
 	}, CreateOpts{})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "timed out")
+	// The error chain includes either the context deadline or the cause message.
+	errStr := err.Error()
+	assert.True(t,
+		strings.Contains(errStr, "--wait timeout exceeded") || strings.Contains(errStr, "deadline exceeded"),
+		"expected timeout-related error, got: %s", errStr)
 	assert.Contains(t, io.Error.String(), "still be running")
 	assert.Contains(t, io.Error.String(), "workspaces/foobar/runs/run-slow")
 }
@@ -522,11 +526,11 @@ func TestRunStart_Wait_AwaitingConfirm(t *testing.T) {
 
 	require.NoError(t, err)
 	// The generic "Run status: planned" line is replaced with actionable text,
-	// and the apply URL is surfaced.
+	// and the apply URL is surfaced in the displayer output.
 	assert.Contains(t, io.Output.String(), "manual apply is required")
 	assert.NotContains(t, io.Output.String(), "Run status: planned")
-	assert.Contains(t, io.Error.String(), "Confirm the apply at")
-	assert.Contains(t, io.Error.String(), "workspaces/foobar/runs/run-confirm")
+	assert.Contains(t, io.Output.String(), "Confirm the apply by")
+	assert.Contains(t, io.Output.String(), "workspaces/foobar/runs/run-confirm")
 }
 
 func TestRunStart_Wait_Failure(t *testing.T) {
@@ -580,7 +584,6 @@ func TestRunStart_Wait_Failure(t *testing.T) {
 
 	require.ErrorIs(t, err, cmd.ErrUnderlyingError)
 	assert.Contains(t, io.Output.String(), "Run was canceled")
-	assert.Contains(t, io.Error.String(), "Failed after")
-	assert.Contains(t, io.Error.String(), "View the run at")
-	assert.Contains(t, io.Error.String(), "workspaces/foobar/runs/run-cancel")
+	assert.Contains(t, io.Output.String(), "View run:")
+	assert.Contains(t, io.Output.String(), "workspaces/foobar/runs/run-cancel")
 }
