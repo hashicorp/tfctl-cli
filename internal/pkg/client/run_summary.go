@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -105,6 +106,15 @@ type jsonLog struct {
 	Diagnostic *Diagnostic `json:"diagnostic,omitempty"`
 }
 
+var statusesThatMayRequireConfirmation = []models.Runs_attributes_status{
+	models.PLANNED_RUNS_ATTRIBUTES_STATUS,
+	models.COST_ESTIMATED_RUNS_ATTRIBUTES_STATUS,
+	models.POLICY_CHECKED_RUNS_ATTRIBUTES_STATUS,
+	models.POLICY_OVERRIDE_RUNS_ATTRIBUTES_STATUS,
+	models.POST_PLAN_COMPLETED_RUNS_ATTRIBUTES_STATUS,
+	models.PRE_APPLY_COMPLETED_RUNS_ATTRIBUTES_STATUS,
+}
+
 // NewRunSummary fetches a run and returns a summary of its status. If the run
 // has errored, it fetches the relevant log and extracts diagnostics. Additionally,
 // it probes policy checks and run task stages for failures. All failures are surfaced
@@ -121,7 +131,14 @@ func NewRunSummary(ctx context.Context, c *Client, runID string) (*RunSummary, e
 		return nil, fmt.Errorf("run %s has no status", runID)
 	}
 
-	result, err := buildRunSummary(ctx, c, runID, *status)
+	confirmable := false
+	if actions := run.GetData().GetAttributes().GetActions(); actions != nil {
+		if confirmablePtr := actions.GetIsConfirmable(); confirmablePtr != nil {
+			confirmable = *confirmablePtr
+		}
+	}
+
+	result, err := buildRunSummary(ctx, c, runID, *status, confirmable)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +186,7 @@ func elapsedFromTimestamps(createdAt *time.Time, ts models.Runs_attributes_statu
 	return d.Round(time.Second)
 }
 
-func buildRunSummary(ctx context.Context, c *Client, runID string, status models.Runs_attributes_status) (*RunSummary, error) {
+func buildRunSummary(ctx context.Context, c *Client, runID string, status models.Runs_attributes_status, confirmable bool) (*RunSummary, error) {
 	result := &RunSummary{
 		RunID:  runID,
 		Status: status.String(),
@@ -183,6 +200,8 @@ func buildRunSummary(ctx context.Context, c *Client, runID string, status models
 		models.PLANNING_RUNS_ATTRIBUTES_STATUS,
 		models.PRE_PLAN_RUNNING_RUNS_ATTRIBUTES_STATUS:
 		result.Message = "Plan in progress"
+	case models.PLANNED_RUNS_ATTRIBUTES_STATUS:
+		result.Message = "Plan finished"
 
 	case models.PLANNED_AND_FINISHED_RUNS_ATTRIBUTES_STATUS,
 		models.PLANNED_AND_SAVED_RUNS_ATTRIBUTES_STATUS:
@@ -215,6 +234,10 @@ func buildRunSummary(ctx context.Context, c *Client, runID string, status models
 
 	default:
 		result.Message = fmt.Sprintf("Run status: %s", status.String())
+	}
+
+	if confirmable && slices.Contains(statusesThatMayRequireConfirmation, status) {
+		result.Message += "; a manual confirmation is required (auto-apply is off). Confirm the apply by visiting the run URL."
 	}
 
 	return result, nil

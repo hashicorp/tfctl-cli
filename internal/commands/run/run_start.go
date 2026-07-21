@@ -237,7 +237,6 @@ func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL stri
 	io := opts.IO
 	cs := io.ColorScheme()
 
-	start := time.Now()
 	fmt.Fprintf(io.Err(), "%s %s created; waiting for it to finish...\n", cs.SuccessIcon(), runID)
 
 	if opts.Timeout > 0 {
@@ -261,7 +260,6 @@ func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL stri
 	if err != nil {
 		return err
 	}
-		summary.Message = "Plan finished; a manual apply is required (auto-apply is off)."
 	summary.RunURL = runURL
 
 	if outcome == client.RunAwaitingConfirm {
