@@ -1,3 +1,0 @@
-kind: ENHANCEMENTS
-body: The config directory can now be overridden with the TFCTL_CONFIG_DIR environment variable. Profiles and exec sessions both resolve against this directory, making it easy to isolate tfctl state (for example, in CI or eval harnesses).
-time: 2026-07-15T21:53:02.000000-04:00
