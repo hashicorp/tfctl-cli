@@ -269,7 +269,7 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 
 			opts.URL = resolvedURL
 			opts.Client = apiClient
-			opts.Quiet = inv.GetGlobalFlags().Quiet
+			opts.Quiet = inv.IsQuiet()
 			opts.DryRun = inv.IsDryRun()
 
 			// Allow an active exec session to authorize noninteractive deletes.
@@ -533,8 +533,8 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 		defer response.Body.Close()
 	}
 
-	if opts.Quiet {
-		logger.Debug("Quiet mode enabled or no content to display, rendering skipped")
+	if opts.Quiet && method != http.MethodGet {
+		logger.Debug("Quiet mode enabled, rendering skipped")
 		return nil
 	}
 

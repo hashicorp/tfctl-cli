@@ -234,7 +234,7 @@ func saveToken(ctx context.Context, opts *LoginOpts, apiClient *client.Client, h
 		return fmt.Errorf("failed to save token to profile: %w", err)
 	}
 
-	fmt.Fprintf(opts.IO.Err(), "%s Successfully logged in to %s as %s\n",
+	fmt.Fprintf(opts.IO.ErrUnessential(), "%s Successfully logged in to %s as %s\n",
 		cs.SuccessIcon(), hostname, cs.String(user).Bold().String())
 	return nil
 }

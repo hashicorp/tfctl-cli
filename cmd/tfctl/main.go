@@ -6,10 +6,12 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/hashicorp/cli"
@@ -17,14 +19,19 @@ import (
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/profile/profiles"
 	"github.com/hashicorp/tfctl-cli/internal/commands/root"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/checkpoint"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
 	"github.com/hashicorp/tfctl-cli/version"
 )
+
+//go:embed logo.txt
+var Logo string
 
 func main() {
 	os.Exit(realMain())
@@ -55,11 +62,17 @@ func realMain() int {
 		}
 	}()
 
+	// Explore relevant global args before the command parses them to set up non-command output
 	initialLogLevel := logging.LevelDefault
 	for _, a := range args {
 		if a == "--debug" {
 			initialLogLevel = logging.LevelDebug
-			break
+		}
+		if a == "--no-color" {
+			io.ForceNoColor()
+		}
+		if a == "--quiet" {
+			io.SetQuiet(true)
 		}
 	}
 
@@ -70,7 +83,9 @@ func realMain() int {
 	// the command execution lifecycle.
 	shutdownCtx = logging.WithLogger(shutdownCtx, logger)
 
-	// TODO: check version for updates?
+	// Run the checkpoint request in a separate goroutine. It's important to always execute
+	// this without condition because checkForNewVersion will block until it is complete
+	go checkpoint.Run(shutdownCtx, os.Getenv("CHECKPOINT_DISABLE") != "")
 
 	// Create the profile loader
 	loader, err := profile.NewLoader()
@@ -95,12 +110,13 @@ func realMain() int {
 	if activeProfile != nil {
 		profileTelemetry = activeProfile.GetTelemetry()
 	}
+
 	tel := telemetry.Init(shutdownCtx, telemetry.Config{
 		DeviceID:         loader.GetDeviceID(shutdownCtx),
 		Hostname:         activeProfile.GetHostname(),
 		ProfileTelemetry: profileTelemetry,
 		Version:          version.Version,
-		ErrWriter:        io.Err(),
+		ErrWriter:        io.ErrUnessential(),
 		IsTTY:            io.IsOutputTTY(),
 	})
 
@@ -139,9 +155,28 @@ func realMain() int {
 		},
 	}
 
+	onlyFlagsInArgs := true
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, "-") {
+			onlyFlagsInArgs = false
+			break
+		}
+	}
+
+	// If the user is running the root command, without --help or --version
+	// show the banner and exit.
+	if !c.IsVersion() && !c.IsHelp() && onlyFlagsInArgs {
+		showBanner(io)
+		return 0
+	}
+
 	status, err := c.Run()
 	if err != nil {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
+	}
+
+	if status == 0 && c.IsVersion() {
+		checkForNewVersion(io)
 	}
 
 	// Don't worry about telemetry errors at all
@@ -150,6 +185,42 @@ func realMain() int {
 	}
 
 	return status
+}
+
+func showBanner(io iostreams.IOStreams) {
+	if io.ColorEnabled() && io.IsOutputTTY() {
+		cs := io.ColorScheme()
+		// Prepends two spaces before every line of the logo and after the final line
+		fmt.Fprintf(io.ErrUnessential(), "  %s", strings.Join(strings.Split(Logo, "\n"), "\n  "))
+		fmt.Fprintf(io.ErrUnessential(), "%s\n", cs.String(version.Version).Color(cs.Purple()).Bold())
+		fmt.Fprintln(io.ErrUnessential(), "")
+	} else {
+		fmt.Fprintln(io.ErrUnessential(), version.Version)
+	}
+
+	fmt.Fprintln(io.Err(), heredoc.New(io).Mustf(`Get started by running {{ template "mdCodeOrBold" "%s auth login" }}
+to authenticate with your user account or run {{ template "mdCodeOrBold" "%s --help" }} for usage
+information. Release notes for this version are available at
+{{ template "mdCodeOrBold" "https://github.com/hashicorp/tfctl-cli/blob/%s/CHANGELOG.md" }}
+`, version.Name, version.Name, version.Version))
+	fmt.Fprintln(io.Err(), "")
+
+	checkForNewVersion(io)
+}
+
+func checkForNewVersion(io iostreams.IOStreams) {
+	cs := io.ColorScheme()
+	versionInfo := checkpoint.WaitForVersionCheck()
+	if versionInfo.Outdated {
+		fmt.Fprintf(io.ErrUnessential(), "A new version of %s is available: %s\n", version.Name, cs.String(fmt.Sprintf("v%s", versionInfo.Latest)).Color(cs.Purple()).Bold())
+	}
+	if len(versionInfo.Alerts) > 0 {
+		fmt.Fprintln(io.ErrUnessential(), "")
+		fmt.Fprintf(io.ErrUnessential(), "%s: %s\n", cs.WarningLabel(), "There are alerts regarding your current version.")
+		for _, alert := range versionInfo.Alerts {
+			fmt.Fprintln(io.ErrUnessential(), heredoc.New(io, heredoc.WithNoWrap()).Mustf(" - %s", alert))
+		}
+	}
 }
 
 // loadActiveProfile loads the active profile.
