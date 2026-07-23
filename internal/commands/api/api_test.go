@@ -533,7 +533,7 @@ func TestRunAPI_QuietSuppressesOutputForPOST(t *testing.T) {
 	require.Empty(t, io.Output.String())
 }
 
-func TestRunAPI_QuietDoesNotSuppressesOutputForGet(t *testing.T) {
+func TestRunAPI_QuietDoesNotSuppressOutputForGet(t *testing.T) {
 	t.Parallel()
 
 	server, _ := newAPITestServer(map[string]http.HandlerFunc{
