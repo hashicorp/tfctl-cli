@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -76,18 +77,19 @@ func realMain() int {
 		}
 	}
 
-	// The logger level will need to be set by the command after parsing flags.
+	// The actual logger level will be set by the command after parsing flags.
 	logger := logging.NewLogger(io, initialLogLevel)
 
-	// Add the logger to the shutdown context because this is the context used throughout
-	// the command execution lifecycle.
+	// Add the logger to the main context for use everywhere else.
 	shutdownCtx = logging.WithLogger(shutdownCtx, logger)
 
-	// Run the checkpoint request in a separate goroutine. It's important to always execute
+	// Checkpoint is HashiCorp's service for checking the current version against the
+	// latest, providing any relevant warnings about the current release in rare situations.
+	// Run the request in a separate goroutine. It's important to always execute
 	// this without condition because checkForNewVersion will block until it is complete
 	go checkpoint.Run(shutdownCtx, os.Getenv("CHECKPOINT_DISABLE") != "")
 
-	// Create the profile loader
+	// Create the profile loader and load the active profile.
 	loader, err := profile.NewLoader()
 	if err != nil {
 		fmt.Fprintln(io.Err(), err)
@@ -155,18 +157,8 @@ func realMain() int {
 		},
 	}
 
-	onlyFlagsInArgs := true
-	for _, arg := range args {
-		if !strings.HasPrefix(arg, "-") {
-			onlyFlagsInArgs = false
-			break
-		}
-	}
-
-	// If the user is running the root command, without --help or --version
-	// show the banner and exit.
-	if !c.IsVersion() && !c.IsHelp() && onlyFlagsInArgs {
-		showBanner(io)
+	// Show the banner instead of running the command under certain conditions
+	if bannerShown := maybeShowBanner(&c, io); bannerShown {
 		return 0
 	}
 
@@ -175,6 +167,7 @@ func realMain() int {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
 	}
 
+	// Check for new version if --version is specified on any successful command
 	if status == 0 && c.IsVersion() {
 		checkForNewVersion(io)
 	}
@@ -185,6 +178,23 @@ func realMain() int {
 	}
 
 	return status
+}
+
+func maybeShowBanner(c *cli.CLI, io iostreams.IOStreams) bool {
+	globalFlagsAllowedForBanner := []string{"--debug", "--no-color", "--quiet"}
+	for _, arg := range c.Args {
+		if !slices.Contains(globalFlagsAllowedForBanner, arg) {
+			return false
+		}
+	}
+
+	// If the user is running the root command, without --help or --version
+	// show the banner and exit.
+	if !c.IsVersion() && !c.IsHelp() {
+		showBanner(io)
+		return true
+	}
+	return false
 }
 
 func showBanner(io iostreams.IOStreams) {
