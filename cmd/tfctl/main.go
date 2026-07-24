@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"slices"
-	"strings"
 	"syscall"
 
 	"github.com/hashicorp/cli"
@@ -30,9 +29,6 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
 	"github.com/hashicorp/tfctl-cli/version"
 )
-
-//go:embed logo.txt
-var Logo string
 
 func main() {
 	os.Exit(realMain())
@@ -158,7 +154,8 @@ func realMain() int {
 	}
 
 	// Show the banner instead of running the command under certain conditions
-	if bannerShown := maybeShowBanner(&c, io); bannerShown {
+	if bannerShown := maybeShowBanner(&c, inv); bannerShown {
+		checkForNewVersion(io)
 		return 0
 	}
 
@@ -180,7 +177,7 @@ func realMain() int {
 	return status
 }
 
-func maybeShowBanner(c *cli.CLI, io iostreams.IOStreams) bool {
+func maybeShowBanner(c *cli.CLI, inv *cmd.Invocation) bool {
 	globalFlagsAllowedForBanner := []string{"--debug", "--no-color", "--quiet"}
 	for _, arg := range c.Args {
 		if !slices.Contains(globalFlagsAllowedForBanner, arg) {
@@ -191,31 +188,13 @@ func maybeShowBanner(c *cli.CLI, io iostreams.IOStreams) bool {
 	// If the user is running the root command, without --help or --version
 	// show the banner and exit.
 	if !c.IsVersion() && !c.IsHelp() {
-		showBanner(io)
+		root.RunBanner(inv.ShutdownCtx, &root.BannerOpts{
+			IO:              inv.IO,
+			TokenConfigured: inv.Profile != nil && inv.Profile.GetToken() != "",
+		})
 		return true
 	}
 	return false
-}
-
-func showBanner(io iostreams.IOStreams) {
-	if io.ColorEnabled() && io.IsOutputTTY() {
-		cs := io.ColorScheme()
-		// Prepends two spaces before every line of the logo and after the final line
-		fmt.Fprintf(io.ErrUnessential(), "  %s", strings.Join(strings.Split(Logo, "\n"), "\n  "))
-		fmt.Fprintf(io.ErrUnessential(), "%s\n", cs.String(version.Version).Color(cs.Purple()).Bold())
-		fmt.Fprintln(io.ErrUnessential(), "")
-	} else {
-		fmt.Fprintln(io.ErrUnessential(), version.Version)
-	}
-
-	fmt.Fprintln(io.Err(), heredoc.New(io).Mustf(`Get started by running {{ template "mdCodeOrBold" "%s auth login" }}
-to authenticate with your user account or run {{ template "mdCodeOrBold" "%s --help" }} for usage
-information. Release notes for this version are available at
-{{ template "mdCodeOrBold" "https://github.com/hashicorp/tfctl-cli/blob/%s/CHANGELOG.md" }}
-`, version.Name, version.Name, version.Version))
-	fmt.Fprintln(io.Err(), "")
-
-	checkForNewVersion(io)
 }
 
 func checkForNewVersion(io iostreams.IOStreams) {

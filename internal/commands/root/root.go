@@ -45,6 +45,7 @@ func NewCmdRoot(inv *cmd.Invocation) *cmd.Command {
 	c.AddChild(variable.NewCmdVariable(inv))
 	c.AddChild(profile.NewCmdProfile(inv))
 	c.AddChild(harness.NewCmdHarness(inv))
+	c.AddChild(NewCmdBanner(inv))
 
 	// Configure the command as the root command.
 	cmd.ConfigureRootCommand(inv, c)
