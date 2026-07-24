@@ -2,6 +2,7 @@ SHELL=/usr/bin/env bash
 NAME=tfctl
 BIN_PATH ?= dist/$(NAME)
 ASSETS ?= assets
+VERSION_FILE ?= version/VERSION
 
 ifeq ($(GOARCH), arm64)
 	GOARCH = arm64
@@ -40,6 +41,11 @@ gen/screenshot: go/install # Create a screenshot of the tfctl CLI
 gen/logo: logotools
 	@lolcat -S 26 -f <(figlet -d ./assets -f "Sub-Zero.flf" tfctl) > ./cmd/tfctl/logo.txt
 
+.PHONY: gen/openapi
+gen/openapi:
+	@curl -s -o ./internal/pkg/openapi/spec/hcpt_v2_public_beta.json https://app.terraform.io/openapi/prerelease.json
+	@echo "Embedded OpenAPI spec updated successfully"
+
 .PHONY: go/build
 go/build: bin
 
@@ -64,6 +70,12 @@ go/fmt:
 .PHONY: fmt-check
 fmt-check:
 	@test -z "$$(gofmt -s -l . | tee /dev/stderr)" || (echo "Code is not formatted. Run 'make go/fmt'" && exit 1)
+
+# Release targets
+.PHONY: prepare-release
+prepare-release: gen/openapi
+	@echo $(VERSION) > $(VERSION_FILE)
+	@echo "Updated $(VERSION_FILE) to $(VERSION)"
 
 # Install development tools
 .PHONY: tools
@@ -97,20 +109,25 @@ help:
 	@echo "Available targets:"
 	@echo ""
 	@echo "Tools:"
-	@echo " tools           Install development tools"
-	@echo " gen/screenshot  Generate a screenshot of the CLI in $(ASSETS)/"
-	@echo " gen/logo        Generate the ASCII art logo"
+	@echo " tools            Install development tools"
+	@echo " gen/screenshot   Generate a screenshot of the CLI in $(ASSETS)/"
+	@echo " gen/logo         Generate the ASCII art logo"
 	@echo ""
 	@echo "Build:"
-	@echo " go/install      Install tfctl binary to GOPATH/bin"
-	@echo " bin             Build a binary for tfctl ($(BIN_PATH))"
-	@echo " clean           Clean build artifacts"
-	@echo " docker          Build a docker image for tfctl"
+	@echo " go/install       Install tfctl binary to GOPATH/bin"
+	@echo " bin              Build a binary for tfctl ($(BIN_PATH))"
+	@echo " clean            Clean build artifacts"
+	@echo " docker           Build a docker image for tfctl"
 	@echo ""
 	@echo "Code:"
-	@echo " check           Run all checks (formatting, linting, tests)"
-	@echo " go/test         Run all tests"
-	@echo " go/lint         Run golangci-lint"
-	@echo " go/fmt          Format go code"
-	@echo " fmt-check       Check go code formatting"
+	@echo " check            Run all checks (formatting, linting, tests)"
+	@echo " go/test          Run all tests"
+	@echo " go/lint          Run golangci-lint"
+	@echo " go/fmt           Format go code"
+	@echo " fmt-check        Check go code formatting"
+	@echo ""
+	@echo "Release:"
+	@echo " gen/openapi      Update embedded OpenAPI spec"
+	@echo " prepare-release  Prepare next semantic version release,"
+	@echo "                  requires VERSION argument"
 	@echo ""
