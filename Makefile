@@ -79,7 +79,7 @@ prepare-release: gen/openapi
 	@if [ -z "$(VERSION)" ]; then echo "VERSION is not set"; exit 1; fi
 	@echo $(VERSION) > $(VERSION_FILE)
 	@echo "Updated $(VERSION_FILE) to $(VERSION)"
-	@echo "$(VERSION) $$(cksum $(SKILL_EMBEDDED) | cut -d' ' -f1,2)" >> $(SKILL_CHECKSUMS)
+	@echo "v$(VERSION) $$(go run cmd/tfctl-cksum/main.go $(SKILL_EMBEDDED))" >> $(SKILL_CHECKSUMS)
 	@echo "Appended checksum for $(SKILL_EMBEDDED) to $(SKILL_CHECKSUMS)"
 
 # Install development tools
