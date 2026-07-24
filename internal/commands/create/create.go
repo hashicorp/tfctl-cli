@@ -120,7 +120,7 @@ func runCreate(ctx context.Context, opts *Opts) error {
 	}
 
 	resourceArg := opts.Args[0]
-	res := resource.ByName(resourceArg)
+	res := resource.ByNameOrAlias(resourceArg)
 	if res == nil {
 		return fmt.Errorf("unknown resource type: %q\nAvailable resources: %s",
 			resourceArg, strings.Join(resource.Names(), ", "))

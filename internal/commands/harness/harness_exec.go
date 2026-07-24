@@ -63,11 +63,11 @@ func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 		`, version.Name),
 		Examples: []cmd.Example{
 			{
-				Preamble: "Allow an agent to delete workspaces and runs for one session:",
-				Command:  "$ tfctl harness exec --allow-delete=workspaces,runs -- opencode",
+				Preamble: "Allow an agent to delete workspaces and vars for one session:",
+				Command:  "$ tfctl harness exec --allow-delete=workspaces,vars -- opencode",
 			},
 			{
-				Preamble: "Explicitly allow deleting projects (an irreversible class):",
+				Preamble: "Explicitly allow deleting projects (an irreversible action!):",
 				Command:  "$ tfctl harness exec --allow-delete=projects -- ./ci-script.sh",
 			},
 		},

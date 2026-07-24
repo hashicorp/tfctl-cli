@@ -148,7 +148,7 @@ func runGet(ctx context.Context, opts *Opts) error {
 
 func runGetSingleArg(ctx context.Context, opts *Opts, arg string) error {
 	// Check if arg is a known resource type name (list mode).
-	if res := resource.ByName(arg); res != nil {
+	if res := resource.ByNameOrAlias(arg); res != nil {
 		return runList(ctx, opts, res)
 	}
 
@@ -167,7 +167,7 @@ func runGetSingleArg(ctx context.Context, opts *Opts, arg string) error {
 }
 
 func runGetTwoArgs(ctx context.Context, opts *Opts, resourceArg, id string) error {
-	res := resource.ByName(resourceArg)
+	res := resource.ByNameOrAlias(resourceArg)
 	if res == nil {
 		return fmt.Errorf("unknown resource type: %q\nAvailable resources: %s",
 			resourceArg, strings.Join(resource.Names(), ", "))

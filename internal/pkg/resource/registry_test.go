@@ -85,7 +85,7 @@ func TestByName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := ByName(tt.input)
+			got := ByNameOrAlias(tt.input)
 			if tt.wantNil {
 				assert.Nil(t, got)
 			} else {
