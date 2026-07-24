@@ -7,9 +7,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
 func TestAllowDeleteCompletions(t *testing.T) {
