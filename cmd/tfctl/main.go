@@ -6,7 +6,6 @@ package main
 
 import (
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
 	"os"
@@ -164,9 +163,12 @@ func realMain() int {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
 	}
 
-	// Check for new version if --version is specified on any successful command
+	// Check for new version or outdated skill if --version is specified on any successful command
 	if status == 0 && c.IsVersion() {
-		checkForNewVersion(io)
+		if !checkForNewVersion(io) {
+			// Only recommend installing the skill if the current version is not outdated.
+			root.RunDetectOutdatedSkill(io)
+		}
 	}
 
 	// Don't worry about telemetry errors at all
@@ -197,7 +199,7 @@ func maybeShowBanner(c *cli.CLI, inv *cmd.Invocation) bool {
 	return false
 }
 
-func checkForNewVersion(io iostreams.IOStreams) {
+func checkForNewVersion(io iostreams.IOStreams) bool {
 	cs := io.ColorScheme()
 	versionInfo := checkpoint.WaitForVersionCheck()
 	if versionInfo.Outdated {
@@ -210,6 +212,7 @@ func checkForNewVersion(io iostreams.IOStreams) {
 			fmt.Fprintln(io.ErrUnessential(), heredoc.New(io, heredoc.WithNoWrap()).Mustf(" - %s", alert))
 		}
 	}
+	return versionInfo.Outdated
 }
 
 // loadActiveProfile loads the active profile.

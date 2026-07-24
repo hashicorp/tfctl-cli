@@ -15,23 +15,28 @@ func TestInstallSkill(t *testing.T) {
 	cases := []struct {
 		agentName             string
 		expectedGlobalInstall string
+		expectedLocalInstall  string
 		setup                 func(t *testing.T)
 	}{
 		{
+			agentName:             "amp",
+			expectedGlobalInstall: "~/.config/agents/skills/tfctl/SKILL.md",
+			expectedLocalInstall:  ".agents/skills/tfctl/SKILL.md",
+		},
+		{
+			agentName:             "antigravity",
+			expectedGlobalInstall: "~/.gemini/config/skills/tfctl/SKILL.md",
+			expectedLocalInstall:  ".agents/skills/tfctl/SKILL.md",
+		},
+		{
 			agentName:             "bob",
 			expectedGlobalInstall: "~/.bob/skills/tfctl/SKILL.md",
-		},
-		{
-			agentName:             "codex",
-			expectedGlobalInstall: "~/.codex/skills/tfctl/SKILL.md",
-		},
-		{
-			agentName:             "opencode",
-			expectedGlobalInstall: "~/.config/opencode/skills/tfctl/SKILL.md",
+			expectedLocalInstall:  ".bob/skills/tfctl/SKILL.md",
 		},
 		{
 			agentName:             "claude",
 			expectedGlobalInstall: "~/CustomClaudeDir/skills/tfctl/SKILL.md",
+			expectedLocalInstall:  ".claude/skills/tfctl/SKILL.md",
 			setup: func(t *testing.T) {
 				t.Helper()
 				customDir, err := homedir.Expand("~/CustomClaudeDir")
@@ -48,6 +53,26 @@ func TestInstallSkill(t *testing.T) {
 					os.Setenv("CLAUDE_CONFIG_DIR", originalClaudeConfig)
 				})
 			},
+		},
+		{
+			agentName:             "codex",
+			expectedGlobalInstall: "~/.codex/skills/tfctl/SKILL.md",
+			expectedLocalInstall:  ".codex/skills/tfctl/SKILL.md",
+		},
+		{
+			agentName:             "copilot",
+			expectedGlobalInstall: "~/.copilot/skills/tfctl/SKILL.md",
+			expectedLocalInstall:  ".agents/skills/tfctl/SKILL.md",
+		},
+		{
+			agentName:             "opencode",
+			expectedGlobalInstall: "~/.config/opencode/skills/tfctl/SKILL.md",
+			expectedLocalInstall:  ".agents/skills/tfctl/SKILL.md",
+		},
+		{
+			agentName:             "pi",
+			expectedGlobalInstall: "~/.pi/agent/skills/tfctl/SKILL.md",
+			expectedLocalInstall:  ".agents/skills/tfctl/SKILL.md",
 		},
 	}
 
@@ -78,12 +103,29 @@ func TestInstallSkill(t *testing.T) {
 			expected, err := homedir.Expand(c.expectedGlobalInstall)
 			require.NoError(t, err)
 			require.FileExists(t, expected)
+
+			installed := agent.DetectExistingSkill()
+			require.NotNil(t, installed)
+			require.Equal(t, expected, installed.Path)
+
+			if c.expectedLocalInstall != "" {
+				tmpLocal := t.TempDir()
+				t.Chdir(tmpLocal)
+				err := agent.InstallSkill(false)
+				require.NoError(t, err)
+
+				require.FileExists(t, c.expectedLocalInstall)
+
+				installedLocal := agent.DetectExistingSkill()
+				require.NotNil(t, installedLocal)
+				require.Equal(t, c.expectedLocalInstall, installedLocal.Path)
+			}
 		})
 	}
 
 	// Make sure every agent has some basic fields defined
 	for _, agent := range agents {
-		agent.Detect()
+		agent.DetectInstalled()
 		agent.DetectParentProcess()
 		require.NotEmpty(t, agent.Name)
 		require.NotEmpty(t, agent.DisplayName)

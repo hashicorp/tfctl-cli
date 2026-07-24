@@ -19,7 +19,7 @@ type AgentSpec struct {
 	DisplayName         string
 	SkillsDir           string
 	GlobalSkillsDir     func() string
-	Detect              func() bool
+	DetectInstalled     func() bool
 	DetectParentProcess func() bool
 }
 
@@ -32,8 +32,12 @@ func detectHomeDirPath(dir string) bool {
 	return err == nil
 }
 
-// TFCTLSkillPath is the path to the embedded SKILL.md file within the binary.
-const TFCTLSkillPath = "tfctl/SKILL.md"
+const (
+	// TFCTLSkillPath is the path to the embedded SKILL.md file within the binary.
+	TFCTLSkillPath = "tfctl/SKILL.md"
+	// TFCTLChecksumsPath is the path to the embedded checksums file within the binary.
+	TFCTLChecksumsPath = "tfctl/checksums"
+)
 
 var agents map[string]AgentSpec
 
@@ -73,7 +77,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.config/agents/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".config/amp")
 			},
 			DetectParentProcess: func() bool {
@@ -88,7 +92,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.gemini/config/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".gemini")
 			},
 			DetectParentProcess: func() bool {
@@ -104,7 +108,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.bob/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".bob")
 			},
 			DetectParentProcess: func() bool {
@@ -119,7 +123,7 @@ func registerAgents() map[string]AgentSpec {
 			GlobalSkillsDir: func() string {
 				return filepath.Join(claudeDir, "skills")
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				_, err := os.Stat(claudeDir)
 				return err == nil
 			},
@@ -134,7 +138,7 @@ func registerAgents() map[string]AgentSpec {
 			GlobalSkillsDir: func() string {
 				return filepath.Join(codexDir, "skills")
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				_, err := os.Stat(codexDir)
 				return err == nil
 			},
@@ -151,7 +155,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.copilot/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".copilot")
 			},
 			DetectParentProcess: func() bool {
@@ -166,7 +170,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.config/opencode/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".config/opencode")
 			},
 			DetectParentProcess: func() bool {
@@ -181,7 +185,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.pi/agent/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".pi")
 			},
 			DetectParentProcess: func() bool {
@@ -191,6 +195,32 @@ func registerAgents() map[string]AgentSpec {
 	}
 }
 
+// DetectAnyExistingSkill checks all known agents and returns the first existing skill it finds,
+// or nil if none are found.
+func DetectAnyExistingSkill() *InstalledSkill {
+	for _, agent := range agents {
+		if s := agent.DetectExistingSkill(); s != nil {
+			return s
+		}
+	}
+	return nil
+}
+
+// DetectExistingSkill checks if the tfctl skill already exists for the agent, either in
+// the project directory or the global config directory, and returns an InstalledSkill if found.
+func (a *AgentSpec) DetectExistingSkill() *InstalledSkill {
+	skillPath := filepath.Join(a.SkillsDir, TFCTLSkillPath)
+
+	if s, err := os.Stat(skillPath); err == nil && !s.IsDir() {
+		return &InstalledSkill{Path: skillPath, global: false, agentName: a.Name}
+	}
+	globalSkillPath := filepath.Join(a.GlobalSkillsDir(), TFCTLSkillPath)
+	if s, err := os.Stat(globalSkillPath); err == nil && !s.IsDir() {
+		return &InstalledSkill{Path: globalSkillPath, global: true, agentName: a.Name}
+	}
+	return nil
+}
+
 // GetAgent returns the AgentSpec for a given agent name, along with a boolean indicating whether
 // the agent was found.
 func GetAgent(name string) (AgentSpec, bool) {
@@ -198,11 +228,21 @@ func GetAgent(name string) (AgentSpec, bool) {
 	return agent, ok
 }
 
-// DetectAgent returns a list of AgentSpecs for agents detected on the current system.
-func DetectAgent() []AgentSpec {
+// DetectAgent returns the first AgentSpec for any agent detected on the current system.
+func DetectAgent() (AgentSpec, bool) {
+	for _, agent := range agents {
+		if agent.DetectInstalled() {
+			return agent, true
+		}
+	}
+	return AgentSpec{}, false
+}
+
+// DetectAgents returns a list of AgentSpecs for agents detected on the current system.
+func DetectAgents() []AgentSpec {
 	var detected []AgentSpec
 	for _, agent := range agents {
-		if agent.Detect() {
+		if agent.DetectInstalled() {
 			detected = append(detected, agent)
 		}
 	}
