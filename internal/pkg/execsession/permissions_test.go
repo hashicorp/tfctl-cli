@@ -33,7 +33,7 @@ func TestAllowDeleteCompletions(t *testing.T) {
 		seen[c] = true
 	}
 
-	// Exactly the known classes plus one "most" token, nothing else.
+	// Exactly the known types, nothing else.
 	assert.Len(t, got, len(all))
 }
 

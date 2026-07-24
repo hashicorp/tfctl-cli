@@ -25,8 +25,7 @@ func AllowDeleteCompletions() []string {
 }
 
 // AllowsDelete reports whether class is permitted by the granted set. Explicit
-// class names always match (including irreversible classes). The reversible/all
-// sentinels match any non-irreversible class. An empty/unknown class is always
+// class names always match. An empty/unknown class is always
 // denied.
 func AllowsDelete(granted []string, class string) bool {
 	for _, g := range granted {
@@ -105,9 +104,8 @@ func isAllDigits(s string) bool {
 }
 
 // NormalizeAllowDelete lowercases, trims, and CSV-splits the raw --allow-delete
-// values into a normalized, deduplicated list of classes. Unknown classes (not
-// in KnownClasses and not a sentinel) are returned as warnings but are still
-// kept in the output, since the API surface is large.
+// values into a normalized, deduplicated list of types. Unknown types (not
+// are returned as warnings but are still kept in the output, since the API surface is large.
 func NormalizeAllowDelete(in []string) (out []string, warnings []string) {
 	seen := make(map[string]bool)
 	for _, raw := range in {

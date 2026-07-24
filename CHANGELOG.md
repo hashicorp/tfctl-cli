@@ -3,7 +3,7 @@
 
 NEW FEATURES:
 
-* Adds the `harness exec` command, which lets a human grant session-scoped, noninteractive `tfctl` delete permissions to a wrapped command (such as a coding agent) via `--allow-delete`. The grant is tied to the wrapped process, auto-reverts when it exits, and never covers the irreversible `organizations` and `projects` classes unless they are named explicitly.
+* Adds the `harness exec` command, which lets a human grant session-scoped, noninteractive `tfctl` delete permissions to a wrapped command (such as a coding agent) via `--allow-delete`. The grant is tied to all subprocesses.
 
 
 ENHANCEMENTS:

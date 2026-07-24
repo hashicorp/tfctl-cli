@@ -38,7 +38,7 @@ tfctl api PATH -X DELETE
 - **If the session authorizes that resource's class, it succeeds** — that's the human's intent, not a violation; proceed and report the result.
 - **If it doesn't, `tfctl` refuses with a self-documenting message and prints the exact command to hand back** (including the `harness exec --allow-delete=<class>` a human can use to authorize you). Relay that rather than forcing it; don't run `harness exec` yourself to self-authorize.
 - **You can't tell in advance whether the session grants a class — so don't guess. Attempt the delete and let the refusal tell you.** The refusal is a plain exit 1 with a message naming the class and the `--allow-delete=<class>` command; that is your cue to relay. This is a grant gap, NOT an auth failure: never report it as an expired token, an `exit code 3`, or tell the human to re-login unless `tfctl` actually says the token is expired/invalid.
-- Apply ordinary caution to irreversible deletes (`organizations`, `projects`): they are never covered by the `reversible`/`all` wildcards and must be granted by name. For a high-stakes target, confirm intent with the human first even when the session would allow it.
+- Apply ordinary caution to irreversible deletes (`organizations`, `projects`). For a high-stakes resource, confirm intent with the human first even when the session would allow it.
 
 ### URL shape: per-workspace subpaths live at `/workspaces/{workspace}/...`
 

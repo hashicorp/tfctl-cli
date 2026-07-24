@@ -632,13 +632,13 @@ func TestRunAPI_DeleteQuietMode(t *testing.T) {
 
 // fakeAuthorizer is a programmable execsession.Authorizer for tests.
 type fakeAuthorizer struct {
-	decision   execsession.Decision
-	err        error
-	gotClasses []string
+	decision execsession.Decision
+	err      error
+	gotTypes []string
 }
 
 func (f *fakeAuthorizer) AuthorizeDelete(class string) (execsession.Decision, error) {
-	f.gotClasses = append(f.gotClasses, class)
+	f.gotTypes = append(f.gotTypes, class)
 	return f.decision, f.err
 }
 
@@ -666,7 +666,7 @@ func TestRunAPI_DeleteAuthorizedBySession(t *testing.T) {
 
 	// The request was actually sent (no prompt), and the class was evaluated.
 	require.Equal(t, http.MethodDelete, recorder.Last().Method)
-	require.Equal(t, []string{"workspaces"}, auth.gotClasses)
+	require.Equal(t, []string{"workspaces"}, auth.gotTypes)
 	// An audit notice is written to stderr.
 	require.Contains(t, io.Error.String(), "authorized by exec session")
 }
@@ -765,7 +765,7 @@ func TestRunAPI_DeleteAuthorizedSessionSkipsRequestInDryRun(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	// Permission is still evaluated, but no request is sent in dry-run.
-	require.Equal(t, []string{"workspaces"}, auth.gotClasses)
+	require.Equal(t, []string{"workspaces"}, auth.gotTypes)
 	require.Empty(t, recorder.All())
 	require.Contains(t, io.Error.String(), "would send DELETE")
 }

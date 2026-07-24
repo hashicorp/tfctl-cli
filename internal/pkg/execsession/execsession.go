@@ -60,8 +60,7 @@ var tokenEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // Permissions is the set of capabilities granted to a session.
 type Permissions struct {
-	// AllowDelete holds normalized resource classes, and may contain the
-	// reversible/all sentinels.
+	// AllowDelete holds normalized resource types.
 	AllowDelete []string
 }
 
@@ -247,7 +246,7 @@ type LivenessFn func(path string) (alive bool, err error)
 
 // EnvAuthorizer is the runtime Authorizer. It reads the session token from the
 // environment, loads the session, and verifies the granting process is still
-// alive before checking the granted classes.
+// alive before checking the granted types.
 type EnvAuthorizer struct {
 	Store    *Store
 	Getenv   func(string) string // default os.Getenv

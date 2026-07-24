@@ -40,8 +40,9 @@ func NewCmdHarnessInstall(inv *cmd.Invocation) *cmd.Command {
 	listAgentsSentence := fmt.Sprintf("%s, or %s", strings.Join(skills.AgentNames[:len(skills.AgentNames)-1], ", "), skills.AgentNames[len(skills.AgentNames)-1])
 
 	cmd := &cmd.Command{
-		Name:      "install",
-		ShortHelp: "Install coding agent skills for tfctl.",
+		Name:           "install",
+		NoAuthRequired: true,
+		ShortHelp:      "Install coding agent skills for tfctl.",
 		LongHelp: heredoc.New(inv.IO, heredoc.WithPreserveNewlines()).Mustf(`
 		The {{ template "mdCodeOrBold" "%s harness install" }} command installs the official tfctl agent skill for the selected platform. The available agent platforms are: {{ template "mdCodeOrBold" "%s" }}.
 
