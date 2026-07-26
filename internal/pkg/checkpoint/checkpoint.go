@@ -63,13 +63,12 @@ func Run(ctx context.Context, disabled bool) {
 }
 
 // WaitForVersionCheck waits for the result of a Checkpoint request and returns
-// the version information. If the request failed, it returns an empty VersionCheckInfo.
-func WaitForVersionCheck() VersionCheckInfo {
+// the version information. If the request failed, it returns nil.
+func WaitForVersionCheck() *VersionCheckInfo {
 	// Wait for the result to come through
 	info := <-checkpointResult
 	if info == nil {
-		var zero VersionCheckInfo
-		return zero
+		return nil
 	}
 
 	// Build the alerts that we may have received about our version
@@ -78,9 +77,11 @@ func WaitForVersionCheck() VersionCheckInfo {
 		alerts[i] = a.Message
 	}
 
-	return VersionCheckInfo{
+	checkInfo := VersionCheckInfo{
 		Outdated: info.Outdated,
 		Latest:   info.CurrentVersion,
 		Alerts:   alerts,
 	}
+
+	return &checkInfo
 }

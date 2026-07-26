@@ -10,3 +10,16 @@ import "embed"
 //
 //go:embed tfctl
 var FS embed.FS
+
+// EmbeddedChecksum returns the CRC32 checksum of the embedded SKILL.md file.
+func EmbeddedChecksum() uint32 {
+	file, err := FS.Open(TFCTLSkillPath)
+	if err != nil {
+		return 0
+	}
+	checksum, err := calculateCRC32(file)
+	if err != nil {
+		return 0
+	}
+	return checksum
+}

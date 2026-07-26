@@ -40,11 +40,18 @@ func (e *InstalledSkill) crc32() *uint32 {
 	return nil
 }
 
+// InstalledSkillInfo contains information about a known version of an installed skill.
+type InstalledSkillInfo struct {
+	Version  string
+	Checksum uint32
+	Size     int64
+}
+
 // KnownVersion checks if the existing skill is from a known version.
-func (e *InstalledSkill) KnownVersion() (string, bool) {
+func (e *InstalledSkill) KnownVersion() (*InstalledSkillInfo, bool) {
 	checksums, err := FS.Open("tfctl/checksums")
 	if err != nil {
-		return "", false
+		return nil, false
 	}
 	defer checksums.Close()
 
@@ -66,14 +73,23 @@ func (e *InstalledSkill) KnownVersion() (string, bool) {
 			continue
 		}
 
+		size, err := strconv.ParseInt(fields[2], 10, 64)
+		if err != nil {
+			continue
+		}
+
 		if InstalledSkillChecksum := e.crc32(); InstalledSkillChecksum != nil && *InstalledSkillChecksum == uint32(checksum) {
-			return fields[0], true
+			return &InstalledSkillInfo{
+				Version:  fields[0],
+				Checksum: uint32(checksum),
+				Size:     size,
+			}, true
 		}
 	}
 	// Ignore
 	_ = scanner.Err()
 
-	return "", false
+	return nil, false
 }
 
 func calculateCRC32(r io.Reader) (uint32, error) {

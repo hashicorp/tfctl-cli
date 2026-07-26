@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"slices"
+	"strings"
 	"syscall"
 
 	"github.com/hashicorp/cli"
@@ -21,7 +21,6 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/checkpoint"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
-	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
@@ -31,6 +30,21 @@ import (
 
 func main() {
 	os.Exit(realMain())
+}
+
+func isVersion(args []string) bool {
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, "-") {
+			// A non-flag argument before version flags indicates that this is not a version request.
+			return false
+		}
+
+		// Any of these coming first indicate a version command
+		if arg == "-v" || arg == "-version" || arg == "--version" {
+			return true
+		}
+	}
+	return false
 }
 
 func realMain() int {
@@ -152,23 +166,22 @@ func realMain() int {
 		},
 	}
 
-	// Show the banner instead of running the command under certain conditions
-	if bannerShown := maybeShowBanner(&c, inv); bannerShown {
-		checkForNewVersion(io)
-		return 0
+	// Override the hashicorp/cli behavior of `tfctl --version` by rewriting the arguments to invoke the
+	// hidden "version" command. It's important not to call c.IsVersion() here because that would
+	// init the args, making overwriting them ineffective.
+	if isVersion(c.Args) {
+		newArgs := []string{"version"}
+		for _, arg := range c.Args {
+			if arg != "--version" {
+				newArgs = append(newArgs, arg)
+			}
+		}
+		c.Args = newArgs
 	}
 
 	status, err := c.Run()
 	if err != nil {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
-	}
-
-	// Check for new version or outdated skill if --version is specified on any successful command
-	if status == 0 && c.IsVersion() {
-		if !checkForNewVersion(io) {
-			// Only recommend installing the skill if the current version is not outdated.
-			root.RunDetectOutdatedSkill(io)
-		}
 	}
 
 	// Don't worry about telemetry errors at all
@@ -177,42 +190,6 @@ func realMain() int {
 	}
 
 	return status
-}
-
-func maybeShowBanner(c *cli.CLI, inv *cmd.Invocation) bool {
-	globalFlagsAllowedForBanner := []string{"--debug", "--no-color", "--quiet"}
-	for _, arg := range c.Args {
-		if !slices.Contains(globalFlagsAllowedForBanner, arg) {
-			return false
-		}
-	}
-
-	// If the user is running the root command, without --help or --version
-	// show the banner and exit.
-	if !c.IsVersion() && !c.IsHelp() {
-		root.RunBanner(inv.ShutdownCtx, &root.BannerOpts{
-			IO:              inv.IO,
-			TokenConfigured: inv.Profile != nil && inv.Profile.GetToken() != "",
-		})
-		return true
-	}
-	return false
-}
-
-func checkForNewVersion(io iostreams.IOStreams) bool {
-	cs := io.ColorScheme()
-	versionInfo := checkpoint.WaitForVersionCheck()
-	if versionInfo.Outdated {
-		fmt.Fprintf(io.ErrUnessential(), "A new version of %s is available: %s\n", version.Name, cs.String(fmt.Sprintf("v%s", versionInfo.Latest)).Color(cs.Purple()).Bold())
-	}
-	if len(versionInfo.Alerts) > 0 {
-		fmt.Fprintln(io.ErrUnessential(), "")
-		fmt.Fprintf(io.ErrUnessential(), "%s: %s\n", cs.WarningLabel(), "There are alerts regarding your current version.")
-		for _, alert := range versionInfo.Alerts {
-			fmt.Fprintln(io.ErrUnessential(), heredoc.New(io, heredoc.WithNoWrap()).Mustf(" - %s", alert))
-		}
-	}
-	return versionInfo.Outdated
 }
 
 // loadActiveProfile loads the active profile.
