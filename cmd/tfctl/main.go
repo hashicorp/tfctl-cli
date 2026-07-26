@@ -33,10 +33,19 @@ func main() {
 }
 
 func isVersion(args []string) bool {
+	if len(args) == 0 {
+		return true
+	}
+
+	allowVersionCommand := true
 	for _, arg := range args {
 		if !strings.HasPrefix(arg, "-") {
 			// A non-flag argument before version flags indicates that this is not a version request.
 			return false
+		}
+
+		if arg != "--no-color" && arg != "--debug" && arg != "--quiet" {
+			allowVersionCommand = false
 		}
 
 		// Any of these coming first indicate a version command
@@ -44,7 +53,7 @@ func isVersion(args []string) bool {
 			return true
 		}
 	}
-	return false
+	return allowVersionCommand
 }
 
 func realMain() int {
@@ -169,7 +178,7 @@ func realMain() int {
 	// Override the hashicorp/cli behavior of `tfctl --version` by rewriting the arguments to invoke the
 	// hidden "version" command. It's important not to call c.IsVersion() here because that would
 	// init the args, making overwriting them ineffective.
-	if isVersion(c.Args) {
+	if isVersion(c.Args) || len(c.Args) == 0 {
 		newArgs := []string{"version"}
 		for _, arg := range c.Args {
 			if arg != "--version" {
