@@ -75,7 +75,7 @@ func TestInstalledSkill_KnownVersion(t *testing.T) {
 		if ok {
 			require.NotEmpty(t, ver)
 		}
-		require.Equal(t, ver, "v0.3.0")
+		require.Equal(t, ver.Version, "v0.3.0")
 	})
 
 	t.Run("unknown content returns no match", func(t *testing.T) {

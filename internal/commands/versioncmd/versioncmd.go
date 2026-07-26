@@ -1,6 +1,8 @@
 // Copyright IBM Corp. 2026
 // SPDX-License-Identifier: MPL-2.0
 
+// Package versioncmd provides the hidden version command for the tfctl CLI,
+// which is invoked using `--version`, `-v`, or `version`
 package versioncmd
 
 import (
@@ -36,7 +38,7 @@ func NewCmdVersion(inv *cmd.Invocation) *cmd.Command {
 		LongHelp:       heredoc.New(inv.IO).Mustf(`Shows the current version, checks for newer CLI versions and outdated skill installations.`),
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
-			RunVersion(inv.ShutdownCtx, &VersionOpts{
+			runVersion(inv.ShutdownCtx, &VersionOpts{
 				IO:              inv.IO,
 				TokenConfigured: inv.Profile != nil && inv.Profile.GetToken() != "",
 			})
@@ -87,8 +89,8 @@ func runDetectOutdatedVersion(_ context.Context, io iostreams.IOStreams) {
 	}
 }
 
-// RunVersion displays the banner with the logo and version information.
-func RunVersion(ctx context.Context, opts *VersionOpts) {
+// runVersion displays the banner with the logo and version information.
+func runVersion(ctx context.Context, opts *VersionOpts) {
 	// Implementation for displaying the version information/banner goes here.
 	io := opts.IO
 	cs := io.ColorScheme()
