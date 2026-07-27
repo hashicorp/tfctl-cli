@@ -181,7 +181,8 @@ func realMain() int {
 	if isVersion(c.Args) || len(c.Args) == 0 {
 		newArgs := []string{"version"}
 		for _, arg := range c.Args {
-			if arg != "--version" {
+			// Strip all the possible version flags from the arguments
+			if arg != "--version" && arg != "-version" && arg != "-v" {
 				newArgs = append(newArgs, arg)
 			}
 		}
