@@ -75,6 +75,8 @@ func runDetectOutdatedVersion(_ context.Context, io iostreams.IOStreams) {
 	versionInfo := checkpoint.WaitForVersionCheck()
 
 	if versionInfo != nil {
+		fmt.Fprintln(io.ErrUnessential())
+
 		if versionInfo.Outdated {
 			fmt.Fprintf(io.ErrUnessential(), "A new version of %s is available: %s\n", version.Name, cs.String(fmt.Sprintf("v%s", versionInfo.Latest)).Color(cs.Purple()).Bold())
 			fmt.Fprintln(io.ErrUnessential())
@@ -110,7 +112,7 @@ func runVersion(ctx context.Context, opts *VersionOpts) {
 	}
 
 	if !opts.TokenConfigured {
-		fmt.Fprintln(io.Err(), heredoc.New(io).Mustf(`Get started by running {{ template "mdCodeOrBold" "%s auth login" }}
+		fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`Get started by running {{ template "mdCodeOrBold" "%s auth login" }}
 to authenticate with your user account or run {{ template "mdCodeOrBold" "%s --help" }} for usage
 information.
 `, version.Name, version.Name))
