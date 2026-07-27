@@ -63,14 +63,14 @@ func (e *InstalledSkill) MatchesKnownVersion() (*KnownSkillMatch, bool) {
 
 		fields := strings.Split(line, " ")
 
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			continue
 		}
 
-		if hash := e.sha256(); hash != "" && hash == fields[1] {
+		if hash := e.sha256(); hash != "" && hash == fields[0] {
 			return &KnownSkillMatch{
-				Version: fields[0],
-				Hash:    hash,
+				Version: fields[1],
+				Hash:    fields[0],
 			}, true
 		}
 	}
