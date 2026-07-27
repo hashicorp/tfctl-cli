@@ -11,15 +11,15 @@ import "embed"
 //go:embed tfctl
 var FS embed.FS
 
-// EmbeddedChecksum returns the CRC32 checksum of the embedded SKILL.md file.
-func EmbeddedChecksum() uint32 {
+// EmbeddedSkillHash returns the SHA256 hash of the embedded SKILL.md file.
+func EmbeddedSkillHash() string {
 	file, err := FS.Open(TFCTLSkillPath)
 	if err != nil {
-		return 0
+		return ""
 	}
-	checksum, err := calculateCRC32(file)
+	hash, err := hashSHA256Hex(file)
 	if err != nil {
-		return 0
+		return ""
 	}
-	return checksum
+	return hash
 }

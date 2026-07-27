@@ -31,17 +31,23 @@ type VersionOpts struct {
 
 // NewCmdVersion creates the hidden version command.
 func NewCmdVersion(inv *cmd.Invocation) *cmd.Command {
+	opts := &VersionOpts{
+		IO: inv.IO,
+	}
+
 	c := &cmd.Command{
-		Hidden:         true,
-		Name:           "version",
-		ShortHelp:      "Shows the current version.",
-		LongHelp:       heredoc.New(inv.IO).Mustf(`Shows the current version, checks for newer CLI versions and outdated skill installations.`),
+		Hidden:    true,
+		Name:      "version",
+		ShortHelp: "Shows the current version.",
+		LongHelp:  heredoc.New(inv.IO).Mustf(`Shows the current version, checks for newer CLI versions and outdated skill installations.`),
+		Flags: cmd.Flags{
+			Local: []*cmd.Flag{},
+		},
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
-			runVersion(inv.ShutdownCtx, &VersionOpts{
-				IO:              inv.IO,
-				TokenConfigured: inv.Profile != nil && inv.Profile.GetToken() != "",
-			})
+			opts.TokenConfigured = inv.Profile != nil && inv.Profile.GetToken() != ""
+
+			runVersion(inv.ShutdownCtx, opts)
 			return nil
 		},
 	}
@@ -53,11 +59,11 @@ func NewCmdVersion(inv *cmd.Invocation) *cmd.Command {
 func runDetectOutdatedSkill(ctx context.Context, io iostreams.IOStreams) {
 	logger := logging.FromContext(ctx)
 	if s := skills.DetectAnyExistingSkill(); s != nil {
-		if skillVer, ok := s.KnownVersion(); ok && skillVer.Version != version.Version {
-			logger.Debug("Detected known skill", "version", skillVer.Version, "checksum", skillVer.Checksum)
+		if match, ok := s.MatchesKnownVersion(); ok && match.Version != version.Version {
+			logger.Debug("Detected known skill", "version", match.Version, "hash", match.Hash)
 
-			if skillVer.Checksum != skills.EmbeddedChecksum() {
-				fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`Existing skill {{ template "mdCodeOrBold" "%s" }} was created by version %s, which differs from the current version %s. Consider running {{ template "mdCodeOrBold" "%s" }} to re-install the skill to match the current version.`, s.Path, skillVer.Version, version.Version, s.ReinstallCommand()))
+			if match.Hash != skills.EmbeddedSkillHash() {
+				fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`Existing skill {{ template "mdCodeOrBold" "%s" }} was created by version %s, which differs from the current version %s. Consider running {{ template "mdCodeOrBold" "%s" }} to re-install the skill to match the current version.`, s.Path, match.Version, version.Version, s.ReinstallCommand()))
 			}
 		}
 	}
@@ -71,11 +77,10 @@ func runDetectOutdatedVersion(_ context.Context, io iostreams.IOStreams) {
 	if versionInfo != nil {
 		if versionInfo.Outdated {
 			fmt.Fprintf(io.ErrUnessential(), "A new version of %s is available: %s\n", version.Name, cs.String(fmt.Sprintf("v%s", versionInfo.Latest)).Color(cs.Purple()).Bold())
-		} else {
 			fmt.Fprintln(io.ErrUnessential())
+		} else {
 			fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`Release notes for this version are available at
 			{{ template "mdCodeOrBold" "https://github.com/hashicorp/tfctl-cli/blob/%s/CHANGELOG.md" }}`, version.Version))
-
 			fmt.Fprintln(io.ErrUnessential())
 		}
 

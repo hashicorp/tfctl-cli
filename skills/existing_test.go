@@ -65,13 +65,13 @@ func copyFile(src, dst string) error {
 }
 
 func TestInstalledSkill_KnownVersion(t *testing.T) {
-	t.Run("matches embedded checksum", func(t *testing.T) {
+	t.Run("matches embedded hash", func(t *testing.T) {
 		dir := t.TempDir()
 		dst := filepath.Join(dir, "SKILL.md")
 		require.NoError(t, copyFile(filepath.Join("fixtures", "0_3_0.md"), dst))
 
 		s := &InstalledSkill{Path: dst}
-		ver, ok := s.KnownVersion()
+		ver, ok := s.MatchesKnownVersion()
 		if ok {
 			require.NotEmpty(t, ver)
 		}
@@ -81,17 +81,17 @@ func TestInstalledSkill_KnownVersion(t *testing.T) {
 	t.Run("unknown content returns no match", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "SKILL.md")
-		require.NoError(t, os.WriteFile(path, []byte("unknown content that won't match any checksum"), 0644))
+		require.NoError(t, os.WriteFile(path, []byte("unknown content that won't match any hash"), 0644))
 
 		s := &InstalledSkill{Path: path}
-		version, ok := s.KnownVersion()
+		version, ok := s.MatchesKnownVersion()
 		require.False(t, ok)
 		require.Empty(t, version)
 	})
 
 	t.Run("missing file returns no match", func(t *testing.T) {
 		s := &InstalledSkill{Path: "/nonexistent/path/SKILL.md"}
-		version, ok := s.KnownVersion()
+		version, ok := s.MatchesKnownVersion()
 		require.False(t, ok)
 		require.Empty(t, version)
 	})
@@ -102,7 +102,7 @@ func TestInstalledSkill_KnownVersion(t *testing.T) {
 		require.NoError(t, os.WriteFile(path, []byte{}, 0644))
 
 		s := &InstalledSkill{Path: path}
-		version, ok := s.KnownVersion()
+		version, ok := s.MatchesKnownVersion()
 		require.False(t, ok)
 		require.Empty(t, version)
 	})

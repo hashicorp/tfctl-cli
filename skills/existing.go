@@ -2,11 +2,11 @@ package skills
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/tfctl-cli/version"
@@ -27,35 +27,34 @@ func (e *InstalledSkill) ReinstallCommand() string {
 	return fmt.Sprintf("%s harness install %s", version.Name, e.agentName)
 }
 
-// crc32 calculates and returns the CRC32 hash of the existing skill file.
-// Returns nil if the file cannot be read or the hash cannot be calculated.
-func (e *InstalledSkill) crc32() *uint32 {
+// sha256 calculates and returns the SHA256 hash of the existing skill file.
+// Returns an empty string if the file cannot be read or the hash cannot be calculated.
+func (e *InstalledSkill) sha256() string {
 	f, err := os.Open(e.Path)
 	if err == nil {
 		defer f.Close()
-		if hash, err := calculateCRC32(f); err == nil {
-			return &hash
+		if hash, err := hashSHA256Hex(f); err == nil {
+			return hash
 		}
 	}
-	return nil
+	return ""
 }
 
-// InstalledSkillInfo contains information about a known version of an installed skill.
-type InstalledSkillInfo struct {
-	Version  string
-	Checksum uint32
-	Size     int64
+// KnownSkillMatch contains information about a known version of an installed skill.
+type KnownSkillMatch struct {
+	Version string
+	Hash    string
 }
 
-// KnownVersion checks if the existing skill is from a known version.
-func (e *InstalledSkill) KnownVersion() (*InstalledSkillInfo, bool) {
-	checksums, err := FS.Open("tfctl/checksums")
+// MatchesKnownVersion checks if the existing skill is from a known version.
+func (e *InstalledSkill) MatchesKnownVersion() (*KnownSkillMatch, bool) {
+	hashes, err := FS.Open("tfctl/known_release_hashes")
 	if err != nil {
 		return nil, false
 	}
-	defer checksums.Close()
+	defer hashes.Close()
 
-	scanner := bufio.NewScanner(checksums)
+	scanner := bufio.NewScanner(hashes)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -64,25 +63,14 @@ func (e *InstalledSkill) KnownVersion() (*InstalledSkillInfo, bool) {
 
 		fields := strings.Split(line, " ")
 
-		if len(fields) < 3 {
+		if len(fields) < 2 {
 			continue
 		}
 
-		checksum, err := strconv.ParseUint(fields[1], 10, 32)
-		if err != nil {
-			continue
-		}
-
-		size, err := strconv.ParseInt(fields[2], 10, 64)
-		if err != nil {
-			continue
-		}
-
-		if InstalledSkillChecksum := e.crc32(); InstalledSkillChecksum != nil && *InstalledSkillChecksum == uint32(checksum) {
-			return &InstalledSkillInfo{
-				Version:  fields[0],
-				Checksum: uint32(checksum),
-				Size:     size,
+		if hash := e.sha256(); hash != "" && hash == fields[1] {
+			return &KnownSkillMatch{
+				Version: fields[0],
+				Hash:    hash,
 			}, true
 		}
 	}
@@ -92,10 +80,10 @@ func (e *InstalledSkill) KnownVersion() (*InstalledSkillInfo, bool) {
 	return nil, false
 }
 
-func calculateCRC32(r io.Reader) (uint32, error) {
-	hasher := crc32.NewIEEE()
+func hashSHA256Hex(r io.Reader) (string, error) {
+	hasher := sha256.New()
 	if _, err := io.Copy(hasher, r); err != nil {
-		return 0, err
+		return "", err
 	}
-	return hasher.Sum32(), nil
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

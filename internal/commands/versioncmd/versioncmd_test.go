@@ -174,10 +174,10 @@ func TestRunVersion_TokenConfigured_NoSkillOnDisk_NoSkillWarning(t *testing.T) {
 	}
 }
 
-// TestRunVersion_TokenConfigured_UnknownChecksumSkill_NoSkillWarning verifies
+// TestRunVersion_TokenConfigured_UnknownHashSkill_NoSkillWarning verifies
 // that runVersion emits no reinstall warning when an installed skill has a
-// checksum not present in the known-versions checksums file.
-func TestRunVersion_TokenConfigured_UnknownChecksumSkill_NoSkillWarning(t *testing.T) {
+// hash not present in the known-versions hashes file.
+func TestRunVersion_TokenConfigured_UnknownHashSkill_NoSkillWarning(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Chdir(tmpDir)
 	installSkill(t, tmpDir, []byte("# Unknown old skill content"))
@@ -190,13 +190,13 @@ func TestRunVersion_TokenConfigured_UnknownChecksumSkill_NoSkillWarning(t *testi
 
 	errOut := ios.Error.String()
 	if strings.Contains(errOut, "reinstall") || strings.Contains(errOut, "harness install") {
-		t.Errorf("expected no reinstall warning for unrecognized skill checksum, got:\n%s", errOut)
+		t.Errorf("expected no reinstall warning for unrecognized skill hash, got:\n%s", errOut)
 	}
 }
 
 // TestRunVersion_TokenConfigured_CurrentVersionSkill_NoSkillWarning verifies
 // that runVersion emits no reinstall warning when the installed skill matches
-// the current embedded checksum.
+// the current embedded hash.
 func TestRunVersion_TokenConfigured_CurrentVersionSkill_NoSkillWarning(t *testing.T) {
 	embedded, err := skills.FS.Open(skills.TFCTLSkillPath)
 	if err != nil {
@@ -221,12 +221,12 @@ func TestRunVersion_TokenConfigured_CurrentVersionSkill_NoSkillWarning(t *testin
 	if installed == nil {
 		t.Fatal("expected DetectExistingSkill to find the test skill")
 	}
-	skillInfo, known := installed.KnownVersion()
+	match, known := installed.MatchesKnownVersion()
 	if !known {
-		t.Skip("embedded skill not in checksums file — cannot verify current-version path")
+		t.Skip("embedded skill not in hashes file — cannot verify current-version path")
 	}
-	if skillInfo.Checksum != skills.EmbeddedChecksum() {
-		t.Skip("embedded checksum mismatch — skipping current-version assertion")
+	if match.Hash != skills.EmbeddedSkillHash() {
+		t.Skip("embedded hash mismatch — skipping current-version assertion")
 	}
 
 	seedCheckpoint(t)
