@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/tfctl-cli/version"
@@ -14,9 +15,27 @@ import (
 
 // InstalledSkill represents a skill that is already installed on the system.
 type InstalledSkill struct {
-	Path      string
+	path      string
 	global    bool
 	agentName string
+}
+
+// Path returns the original path of the installed skill file.
+func (e *InstalledSkill) Path() string {
+	return e.path
+}
+
+// ResolvePath follows any symlinks and returns the absolute path of the ultimate target file.
+func (e *InstalledSkill) ResolvePath() (string, error) {
+	if e.path == "" {
+		return "", fmt.Errorf("path is empty")
+	}
+
+	evaled, err := filepath.EvalSymlinks(e.path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(evaled)
 }
 
 // ReinstallCommand returns the command to reinstall the existing skill.
@@ -30,7 +49,7 @@ func (e *InstalledSkill) ReinstallCommand() string {
 // sha256 calculates and returns the SHA256 hash of the existing skill file.
 // Returns an empty string if the file cannot be read or the hash cannot be calculated.
 func (e *InstalledSkill) sha256() string {
-	f, err := os.Open(e.Path)
+	f, err := os.Open(e.path)
 	if err == nil {
 		defer f.Close()
 		if hash, err := hashSHA256Hex(f); err == nil {

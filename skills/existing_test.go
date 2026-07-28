@@ -47,7 +47,7 @@ func TestInstalledSkill_ReinstallCommand(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			s := &InstalledSkill{
-				Path:      "/some/path/SKILL.md",
+				path:      "/some/path/SKILL.md",
 				global:    c.global,
 				agentName: c.agentName,
 			}
@@ -70,7 +70,7 @@ func TestInstalledSkill_KnownVersion(t *testing.T) {
 		dst := filepath.Join(dir, "SKILL.md")
 		require.NoError(t, copyFile(filepath.Join("fixtures", "0_3_0.md"), dst))
 
-		s := &InstalledSkill{Path: dst}
+		s := &InstalledSkill{path: dst}
 		ver, ok := s.MatchesKnownVersion()
 		if ok {
 			require.NotEmpty(t, ver)
@@ -83,14 +83,14 @@ func TestInstalledSkill_KnownVersion(t *testing.T) {
 		path := filepath.Join(dir, "SKILL.md")
 		require.NoError(t, os.WriteFile(path, []byte("unknown content that won't match any hash"), 0644))
 
-		s := &InstalledSkill{Path: path}
+		s := &InstalledSkill{path: path}
 		version, ok := s.MatchesKnownVersion()
 		require.False(t, ok)
 		require.Empty(t, version)
 	})
 
 	t.Run("missing file returns no match", func(t *testing.T) {
-		s := &InstalledSkill{Path: "/nonexistent/path/SKILL.md"}
+		s := &InstalledSkill{path: "/nonexistent/path/SKILL.md"}
 		version, ok := s.MatchesKnownVersion()
 		require.False(t, ok)
 		require.Empty(t, version)
@@ -101,7 +101,7 @@ func TestInstalledSkill_KnownVersion(t *testing.T) {
 		path := filepath.Join(dir, "SKILL.md")
 		require.NoError(t, os.WriteFile(path, []byte{}, 0644))
 
-		s := &InstalledSkill{Path: path}
+		s := &InstalledSkill{path: path}
 		version, ok := s.MatchesKnownVersion()
 		require.False(t, ok)
 		require.Empty(t, version)

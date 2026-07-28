@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
+	"github.com/hashicorp/tfctl-cli/skills"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
@@ -106,6 +107,9 @@ func realMain() int {
 	// Run the request in a separate goroutine. It's important to always execute
 	// this without condition because checkForNewVersion will block until it is complete
 	go checkpoint.Run(shutdownCtx, os.Getenv("CHECKPOINT_DISABLE") != "")
+
+	// Begin migrating any existing skills that match an older version to the embedded version.
+	go skills.MigrateInstalled(shutdownCtx)
 
 	// Create the profile loader and load the active profile.
 	loader, err := profile.NewLoader()
@@ -194,12 +198,29 @@ func realMain() int {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
 	}
 
-	// Don't worry about telemetry errors at all
-	if err = tel.Shutdown(shutdownCtx, status); err != nil {
-		logger.Debug("Error occurred while shutting down telemetry", "error", err)
-	}
+	shutdownMain(shutdownCtx, status)
 
 	return status
+}
+
+func shutdownMain(ctx context.Context, exitCode int) {
+	logger := logging.FromContext(ctx)
+	tel := telemetry.FromContext(ctx)
+
+	// Wait for any ongoing skill migrations to complete
+	migrationResults := skills.WaitForMigration()
+	for _, result := range migrationResults {
+		if result.FailedReason != nil {
+			logger.Error("Failed to migrate skill", "path", result.SkillPath, "reason", result.FailedReason.Error())
+		} else {
+			logger.Debug("Migrated skill", "path", result.SkillPath, "from", result.PreviousVersion)
+		}
+	}
+
+	// Don't worry about telemetry errors at all
+	if err := tel.Shutdown(ctx, exitCode); err != nil {
+		logger.Debug("Error occurred while shutting down telemetry", "error", err)
+	}
 }
 
 // loadActiveProfile loads the active profile.

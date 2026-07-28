@@ -15,8 +15,6 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
-	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
-	"github.com/hashicorp/tfctl-cli/skills"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
@@ -52,21 +50,6 @@ func NewCmdVersion(inv *cmd.Invocation) *cmd.Command {
 		},
 	}
 	return c
-}
-
-// runDetectOutdatedSkill checks for any existing skills that are outdated and prints a message
-// suggesting reinstallation.
-func runDetectOutdatedSkill(ctx context.Context, io iostreams.IOStreams) {
-	logger := logging.FromContext(ctx)
-	if s := skills.DetectAnyExistingSkill(); s != nil {
-		if match, ok := s.MatchesKnownVersion(); ok && match.Version != version.Version {
-			logger.Debug("Detected known skill", "version", match.Version, "hash", match.Hash)
-
-			if match.Hash != skills.EmbeddedSkillHash() {
-				fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`Existing skill {{ template "mdCodeOrBold" "%s" }} was created by version %s, which differs from the current version %s. Consider running {{ template "mdCodeOrBold" "%s" }} to re-install the skill to match the current version.`, s.Path, match.Version, version.Version, s.ReinstallCommand()))
-			}
-		}
-	}
 }
 
 // runDetectOutdatedVersion checks if the current CLI version is outdated and prints relevant messages.
@@ -116,8 +99,6 @@ func runVersion(ctx context.Context, opts *VersionOpts) {
 to authenticate with your user account or run {{ template "mdCodeOrBold" "%s --help" }} for usage
 information.
 `, version.Name, version.Name))
-	} else {
-		runDetectOutdatedSkill(ctx, io)
 	}
 
 	runDetectOutdatedVersion(ctx, io)
