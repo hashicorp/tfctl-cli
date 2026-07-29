@@ -207,9 +207,12 @@ func displayAuthFailure(opts *StatusOpts, hostname string, f *authFailure) error
 		fmt.Fprintf(w, "%s No token configured for %s. Run '%s auth login' to authenticate.\n",
 			icon, hostname, version.Name)
 	case reasonRejected:
-		fmt.Fprintf(w, "%s Token for %s was rejected (HTTP 401).\n", icon, hostname)
-		fmt.Fprintf(w, "  - The token may be expired or revoked: run '%s auth login' to create a new one.\n", version.Name)
-		fmt.Fprintf(w, "  - On SSO-protected Terraform Enterprise, your browser SSO session may have lapsed: re-authenticate in the browser, then retry.\n")
+		fmt.Fprintf(w, "%s Token for %s was invalid (HTTP 401).\n", icon, hostname)
+		fmt.Fprintf(w, "  - The token may be expired, revoked, or disabled: run '%s auth login' to create a new one.\n", version.Name)
+		if !strings.HasSuffix(opts.Profile.GetHostname(), ".terraform.io") {
+  		    fmt.Fprintf(w, "  - Your Terraform Enterprise SSO session may have expired: sign in again, then retry.\n")
+  		}
+		fmt.Fprintf(w, "  - Ensure you are using the intended token configuration by adding '--debug' to this command")
 	case reasonServerError:
 		fmt.Fprintf(w, "%s %s returned HTTP %d (not an authentication problem). Retry, or check the instance status.\n",
 			icon, hostname, f.status)
