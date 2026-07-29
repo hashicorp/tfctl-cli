@@ -215,20 +215,6 @@ func TestEnvAuthorizerAuthorizeDelete(t *testing.T) {
 		assert.Equal(t, token, d.Token)
 	})
 
-	t.Run("irreversible class with only reversible grant is denied", func(t *testing.T) {
-		t.Parallel()
-		store, token := newStoreWithSession(t, Permissions{AllowDelete: []string{SentinelReversible}}, 4242)
-		a := &EnvAuthorizer{
-			Store:    store,
-			Getenv:   func(string) string { return token },
-			Liveness: fakeLiveness(true),
-		}
-		d, err := a.AuthorizeDelete("projects")
-		require.NoError(t, err)
-		assert.False(t, d.Allowed)
-		assert.Equal(t, ReasonClassNotGranted, d.Reason)
-	})
-
 	t.Run("liveness probe error is surfaced", func(t *testing.T) {
 		t.Parallel()
 		store, token := newStoreWithSession(t, Permissions{AllowDelete: []string{"workspaces"}}, 4242)

@@ -80,12 +80,37 @@ func TestByName(t *testing.T) {
 			input:    "cv",
 			wantType: "configuration-versions",
 		},
+		{
+			name:     "provider sets canonical",
+			input:    "provider-sets",
+			wantType: "provider-sets",
+		},
+		{
+			name:     "provider set alias",
+			input:    "provider-set",
+			wantType: "provider-sets",
+		},
+		{
+			name:     "provider set short alias",
+			input:    "provset",
+			wantType: "provider-sets",
+		},
+		{
+			name:     "provider sets mixed case",
+			input:    "Provider-Sets",
+			wantType: "provider-sets",
+		},
+		{
+			name:     "provider set uppercase alias",
+			input:    "PROVSET",
+			wantType: "provider-sets",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := ByName(tt.input)
+			got := ByNameOrAlias(tt.input)
 			if tt.wantNil {
 				assert.Nil(t, got)
 			} else {

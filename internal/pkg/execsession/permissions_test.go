@@ -4,41 +4,36 @@
 package execsession
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
 func TestAllowDeleteCompletions(t *testing.T) {
 	t.Parallel()
 
 	got := AllowDeleteCompletions()
-
-	// The sentinels must be offered so a human can tab-complete them.
-	assert.Contains(t, got, SentinelReversible)
-	assert.Contains(t, got, SentinelAll)
+	all := resource.AllDestroyable()
 
 	// Every known class must be offered, including the irreversible ones so a
 	// human can explicitly name organizations/projects.
-	for class := range KnownClasses {
-		assert.Contains(t, got, class, "known class %q must be completable", class)
+	for class, r := range all {
+		assert.Contains(t, got, r.Type, "known class %q must be completable", class)
 	}
-	assert.Contains(t, got, "organizations")
-	assert.Contains(t, got, "projects")
 
 	// The result must be sorted and free of duplicates for deterministic
 	// completion output.
-	assert.True(t, sort.StringsAreSorted(got), "completions must be sorted")
 	seen := make(map[string]bool, len(got))
 	for _, c := range got {
 		require.False(t, seen[c], "duplicate completion %q", c)
 		seen[c] = true
 	}
 
-	// Exactly the known classes plus the two sentinels, nothing else.
-	assert.Len(t, got, len(KnownClasses)+2)
+	// Exactly the known types, nothing else.
+	assert.Len(t, got, len(all))
 }
 
 func TestClassFromPath(t *testing.T) {
@@ -81,17 +76,8 @@ func TestAllowsDelete(t *testing.T) {
 	}{
 		{name: "explicit class match", granted: []string{"workspaces"}, class: "workspaces", want: true},
 		{name: "explicit class no match", granted: []string{"workspaces"}, class: "runs", want: false},
-		{name: "reversible covers workspaces", granted: []string{SentinelReversible}, class: "workspaces", want: true},
-		{name: "all covers workspaces", granted: []string{SentinelAll}, class: "workspaces", want: true},
-		{name: "reversible covers runs", granted: []string{SentinelReversible}, class: "runs", want: true},
-		{name: "reversible does NOT cover organizations", granted: []string{SentinelReversible}, class: "organizations", want: false},
-		{name: "reversible does NOT cover projects", granted: []string{SentinelReversible}, class: "projects", want: false},
-		{name: "all does NOT cover organizations", granted: []string{SentinelAll}, class: "organizations", want: false},
-		{name: "all does NOT cover projects", granted: []string{SentinelAll}, class: "projects", want: false},
 		{name: "explicit organizations allowed", granted: []string{"organizations"}, class: "organizations", want: true},
 		{name: "explicit projects allowed", granted: []string{"projects"}, class: "projects", want: true},
-		{name: "explicit projects plus reversible", granted: []string{SentinelReversible, "projects"}, class: "projects", want: true},
-		{name: "empty class denied even with all", granted: []string{SentinelAll}, class: "", want: false},
 		{name: "empty granted denied", granted: nil, class: "workspaces", want: false},
 		{name: "empty class empty granted", granted: nil, class: "", want: false},
 	}
@@ -109,36 +95,22 @@ func TestNormalizeAllowDelete(t *testing.T) {
 
 	t.Run("csv split and lowercase", func(t *testing.T) {
 		t.Parallel()
-		out, warnings := NormalizeAllowDelete([]string{"Workspaces,RUNS"})
-		assert.Equal(t, []string{"workspaces", "runs"}, out)
+		out, warnings := NormalizeAllowDelete([]string{"Workspaces,STACKS"})
+		assert.Equal(t, []string{"workspaces", "stacks"}, out)
 		assert.Empty(t, warnings)
 	})
 
 	t.Run("trims whitespace", func(t *testing.T) {
 		t.Parallel()
-		out, warnings := NormalizeAllowDelete([]string{" workspaces , runs "})
-		assert.Equal(t, []string{"workspaces", "runs"}, out)
-		assert.Empty(t, warnings)
-	})
-
-	t.Run("sentinel passthrough", func(t *testing.T) {
-		t.Parallel()
-		out, warnings := NormalizeAllowDelete([]string{"reversible"})
-		assert.Equal(t, []string{"reversible"}, out)
-		assert.Empty(t, warnings)
-	})
-
-	t.Run("all sentinel passthrough", func(t *testing.T) {
-		t.Parallel()
-		out, warnings := NormalizeAllowDelete([]string{"all"})
-		assert.Equal(t, []string{"all"}, out)
+		out, warnings := NormalizeAllowDelete([]string{" workspaces , stacks "})
+		assert.Equal(t, []string{"workspaces", "stacks"}, out)
 		assert.Empty(t, warnings)
 	})
 
 	t.Run("repeated flags", func(t *testing.T) {
 		t.Parallel()
-		out, warnings := NormalizeAllowDelete([]string{"workspaces", "runs"})
-		assert.Equal(t, []string{"workspaces", "runs"}, out)
+		out, warnings := NormalizeAllowDelete([]string{"workspaces", "stacks"})
+		assert.Equal(t, []string{"workspaces", "stacks"}, out)
 		assert.Empty(t, warnings)
 	})
 

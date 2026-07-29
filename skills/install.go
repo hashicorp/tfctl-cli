@@ -6,11 +6,14 @@ package skills
 import (
 	"fmt"
 	"io"
+	"iter"
 	"os"
 	"path/filepath"
 	"slices"
 
 	"github.com/mitchellh/go-homedir"
+
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 // AgentSpec defines the necessary information to install a skill for a coding agent.
@@ -19,7 +22,7 @@ type AgentSpec struct {
 	DisplayName         string
 	SkillsDir           string
 	GlobalSkillsDir     func() string
-	Detect              func() bool
+	DetectInstalled     func() bool
 	DetectParentProcess func() bool
 }
 
@@ -32,13 +35,19 @@ func detectHomeDirPath(dir string) bool {
 	return err == nil
 }
 
-// TFCTLSkillPath is the path to the embedded SKILL.md file within the binary.
-const TFCTLSkillPath = "tfctl/SKILL.md"
+const (
+	// TFCTLSkillPath is the path to the embedded SKILL.md file within the binary.
+	TFCTLSkillPath = "tfctl/SKILL.md"
+	// TFCTLKnownHashesPath is the path to the embedded hashes file within the binary.
+	TFCTLKnownHashesPath = "tfctl/known_release_hashes"
+)
 
-var agents map[string]AgentSpec
+var (
+	agents map[string]AgentSpec
 
-// AgentNames is a list of the names of all supported agents.
-var AgentNames []string
+	// AgentNames is a list of the names of all supported agents.
+	AgentNames []string
+)
 
 func init() {
 	agents = registerAgents()
@@ -73,7 +82,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.config/agents/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".config/amp")
 			},
 			DetectParentProcess: func() bool {
@@ -88,7 +97,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.gemini/config/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".gemini")
 			},
 			DetectParentProcess: func() bool {
@@ -104,7 +113,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.bob/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".bob")
 			},
 			DetectParentProcess: func() bool {
@@ -119,7 +128,7 @@ func registerAgents() map[string]AgentSpec {
 			GlobalSkillsDir: func() string {
 				return filepath.Join(claudeDir, "skills")
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				_, err := os.Stat(claudeDir)
 				return err == nil
 			},
@@ -134,7 +143,7 @@ func registerAgents() map[string]AgentSpec {
 			GlobalSkillsDir: func() string {
 				return filepath.Join(codexDir, "skills")
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				_, err := os.Stat(codexDir)
 				return err == nil
 			},
@@ -151,7 +160,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.copilot/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".copilot")
 			},
 			DetectParentProcess: func() bool {
@@ -166,7 +175,7 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.config/opencode/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".config/opencode")
 			},
 			DetectParentProcess: func() bool {
@@ -181,13 +190,70 @@ func registerAgents() map[string]AgentSpec {
 				path, _ := homedir.Expand("~/.pi/agent/skills")
 				return path
 			},
-			Detect: func() bool {
+			DetectInstalled: func() bool {
 				return detectHomeDirPath(".pi")
 			},
 			DetectParentProcess: func() bool {
 				return os.Getenv("PI_CODING_AGENT") == "true"
 			},
 		},
+	}
+}
+
+// DetectAnyExistingSkill checks returns the first existing skill it finds from any known
+// agent, starting with locally install skills, or nil if none are found.
+func DetectAnyExistingSkill() *InstalledSkill {
+	for _, name := range AgentNames {
+		if agent, ok := GetAgent(name); ok {
+			if s := agent.DetectLocallyInstalledSkill(); s != nil {
+				return s
+			}
+		}
+	}
+	for _, name := range AgentNames {
+		if agent, ok := GetAgent(name); ok {
+			if s := agent.DetectGloballyInstalledSkill(); s != nil {
+				return s
+			}
+		}
+	}
+	return nil
+}
+
+// DetectLocallyInstalledSkill checks if the tfctl skill already exists for the agent in the
+// local project directory, and returns an InstalledSkill if found.
+func (a *AgentSpec) DetectLocallyInstalledSkill() *InstalledSkill {
+	skillPath := filepath.Join(a.SkillsDir, TFCTLSkillPath)
+	if s, err := os.Stat(skillPath); err == nil && !s.IsDir() {
+		return &InstalledSkill{path: skillPath, global: false, agentName: a.Name}
+	}
+	return nil
+}
+
+// DetectGloballyInstalledSkill checks if the tfctl skill already exists for the agent in the
+// global config directory, and returns an InstalledSkill if found.
+func (a *AgentSpec) DetectGloballyInstalledSkill() *InstalledSkill {
+	globalSkillPath := filepath.Join(a.GlobalSkillsDir(), TFCTLSkillPath)
+	if s, err := os.Stat(globalSkillPath); err == nil && !s.IsDir() {
+		return &InstalledSkill{path: globalSkillPath, global: true, agentName: a.Name}
+	}
+	return nil
+}
+
+// InstalledSkills returns a sequence of both/either/neither installed skills for the agent.
+// First local, then global.
+func (a *AgentSpec) InstalledSkills() iter.Seq[*InstalledSkill] {
+	return func(yield func(*InstalledSkill) bool) {
+		if s := a.DetectLocallyInstalledSkill(); s != nil {
+			if !yield(s) {
+				return
+			}
+		}
+		if s := a.DetectGloballyInstalledSkill(); s != nil {
+			if !yield(s) {
+				return
+			}
+		}
 	}
 }
 
@@ -198,11 +264,21 @@ func GetAgent(name string) (AgentSpec, bool) {
 	return agent, ok
 }
 
-// DetectAgent returns a list of AgentSpecs for agents detected on the current system.
-func DetectAgent() []AgentSpec {
+// DetectAgent returns the first AgentSpec for any agent detected on the current system.
+func DetectAgent() (AgentSpec, bool) {
+	for _, agent := range agents {
+		if agent.DetectInstalled() {
+			return agent, true
+		}
+	}
+	return AgentSpec{}, false
+}
+
+// DetectAgents returns a list of AgentSpecs for agents detected on the current system.
+func DetectAgents() []AgentSpec {
 	var detected []AgentSpec
 	for _, agent := range agents {
-		if agent.Detect() {
+		if agent.DetectInstalled() {
 			detected = append(detected, agent)
 		}
 	}
@@ -210,15 +286,7 @@ func DetectAgent() []AgentSpec {
 	return detected
 }
 
-// InstallSkill installs the tfctl skill for the agent, either to the project directory or the
-// global config directory based on the value of the global parameter.
-func (a AgentSpec) InstallSkill(global bool) error {
-	file, err := FS.Open(TFCTLSkillPath)
-	if err != nil {
-		return fmt.Errorf("failed to open embedded SKILL.md file: %w", err)
-	}
-	defer file.Close()
-
+func (a AgentSpec) skillFilePath(global bool) (string, error) {
 	targetDir := a.SkillsDir
 	if global {
 		targetDir = a.GlobalSkillsDir()
@@ -227,19 +295,51 @@ func (a AgentSpec) InstallSkill(global bool) error {
 	targetDir = filepath.Join(targetDir, "tfctl")
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return fmt.Errorf("failed to create target directory %q: %w", targetDir, err)
+		return "", fmt.Errorf("failed to create target directory %q: %w", targetDir, err)
 	}
 
-	targetPath := fmt.Sprintf("%s/SKILL.md", targetDir)
-	targetFile, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("failed to create target file %q: %w", targetPath, err)
-	}
-	defer targetFile.Close()
+	return fmt.Sprintf("%s/SKILL.md", targetDir), nil
+}
 
-	_, err = io.Copy(targetFile, file)
+// installSkillToPath installs the tfctl skill for the agent to a specific file path.
+func (a AgentSpec) installSkillToPath(path string) error {
+	file, err := FS.Open(TFCTLSkillPath)
 	if err != nil {
-		return fmt.Errorf("failed to copy skill file to target location: %w", err)
+		return fmt.Errorf("failed to open embedded SKILL.md file: %w", err)
+	}
+	defer file.Close()
+
+	tempFile, err := os.CreateTemp(filepath.Dir(path), fmt.Sprintf("SKILL-%s-*", version.Name))
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	defer os.Remove(tempFile.Name())
+
+	_, err = io.Copy(tempFile, file)
+	if err != nil {
+		return fmt.Errorf("failed to write temporary file: %w", err)
+	}
+	err = tempFile.Sync()
+	if err != nil {
+		return fmt.Errorf("failed to sync temporary file: %w", err)
+	}
+	err = tempFile.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close temporary file: %w", err)
+	}
+
+	if err := os.Rename(tempFile.Name(), path); err != nil {
+		return fmt.Errorf("failed to install to target path: %w", err)
 	}
 	return nil
+}
+
+// InstallSkill installs the tfctl skill for the agent, either to the project directory or the
+// global config directory based on the value of the global parameter.
+func (a AgentSpec) InstallSkill(global bool) error {
+	targetPath, err := a.skillFilePath(global)
+	if err != nil {
+		return err
+	}
+	return a.installSkillToPath(targetPath)
 }

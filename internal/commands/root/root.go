@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/commands/profile"
 	"github.com/hashicorp/tfctl-cli/internal/commands/run"
 	"github.com/hashicorp/tfctl-cli/internal/commands/variable"
+	"github.com/hashicorp/tfctl-cli/internal/commands/versioncmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -45,6 +46,7 @@ func NewCmdRoot(inv *cmd.Invocation) *cmd.Command {
 	c.AddChild(variable.NewCmdVariable(inv))
 	c.AddChild(profile.NewCmdProfile(inv))
 	c.AddChild(harness.NewCmdHarness(inv))
+	c.AddChild(versioncmd.NewCmdVersion(inv))
 
 	// Configure the command as the root command.
 	cmd.ConfigureRootCommand(inv, c)

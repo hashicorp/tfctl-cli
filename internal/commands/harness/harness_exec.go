@@ -48,8 +48,9 @@ func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 	}
 
 	command := &cmd.Command{
-		Name:      "exec",
-		ShortHelp: "Run a command with session-scoped tfctl permissions.",
+		Name:           "exec",
+		NoAuthRequired: true,
+		ShortHelp:      "Run a command with session-scoped tfctl permissions.",
 		LongHelp: heredoc.New(inv.IO, heredoc.WithPreserveNewlines()).Mustf(`
 		The {{ template "mdCodeOrBold" "%s harness exec" }} command runs a child command (such as a coding agent) with a short-lived, session-scoped permission that lets nested {{ Bold "tfctl" }} invocations perform noninteractive deletes.
 
@@ -57,21 +58,20 @@ func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 
 		This is a {{ Bold "safety rail, not a security boundary" }}: the child runs as the same OS user, so a true guarantee that an agent cannot delete must come from the API token scope server-side.
 
-		Use {{ template "mdCodeOrBold" "--allow-delete" }} to name the resource classes that may be deleted noninteractively. Repeat the flag or pass a comma-separated list. The special tokens {{ template "mdCodeOrBold" "reversible" }} and {{ template "mdCodeOrBold" "all" }} cover any reversible class, but {{ Bold "never" }} cover the irreversible classes {{ template "mdCodeOrBold" "organizations" }} and {{ template "mdCodeOrBold" "projects" }} — those must always be named explicitly.
+		Use {{ template "mdCodeOrBold" "--allow-delete" }} to name the resource types that may be deleted noninteractively. Only resource types that are explicitly named may be deleted noninteractively. Repeat the flag or pass a comma-separated list.
 
 		The child command and its arguments must follow a {{ template "mdCodeOrBold" "--" }} separator.
 		`, version.Name),
 		Examples: []cmd.Example{
 			{
-				Preamble: "Allow an agent to delete workspaces and runs for one session:",
-				Command:  "$ tfctl harness exec --allow-delete=workspaces,runs -- opencode",
+				Preamble: "Allow an agent to delete workspaces and vars for one session:",
+				Command:  "$ tfctl harness exec --allow-delete=workspaces,vars -- opencode",
 			},
 			{
-				Preamble: "Explicitly allow deleting projects (an irreversible class):",
+				Preamble: "Explicitly allow deleting projects (an irreversible action!):",
 				Command:  "$ tfctl harness exec --allow-delete=projects -- ./ci-script.sh",
 			},
 		},
-		NoAuthRequired: true,
 		Args: cmd.PositionalArguments{
 			// The child command + args are passed through verbatim; bypass count
 			// validation and enforce "at least one" inside runExec so we can emit
@@ -99,8 +99,8 @@ func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 			Local: []*cmd.Flag{
 				{
 					Name:         "allow-delete",
-					DisplayValue: "CLASSES",
-					Description:  "Resource classes that nested tfctl may delete noninteractively (repeatable, CSV). Special tokens: reversible, all. organizations/projects must be named explicitly.",
+					DisplayValue: "RESOURCE_TYPES",
+					Description:  "Resource types that nested processes may delete noninteractively (repeatable, CSV). Use with caution.",
 					Repeatable:   true,
 					Value:        flagvalue.SimpleSlice(nil, &execOpts.AllowDelete),
 					Autocomplete: complete.PredictSet(execsession.AllowDeleteCompletions()...),
@@ -131,7 +131,7 @@ func runExec(ctx context.Context, opts *ExecOpts) error {
 	cs := opts.IO.ColorScheme()
 
 	if len(opts.Argv) == 0 {
-		return errors.New("no command to run; usage: tfctl harness exec [--allow-delete=CLASSES] -- <command> [args...]")
+		return errors.New("no command to run; usage: tfctl harness exec [--allow-delete=RESOURCE_TYPES] -- <command> [args...]")
 	}
 
 	perms, warnings := execsession.NormalizeAllowDelete(opts.AllowDelete)
@@ -156,7 +156,7 @@ func runExec(ctx context.Context, opts *ExecOpts) error {
 	}()
 
 	logger.Debug("exec session created", "allow_delete", perms)
-	fmt.Fprintf(opts.IO.Err(), "%s tfctl deletes enabled for this session: %v\n", cs.WarningLabel(), perms)
+	fmt.Fprintln(opts.IO.Err(), heredoc.New(opts.IO, heredoc.WithNoWrap()).Mustf(`%s %s allows non-interactive deletes in this session for these types: {{ template "mdCodeOrBold" "%s" }}`, cs.WarningLabel(), version.Name, strings.Join(perms, ", ")))
 
 	env := append(os.Environ(), execsession.EnvVar+"="+handle.Token())
 	code, runErr := opts.Run(ctx, opts.Argv, env, opts.IO)

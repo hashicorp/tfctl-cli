@@ -6,7 +6,6 @@ package main
 
 import (
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
 	"os"
@@ -22,19 +21,58 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/checkpoint"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
-	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
+	"github.com/hashicorp/tfctl-cli/skills"
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
-//go:embed logo.txt
-var Logo string
+var (
+	envSkipMigrate       = "TFCTL_SKIP_MIGRATE"
+	envCheckpointDisable = "CHECKPOINT_DISABLE"
+)
 
 func main() {
 	os.Exit(realMain())
+}
+
+func isGlobalBooleanArg(arg string, bareForm string) bool {
+	return arg == bareForm || arg == fmt.Sprintf("%s=true", bareForm)
+}
+
+func isDryRun(args []string) bool {
+	for _, a := range args {
+		if isGlobalBooleanArg(a, "--dry-run") {
+			return true
+		}
+	}
+	return false
+}
+
+func isVersion(args []string) bool {
+	if len(args) == 0 {
+		return true
+	}
+
+	allowVersionCommand := true
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, "-") {
+			// A non-flag argument before version flags indicates that this is not a version request.
+			return false
+		}
+
+		if !isGlobalBooleanArg(arg, "--no-color") && !isGlobalBooleanArg(arg, "--debug") && !isGlobalBooleanArg(arg, "--quiet") {
+			allowVersionCommand = false
+		}
+
+		// Any of these coming first indicate a version command
+		if arg == "-v" || arg == "-version" || arg == "--version" {
+			return true
+		}
+	}
+	return allowVersionCommand
 }
 
 func realMain() int {
@@ -65,29 +103,36 @@ func realMain() int {
 	// Explore relevant global args before the command parses them to set up non-command output
 	initialLogLevel := logging.LevelDefault
 	for _, a := range args {
-		if a == "--debug" {
+		if isGlobalBooleanArg(a, "--debug") {
 			initialLogLevel = logging.LevelDebug
 		}
-		if a == "--no-color" {
+		if isGlobalBooleanArg(a, "--no-color") {
 			io.ForceNoColor()
 		}
-		if a == "--quiet" {
+		if isGlobalBooleanArg(a, "--quiet") {
 			io.SetQuiet(true)
 		}
 	}
 
-	// The logger level will need to be set by the command after parsing flags.
+	// The actual logger level will be set by the command after parsing flags.
 	logger := logging.NewLogger(io, initialLogLevel)
 
-	// Add the logger to the shutdown context because this is the context used throughout
-	// the command execution lifecycle.
+	// Add the logger to the main context for use everywhere else.
 	shutdownCtx = logging.WithLogger(shutdownCtx, logger)
 
-	// Run the checkpoint request in a separate goroutine. It's important to always execute
+	// Checkpoint is HashiCorp's service for checking the current version against the
+	// latest, providing any relevant warnings about the current release in rare situations.
+	// Run the request in a separate goroutine. It's important to always execute
 	// this without condition because checkForNewVersion will block until it is complete
-	go checkpoint.Run(shutdownCtx, os.Getenv("CHECKPOINT_DISABLE") != "")
+	go checkpoint.Run(shutdownCtx, os.Getenv(envCheckpointDisable) != "")
 
-	// Create the profile loader
+	// Conditionally begin migrating any existing skills that match an older version to the embedded version.
+	var migration *skills.Migration
+	if !isDryRun(args) && os.Getenv(envSkipMigrate) == "" {
+		migration = skills.StartMigration(shutdownCtx)
+	}
+
+	// Create the profile loader and load the active profile.
 	loader, err := profile.NewLoader()
 	if err != nil {
 		fmt.Fprintln(io.Err(), err)
@@ -156,19 +201,18 @@ func realMain() int {
 		},
 	}
 
-	onlyFlagsInArgs := true
-	for _, arg := range args {
-		if !strings.HasPrefix(arg, "-") {
-			onlyFlagsInArgs = false
-			break
+	// Override the hashicorp/cli behavior of `tfctl --version` by rewriting the arguments to invoke the
+	// hidden "version" command. It's important not to call c.IsVersion() here because that would
+	// init the args, making overwriting them ineffective.
+	if isVersion(c.Args) || len(c.Args) == 0 {
+		newArgs := []string{"version"}
+		for _, arg := range c.Args {
+			// Strip all the possible version flags from the arguments
+			if arg != "--version" && arg != "-version" && arg != "-v" {
+				newArgs = append(newArgs, arg)
+			}
 		}
-	}
-
-	// If the user is running the root command, without --help or --version
-	// show the banner and exit.
-	if !c.IsVersion() && !c.IsHelp() && onlyFlagsInArgs {
-		showBanner(io)
-		return 0
+		c.Args = newArgs
 	}
 
 	status, err := c.Run()
@@ -176,51 +220,34 @@ func realMain() int {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
 	}
 
-	if status == 0 && c.IsVersion() {
-		checkForNewVersion(io)
-	}
-
-	// Don't worry about telemetry errors at all
-	if err = tel.Shutdown(shutdownCtx, status); err != nil {
-		logger.Debug("Error occurred while shutting down telemetry", "error", err)
-	}
+	shutdownMain(shutdownCtx, status, migration)
 
 	return status
 }
 
-func showBanner(io iostreams.IOStreams) {
-	if io.ColorEnabled() && io.IsOutputTTY() {
-		cs := io.ColorScheme()
-		// Prepends two spaces before every line of the logo and after the final line
-		fmt.Fprintf(io.ErrUnessential(), "  %s", strings.Join(strings.Split(Logo, "\n"), "\n  "))
-		fmt.Fprintf(io.ErrUnessential(), "%s\n", cs.String(version.Version).Color(cs.Purple()).Bold())
-		fmt.Fprintln(io.ErrUnessential(), "")
-	} else {
-		fmt.Fprintln(io.ErrUnessential(), version.Version)
-	}
+func shutdownMain(ctx context.Context, exitCode int, migration *skills.Migration) {
+	logger := logging.FromContext(ctx)
+	tel := telemetry.FromContext(ctx)
 
-	fmt.Fprintln(io.Err(), heredoc.New(io).Mustf(`Get started by running {{ template "mdCodeOrBold" "%s auth login" }}
-to authenticate with your user account or run {{ template "mdCodeOrBold" "%s --help" }} for usage
-information. Release notes for this version are available at
-{{ template "mdCodeOrBold" "https://github.com/hashicorp/tfctl-cli/blob/%s/CHANGELOG.md" }}
-`, version.Name, version.Name, version.Version))
-	fmt.Fprintln(io.Err(), "")
-
-	checkForNewVersion(io)
-}
-
-func checkForNewVersion(io iostreams.IOStreams) {
-	cs := io.ColorScheme()
-	versionInfo := checkpoint.WaitForVersionCheck()
-	if versionInfo.Outdated {
-		fmt.Fprintf(io.ErrUnessential(), "A new version of %s is available: %s\n", version.Name, cs.String(fmt.Sprintf("v%s", versionInfo.Latest)).Color(cs.Purple()).Bold())
-	}
-	if len(versionInfo.Alerts) > 0 {
-		fmt.Fprintln(io.ErrUnessential(), "")
-		fmt.Fprintf(io.ErrUnessential(), "%s: %s\n", cs.WarningLabel(), "There are alerts regarding your current version.")
-		for _, alert := range versionInfo.Alerts {
-			fmt.Fprintln(io.ErrUnessential(), heredoc.New(io, heredoc.WithNoWrap()).Mustf(" - %s", alert))
+	// Wait for any ongoing skill migrations to complete
+	if migration != nil {
+		migrationResults, err := migration.Wait(ctx)
+		if err != nil {
+			logger.Debug("Skipped skill migration", "error", err)
 		}
+
+		for _, result := range migrationResults {
+			if result.FailedReason != nil {
+				logger.Error("Failed to migrate skill", "path", result.SkillPath, "reason", result.FailedReason.Error())
+			} else {
+				logger.Debug("Migrated skill", "path", result.SkillPath, "from", result.PreviousVersion)
+			}
+		}
+	}
+
+	// Don't worry about telemetry errors at all
+	if err := tel.Shutdown(ctx, exitCode); err != nil {
+		logger.Debug("Error occurred while shutting down telemetry", "error", err)
 	}
 }
 

@@ -5,75 +5,27 @@ package execsession
 
 import (
 	"fmt"
-	"sort"
 	"strings"
-)
 
-// IrreversibleClasses are resource classes whose deletes cannot be undone, so
-// they are NEVER covered by wildcards and must be named explicitly in
-// --allow-delete.
-var IrreversibleClasses = map[string]bool{
-	"organizations": true,
-	"projects":      true,
-}
-
-// KnownClasses is a best-effort set of resource classes that tfctl can delete.
-// It is used only to warn (not hard-fail) when --allow-delete names something
-// outside this set, because the API surface is large and evolving.
-var KnownClasses = map[string]bool{
-	"organizations":               true,
-	"projects":                    true,
-	"workspaces":                  true,
-	"runs":                        true,
-	"vars":                        true,
-	"varsets":                     true,
-	"teams":                       true,
-	"team-workspaces":             true,
-	"notification-configurations": true,
-	"configuration-versions":      true,
-	"state-versions":              true,
-	"policy-checks":               true,
-	"policies":                    true,
-	"policy-sets":                 true,
-	"remote-state-consumers":      true,
-	"oauth-clients":               true,
-	"oauth-tokens":                true,
-	"ssh-keys":                    true,
-	"agent-pools":                 true,
-	"registry-modules":            true,
-	"registry-providers":          true,
-}
-
-// Sentinels accepted in --allow-delete that mean "any reversible class". "all"
-// is treated identically to "reversible" on purpose so there is no footgun
-// token that silently includes orgs/projects.
-const (
-	// SentinelReversible permits deletes of any reversible resource class.
-	SentinelReversible = "reversible"
-
-	// SentinelAll is an alias for SentinelReversible. It does NOT cover
-	// irreversible classes.
-	SentinelAll = "all"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
 // AllowDeleteCompletions returns the suggested values for --allow-delete: every
-// known resource class plus the reversible/all sentinels, sorted and
-// deduplicated. The irreversible classes are intentionally included so a human
-// can tab-complete them when naming them explicitly (wildcards never cover
-// them, but explicit grants are allowed).
+// known destroyable resource class.
 func AllowDeleteCompletions() []string {
-	out := make([]string, 0, len(KnownClasses)+2)
-	out = append(out, SentinelReversible, SentinelAll)
-	for class := range KnownClasses {
-		out = append(out, class)
+	allResources := resource.All()
+
+	out := make([]string, 0, len(allResources))
+	for _, r := range allResources {
+		if r.Destroyable != resource.NotDestroyable {
+			out = append(out, r.Type)
+		}
 	}
-	sort.Strings(out)
 	return out
 }
 
 // AllowsDelete reports whether class is permitted by the granted set. Explicit
-// class names always match (including irreversible classes). The reversible/all
-// sentinels match any non-irreversible class. An empty/unknown class is always
+// class names always match. An empty/unknown class is always
 // denied.
 func AllowsDelete(granted []string, class string) bool {
 	for _, g := range granted {
@@ -85,15 +37,19 @@ func AllowsDelete(granted []string, class string) bool {
 	if class == "" {
 		return false // unknown path -> deny
 	}
-	if IrreversibleClasses[class] {
-		return false // wildcards never cover irreversible classes
+
+	ponder, ok := resource.ByName(class)
+	if !ok {
+		// The class is unknown to this CLI, so it cannot be allowed.
+		return false
 	}
 
 	for _, g := range granted {
-		if g == SentinelReversible || g == SentinelAll {
+		if g == ponder.Type {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -148,28 +104,27 @@ func isAllDigits(s string) bool {
 }
 
 // NormalizeAllowDelete lowercases, trims, and CSV-splits the raw --allow-delete
-// values into a normalized, deduplicated list of classes. Unknown classes (not
-// in KnownClasses and not a sentinel) are returned as warnings but are still
-// kept in the output, since the API surface is large.
+// values into a normalized, deduplicated list of types. Unknown types (not
+// are returned as warnings but are still kept in the output, since the API surface is large.
 func NormalizeAllowDelete(in []string) (out []string, warnings []string) {
 	seen := make(map[string]bool)
 	for _, raw := range in {
 		for _, part := range strings.Split(raw, ",") {
-			class := strings.ToLower(strings.TrimSpace(part))
-			if class == "" {
+			grant := strings.ToLower(strings.TrimSpace(part))
+			if grant == "" {
 				continue
 			}
-			if seen[class] {
+			if seen[grant] {
 				continue
 			}
-			seen[class] = true
-			out = append(out, class)
+			seen[grant] = true
+			out = append(out, grant)
 
-			if class == SentinelReversible || class == SentinelAll {
-				continue
-			}
-			if !KnownClasses[class] {
-				warnings = append(warnings, fmt.Sprintf("unknown resource class %q in --allow-delete; it will be honored literally but may never match a delete path", class))
+			found, ok := resource.ByName(grant)
+			if !ok {
+				warnings = append(warnings, fmt.Sprintf("unknown resource type %q in --allow-delete; it may still be honored", grant))
+			} else if found.Destroyable == resource.NotDestroyable {
+				warnings = append(warnings, fmt.Sprintf("resource type %q in --allow-delete is known to be not destroyable and will never match a delete path", found.Type))
 			}
 		}
 	}

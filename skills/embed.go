@@ -10,3 +10,16 @@ import "embed"
 //
 //go:embed tfctl
 var FS embed.FS
+
+// EmbeddedSkillHash returns the SHA256 hash of the embedded SKILL.md file.
+func EmbeddedSkillHash() string {
+	file, err := FS.Open(TFCTLSkillPath)
+	if err != nil {
+		return ""
+	}
+	hash, err := hashSHA256Hex(file)
+	if err != nil {
+		return ""
+	}
+	return hash
+}
