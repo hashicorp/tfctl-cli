@@ -83,6 +83,11 @@ func (i *Invocation) IsDryRun() bool {
 	return i.GetGlobalFlags().dryRun
 }
 
+// IsQuiet returns true when commands should avoid unessential output.
+func (i *Invocation) IsQuiet() bool {
+	return i.GetGlobalFlags().Quiet
+}
+
 // ResolveLogLevel returns the resolved verbosity level, with the --debug
 // flag taking precedence over the profile setting.
 func (i *Invocation) ResolveLogLevel() hclog.Level {

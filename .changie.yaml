@@ -17,7 +17,9 @@ kinds:
     - label: BUG FIXES
       auto: patch
     - label: NOTES
+      auto: none
     - label: BREAKING CHANGES
+      auto: major
 newlines:
     afterChangelogHeader: 0
     beforeKind: 1

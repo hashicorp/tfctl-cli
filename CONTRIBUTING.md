@@ -21,7 +21,7 @@ make check            # Verify everything passes before creating PR
   - `--json` &mdash; Force machine readable output to stdout. Does not apply to stderr.
   - `--markdown` &mdash; Force markdown output to stdout. Does not apply to stderr.
   - `--dry-run` &mdash; Don't make any actual writes or other mutations. Describe what would have changed to stderr.
-  - `--quiet` &mdash; Don't render output to stdout.
+  - `--quiet` &mdash; Only render essential content.
 - [ ] Get the logging interface from the context and add debug logging for interesting conditions and nonfatal situations.
 - [ ] Run `make gen/screenshot` if the root command output changes.
 - [ ] Add the `Autocomplete` field to **positional arguments** and **flags** to assist shell autocomplete.

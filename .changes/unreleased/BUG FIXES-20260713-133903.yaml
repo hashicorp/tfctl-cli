@@ -1,3 +1,0 @@
-kind: BUG FIXES
-body: Fix `api --all` returning no output when the result fits in a single page. The response body was consumed while checking for additional pages and not restored, so single-page responses rendered empty.
-time: 2026-07-13T13:39:03-04:00

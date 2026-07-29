@@ -118,7 +118,7 @@ func NewCmdGet(inv *cmd.Invocation) *cmd.Command {
 		RunF: func(_ *cmd.Command, args []string) error {
 			opts.DryRun = inv.IsDryRun()
 			opts.ProfileOrganization = inv.Profile.DefaultOrganization
-			opts.Quiet = inv.GetGlobalFlags().Quiet
+			opts.Quiet = inv.IsQuiet()
 			opts.Args = args
 			opts.IO = inv.IO
 			opts.Output = inv.Output

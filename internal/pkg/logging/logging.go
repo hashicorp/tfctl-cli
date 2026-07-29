@@ -47,7 +47,7 @@ func NewLogger(io iostreams.IOStreams, initialLevel hclog.Level) hclog.Logger {
 	logOpt := &hclog.LoggerOptions{
 		Name:       version.Name,
 		Level:      initialLevel,
-		Output:     io.Err(),
+		Output:     io.ErrUnessential(),
 		TimeFn:     time.Now,
 		TimeFormat: "15:04:05.000",
 		Color:      hclog.ColorOff, // Enabled later, maybe

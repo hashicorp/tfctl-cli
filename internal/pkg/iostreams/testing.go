@@ -51,6 +51,9 @@ func Test() *Testing {
 func (t *Testing) In() io.Reader  { return t.Input }
 func (t *Testing) Out() io.Writer { return t.Output }
 func (t *Testing) Err() io.Writer {
+	return t.Error
+}
+func (t *Testing) ErrUnessential() io.Writer {
 	if t.quiet {
 		return io.Discard
 	}

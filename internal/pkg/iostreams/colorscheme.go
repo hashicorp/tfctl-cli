@@ -18,6 +18,7 @@ const (
 	yellow     = "#FFD814"
 	gray       = "#C2C5CB"
 	lightgreen = "#73DACA"
+	purple     = "#7B5AF0"
 )
 
 // Emphasis is used to style text.
@@ -240,6 +241,13 @@ func (cs *ColorScheme) Gray() Color {
 func (cs *ColorScheme) LightGreen() Color {
 	return Color{
 		color: cs.profile.Color(lightgreen),
+	}
+}
+
+// Purple is Terraform purple.
+func (cs *ColorScheme) Purple() Color {
+	return Color{
+		color: cs.profile.Color(purple),
 	}
 }
 

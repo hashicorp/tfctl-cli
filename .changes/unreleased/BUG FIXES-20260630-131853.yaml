@@ -1,3 +1,0 @@
-kind: BUG FIXES
-body: Don't attempt to retry telemetry transmission on server errors, like rate limiting 429 errors.
-time: 2026-06-30T13:18:53.530515-06:00

@@ -42,7 +42,7 @@ var (
 
 // IsDev returns true if the current version is a development version.
 func IsDev() bool {
-	return strings.HasSuffix(version, "-dev")
+	return strings.HasSuffix(Version, "-dev")
 }
 
 // Commit returns the git commit used for this specific version.
@@ -68,7 +68,7 @@ func mustParseTime(ts string) time.Time {
 // version, we will ensure it is prefixed with a `v`. If not, we will leave the
 // version as is and return it.
 func publicVersion(v string) string {
-	sv, err := goversion.NewSemver(v)
+	sv, err := goversion.NewSemver(strings.TrimRight(v, "\r\n"))
 	if err != nil {
 		return v
 	}

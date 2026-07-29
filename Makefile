@@ -34,7 +34,11 @@ clean:
 
 .PHONY: gen/screenshot
 gen/screenshot: go/install # Create a screenshot of the tfctl CLI
-	@go run github.com/homeport/termshot/cmd/termshot@v0.6.1 -c -f $(ASSETS)/tfctl.png -- tfctl
+	@go run github.com/homeport/termshot/cmd/termshot@v0.6.1 -c -f $(ASSETS)/tfctl.png -- tfctl --help
+
+.PHONY: gen/logo
+gen/logo: logotools
+	@lolcat -S 26 -f <(figlet -d ./assets -f "Sub-Zero.flf" tfctl) > ./cmd/tfctl/logo.txt
 
 .PHONY: go/build
 go/build: bin
@@ -72,6 +76,18 @@ tools:
 		fi; \
 	}
 
+.PHONY: logotools
+logotools:
+	@command -v lolcat >/dev/null 2>&1 || { \
+		echo "Installing lolcat..."; \
+		if command -v brew >/dev/null 2>&1; then brew install lolcat; \
+		else echo "Could not auto-install lolcat: https://github.com/busyloop/lolcat" && exit 1; \
+		fi; \
+	}
+	@command -v figlet >/dev/null 2>&1 || { \
+		echo "Install figlet https://www.figlet.org/" && exit 1; \
+	}
+
 .PHONY: check
 check: fmt-check go/lint go/test
 
@@ -83,6 +99,7 @@ help:
 	@echo "Tools:"
 	@echo " tools           Install development tools"
 	@echo " gen/screenshot  Generate a screenshot of the CLI in $(ASSETS)/"
+	@echo " gen/logo        Generate the ASCII art logo"
 	@echo ""
 	@echo "Build:"
 	@echo " go/install      Install tfctl binary to GOPATH/bin"
