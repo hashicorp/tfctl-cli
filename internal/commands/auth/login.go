@@ -33,13 +33,31 @@ const (
 // non-error exit rather than a failure.
 var errLoginCanceled = errors.New("login canceled")
 
+// LoginOpts defines the options for the `auth login` command.
+type LoginOpts struct {
+	IO           iostreams.IOStreams
+	Hostname     string
+	Output       *format.Outputter
+	NewAPIClient func(token string) (*client.Client, error)
+	Profile      *profile.Profile
+
+	// OpenBrowser opens a URL in the user's default browser. When nil, the
+	// package default openBrowser is used. Tests inject a no-op opener to avoid
+	// launching a real browser and to keep parallel tests free of shared state.
+	OpenBrowser func(url string) error
+
+	Name           string
+	TokenFromStdin bool
+	DryRun         bool
+}
+
 // NewCmdLogin returns the `auth login` command for authenticating.
 func NewCmdLogin(inv *cmd.Invocation) *cmd.Command {
-	opts := &LoginOpts{
+	opts := LoginOpts{
 		IO:          inv.IO,
-		Profile:     inv.Profile,
 		Output:      inv.Output,
 		OpenBrowser: openBrowser,
+		Profile:     inv.Profile,
 	}
 
 	cmd := &cmd.Command{
@@ -72,7 +90,7 @@ func NewCmdLogin(inv *cmd.Invocation) *cmd.Command {
 				{
 					Name:          "token",
 					Description:   "Read the token from standard input instead of prompting.",
-					Value:         flagvalue.Simple(false, &opts.Token),
+					Value:         flagvalue.Simple(false, &opts.TokenFromStdin),
 					IsBooleanFlag: true,
 				},
 			},
@@ -80,39 +98,36 @@ func NewCmdLogin(inv *cmd.Invocation) *cmd.Command {
 		NoAuthRequired: true,
 		RunF: func(_ *cmd.Command, _ []string) error {
 			opts.DryRun = inv.IsDryRun()
-			return loginRun(inv.ShutdownCtx, inv, opts)
+			opts.Hostname = inv.Profile.GetHostname()
+			opts.NewAPIClient = func(token string) (*client.Client, error) {
+				return inv.NewAPIClientForHost(inv.Profile.GetHostname(), token)
+			}
+			if opts.DryRun {
+				opts.OpenBrowser = func(url string) error {
+					cs := opts.IO.ColorScheme()
+					fmt.Fprintf(opts.IO.Err(), "%s would open the web browser to URL %s\n",
+						cs.DryRunLabel(), url)
+					return fmt.Errorf("can't open web browser when --dry-run is enabled")
+				}
+			}
+
+			return loginRun(inv.ShutdownCtx, opts)
 		},
 	}
 
 	return cmd
 }
 
-// LoginOpts defines the options for the `auth login` command.
-type LoginOpts struct {
-	IO      iostreams.IOStreams
-	Profile *profile.Profile
-	Output  *format.Outputter
-
-	// OpenBrowser opens a URL in the user's default browser. When nil, the
-	// package default openBrowser is used. Tests inject a no-op opener to avoid
-	// launching a real browser and to keep parallel tests free of shared state.
-	OpenBrowser func(url string) error
-
-	Name   string
-	Token  bool
-	DryRun bool
-}
-
-func loginRun(ctx context.Context, inv *cmd.Invocation, opts *LoginOpts) error {
-	hostname := opts.Profile.GetHostname()
+func loginRun(ctx context.Context, opts LoginOpts) error {
+	hostname := opts.Hostname
 	logger := logging.FromContext(ctx)
 
-	logger.Debug("starting login process", "hostname", hostname, "token_from_stdin", opts.Token)
+	logger.Debug("Starting login process", "hostname", hostname, "token_from_stdin", opts.TokenFromStdin)
 
 	// Read the token.
 	var token string
 	var err error
-	if opts.Token {
+	if opts.TokenFromStdin {
 		token, err = readTokenFromStdin(opts)
 	} else {
 		token, err = readTokenInteractive(opts, hostname)
@@ -126,18 +141,15 @@ func loginRun(ctx context.Context, inv *cmd.Invocation, opts *LoginOpts) error {
 	}
 
 	// Set the token on the profile and create a client to verify it.
-	opts.Profile.Token = token
-	logger.Debug("verifying token", "hostname", hostname)
-	apiClient, err := inv.NewAPIClient()
+	err = saveToken(ctx, opts, hostname, token)
 	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+		return err
 	}
-
-	return saveToken(ctx, opts, apiClient, hostname, token)
+	return nil
 }
 
 // readTokenFromStdin reads a token from stdin.
-func readTokenFromStdin(opts *LoginOpts) (string, error) {
+func readTokenFromStdin(opts LoginOpts) (string, error) {
 	scanner := bufio.NewScanner(opts.IO.In())
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
@@ -157,7 +169,7 @@ func readTokenFromStdin(opts *LoginOpts) (string, error) {
 // readTokenInteractive explains the flow, asks the user to confirm, opens the
 // browser to the token page, and prompts for the generated token. The user must
 // confirm before the browser is opened; declining is a clean exit.
-func readTokenInteractive(opts *LoginOpts, hostname string) (string, error) {
+func readTokenInteractive(opts LoginOpts, hostname string) (string, error) {
 	if !opts.IO.CanPrompt() {
 		return "", fmt.Errorf("interactive login requires a terminal; use --token to read from stdin")
 	}
@@ -190,9 +202,13 @@ func readTokenInteractive(opts *LoginOpts, hostname string) (string, error) {
 		openURL = openBrowser
 	}
 	if err := openURL(tokenURL); err != nil {
+		reason := ""
+		if opts.DryRun {
+			reason = " when --dry-run is enabled"
+		}
 		fmt.Fprintf(opts.IO.Err(),
-			"%s Could not open the browser automatically. Open the URL above manually.\n\n",
-			cs.WarningLabel())
+			"%s Could not open the browser automatically%s. Visit the URL above to continue.\n\n",
+			cs.WarningLabel(), reason)
 	}
 
 	// Prompt for the token and read it without echoing.
@@ -215,22 +231,31 @@ func readTokenInteractive(opts *LoginOpts, hostname string) (string, error) {
 }
 
 // saveToken verifies the token via the API and persists it to the profile.
-func saveToken(ctx context.Context, opts *LoginOpts, apiClient *client.Client, hostname, token string) error {
-	cs := opts.IO.ColorScheme()
+func saveToken(ctx context.Context, opts LoginOpts, hostname, token string) error {
+	logger := logging.FromContext(ctx)
 
+	apiClient, err := opts.NewAPIClient(token)
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	logger.Debug("Verifying token", "hostname", hostname)
 	user, err := verifyToken(ctx, apiClient)
 	if err != nil {
 		return fmt.Errorf("failed to verify token: %w", err)
 	}
 
+	cs := opts.IO.ColorScheme()
 	if opts.DryRun {
 		fmt.Fprintf(opts.IO.Err(), "%s would save token to profile %q for host %s (user: %s)\n",
 			cs.DryRunLabel(), opts.Profile.Name, hostname, user)
 		return nil
 	}
 
-	opts.Profile.Token = token
-	if err := opts.Profile.Write(); err != nil {
+	profile := opts.Profile
+
+	profile.Token = token
+	if err := profile.Write(); err != nil {
 		return fmt.Errorf("failed to save token to profile: %w", err)
 	}
 

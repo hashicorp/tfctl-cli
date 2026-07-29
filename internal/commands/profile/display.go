@@ -73,8 +73,8 @@ func (p *displayDisplayer) FieldTemplates() []format.Field {
 			ValueFormat: "{{ .Name }}",
 		},
 		{
-			Name:        "Organization",
-			ValueFormat: "{{ .Organization }}",
+			Name:        "Default Organization",
+			ValueFormat: "{{ .DefaultOrganization }}",
 		},
 		{
 			Name:        "Hostname",

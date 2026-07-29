@@ -5,6 +5,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hashicorp/tfctl-cli/internal/pkg/client"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
@@ -40,17 +42,44 @@ func newFakeTFE(t *testing.T, username string) *httptest.Server {
 // It injects a no-op browser opener into the options so tests never launch a
 // real browser and never mutate shared package state (keeping them race-free
 // under t.Parallel()).
-func runLogin(t *testing.T, opts *LoginOpts) error {
+func runLogin(t *testing.T, opts LoginOpts) error {
 	t.Helper()
 	if opts.OpenBrowser == nil {
 		opts.OpenBrowser = func(string) error { return nil }
 	}
-	inv := &cmd.Invocation{
-		IO:          opts.IO,
-		Profile:     opts.Profile,
+	return loginRun(context.Background(), opts)
+}
+
+func createLoginOpts(t *testing.T, profile *profile.Profile, tokenFromStdin, dryRun bool) LoginOpts {
+	t.Helper()
+	return createLoginOptsWithIO(t, iostreams.Test(), profile, tokenFromStdin, dryRun)
+}
+
+func createLoginOptsWithIO(t *testing.T, io iostreams.IOStreams, profile *profile.Profile, tokenFromStdin, dryRun bool) LoginOpts {
+	t.Helper()
+
+	inv := cmd.Invocation{
+		IO:          io,
+		Profile:     profile,
 		ShutdownCtx: context.Background(),
 	}
-	return loginRun(inv.ShutdownCtx, inv, opts)
+
+	return LoginOpts{
+		IO:             io,
+		Profile:        profile,
+		TokenFromStdin: tokenFromStdin,
+		NewAPIClient: func(token string) (*client.Client, error) {
+			return inv.NewAPIClientForHost(profile.GetHostname(), token)
+		},
+		Hostname: profile.GetHostname(),
+		OpenBrowser: func(string) error {
+			if dryRun {
+				return errors.New("dry run")
+			}
+			return nil
+		},
+		DryRun: dryRun,
+	}
 }
 
 func TestLoginFromStdin(t *testing.T) {
@@ -66,13 +95,7 @@ func TestLoginFromStdin(t *testing.T) {
 	io := iostreams.Test()
 	io.Input.WriteString("my-test-token\n")
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-	}
-
-	r.NoError(runLogin(t, opts))
+	r.NoError(runLogin(t, createLoginOptsWithIO(t, io, p, true, false)))
 	r.Contains(io.Error.String(), "Successfully logged in")
 	r.Contains(io.Error.String(), "testuser")
 
@@ -93,12 +116,7 @@ func TestLoginFromStdin_CustomHostname(t *testing.T) {
 
 	io := iostreams.Test()
 	io.Input.WriteString("custom-token\n")
-
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-	}
+	opts := createLoginOptsWithIO(t, io, p, true, false)
 
 	r.NoError(runLogin(t, opts))
 	r.Contains(io.Error.String(), "Successfully logged in")
@@ -116,13 +134,7 @@ func TestLoginFromStdin_EmptyToken(t *testing.T) {
 	io := iostreams.Test()
 	io.Input.WriteString("\n")
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-	}
-
-	err := runLogin(t, opts)
+	err := runLogin(t, createLoginOptsWithIO(t, io, p, true, false))
 	r.Error(err)
 	r.Contains(err.Error(), "token is empty")
 }
@@ -135,15 +147,7 @@ func TestLoginFromStdin_NoInput(t *testing.T) {
 	p := l.DefaultProfile(context.Background())
 	r.NoError(p.Write())
 
-	io := iostreams.Test()
-
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-	}
-
-	err := runLogin(t, opts)
+	err := runLogin(t, createLoginOpts(t, p, true, false))
 	r.Error(err)
 	r.Contains(err.Error(), "no token provided on stdin")
 }
@@ -159,13 +163,7 @@ func TestLoginFromStdin_WhitespaceToken(t *testing.T) {
 	io := iostreams.Test()
 	io.Input.WriteString("   \n")
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-	}
-
-	err := runLogin(t, opts)
+	err := runLogin(t, createLoginOptsWithIO(t, io, p, true, false))
 	r.Error(err)
 	r.Contains(err.Error(), "token is empty")
 }
@@ -183,13 +181,7 @@ func TestLoginFromStdin_TokenWithWhitespace(t *testing.T) {
 	io := iostreams.Test()
 	io.Input.WriteString("  my-token-with-spaces  \n")
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-	}
-
-	r.NoError(runLogin(t, opts))
+	r.NoError(runLogin(t, createLoginOptsWithIO(t, io, p, true, false)))
 
 	loaded, err := l.LoadProfile(context.Background(), p.Name)
 	r.NoError(err)
@@ -204,15 +196,7 @@ func TestLoginInteractive_NoTTY(t *testing.T) {
 	p := l.DefaultProfile(context.Background())
 	r.NoError(p.Write())
 
-	io := iostreams.Test()
-
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   false,
-	}
-
-	err := runLogin(t, opts)
+	err := runLogin(t, createLoginOpts(t, p, false, false))
 	r.Error(err)
 	r.Contains(err.Error(), "interactive login requires a terminal")
 }
@@ -235,13 +219,7 @@ func TestLoginInteractive_Success(t *testing.T) {
 	io.Input.WriteString("y")
 	io.Input.WriteString("interactive-token\n")
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   false,
-	}
-
-	r.NoError(runLogin(t, opts))
+	r.NoError(runLogin(t, createLoginOptsWithIO(t, io, p, false, false)))
 	r.Contains(io.Error.String(), "Opening your browser")
 	r.Contains(io.Error.String(), "Successfully logged in")
 	r.Contains(io.Error.String(), "interactive-user")
@@ -272,12 +250,12 @@ func TestLoginFromStdin_DifferentProfile(t *testing.T) {
 	// Login to production
 	io := iostreams.Test()
 	io.Input.WriteString("prod-token\n")
-	r.NoError(runLogin(t, &LoginOpts{IO: io, Profile: p1, Token: true}))
+	r.NoError(runLogin(t, createLoginOptsWithIO(t, io, p1, true, false)))
 
 	// Login to staging
 	io = iostreams.Test()
 	io.Input.WriteString("staging-token\n")
-	r.NoError(runLogin(t, &LoginOpts{IO: io, Profile: p2, Token: true}))
+	r.NoError(runLogin(t, createLoginOptsWithIO(t, io, p2, true, false)))
 
 	// Verify tokens were saved to the correct profiles
 	loadedProd, err := l.LoadProfile(context.Background(), "production")
@@ -306,13 +284,7 @@ func TestLoginFromStdin_DryRun(t *testing.T) {
 	io := iostreams.Test()
 	io.Input.WriteString("my-new-token\n")
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-		DryRun:  true,
-	}
-
+	opts := createLoginOptsWithIO(t, io, p, true, true)
 	r.NoError(runLogin(t, opts))
 	r.Contains(io.Error.String(), "would save token")
 	r.Contains(io.Error.String(), p.Name)
@@ -343,14 +315,7 @@ func TestLoginInteractive_DryRun(t *testing.T) {
 	io.Input.WriteString("y")
 	io.Input.WriteString("interactive-token\n")
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   false,
-		DryRun:  true,
-	}
-
-	r.NoError(runLogin(t, opts))
+	r.NoError(runLogin(t, createLoginOptsWithIO(t, io, p, false, true)))
 	r.Contains(io.Error.String(), "would save token")
 
 	loaded, err := l.LoadProfile(context.Background(), p.Name)
@@ -373,11 +338,7 @@ func TestLoginFromStdin_QuietMode(t *testing.T) {
 	io.Input.WriteString("my-token\n")
 	io.SetQuiet(true)
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-	}
+	opts := createLoginOptsWithIO(t, io, p, true, false)
 
 	r.NoError(runLogin(t, opts))
 	r.Empty(io.Error.String())
@@ -400,13 +361,7 @@ func TestLoginFromStdin_VerifyFails(t *testing.T) {
 	io := iostreams.Test()
 	io.Input.WriteString("bad-token\n")
 
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-	}
-
-	err := runLogin(t, opts)
+	err := runLogin(t, createLoginOptsWithIO(t, io, p, true, false))
 	r.Error(err)
 	r.Contains(err.Error(), "failed to verify token")
 
@@ -435,15 +390,12 @@ func TestLoginInteractive_ConfirmOpensBrowserWithSource(t *testing.T) {
 
 	var openedURL string
 	opened := false
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   false,
-		OpenBrowser: func(u string) error {
-			opened = true
-			openedURL = u
-			return nil
-		},
+
+	opts := createLoginOptsWithIO(t, io, p, false, false)
+	opts.OpenBrowser = func(u string) error {
+		opened = true
+		openedURL = u
+		return nil
 	}
 
 	r.NoError(runLogin(t, opts))
@@ -477,14 +429,10 @@ func TestLoginInteractive_DeclineDoesNotOpenBrowser(t *testing.T) {
 	io.Input.WriteString("n")
 
 	opened := false
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   false,
-		OpenBrowser: func(string) error {
-			opened = true
-			return nil
-		},
+	opts := createLoginOptsWithIO(t, io, p, false, false)
+	opts.OpenBrowser = func(string) error {
+		opened = true
+		return nil
 	}
 
 	// Declining is a clean, non-error exit and must not open the browser or
@@ -512,17 +460,8 @@ func TestLoginFromStdin_DoesNotPromptOrOpenBrowser(t *testing.T) {
 	io.Input.WriteString("my-test-token\n")
 
 	opened := false
-	opts := &LoginOpts{
-		IO:      io,
-		Profile: p,
-		Token:   true,
-		OpenBrowser: func(string) error {
-			opened = true
-			return nil
-		},
-	}
 
-	r.NoError(runLogin(t, opts))
+	r.NoError(runLogin(t, createLoginOptsWithIO(t, io, p, true, false)))
 	r.False(opened, "stdin/--token mode must not open a browser")
 	r.NotContains(io.Error.String(), "Do you want to proceed")
 }

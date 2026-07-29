@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: Using `profile display --markdown` no longer produces an error.
+time: 2026-07-29T10:02:10.946104-06:00

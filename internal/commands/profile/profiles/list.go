@@ -84,15 +84,39 @@ func listRun(ctx context.Context, opts *ListOpts) error {
 	}
 
 	d := &profileDisplayer{
-		profiles:      profiles,
+		profiles:      profileToProfileForDisplay(active.Name, profiles),
 		activeProfile: active.Name,
 	}
 
 	return opts.Output.Display(d)
 }
 
+func profileToProfileForDisplay(activeName string, profiles []*profile.Profile) []profileForDisplay {
+	result := make([]profileForDisplay, len(profiles))
+	for i, p := range profiles {
+		result[i] = profileForDisplay{
+			Name:                p.Name,
+			Hostname:            p.Hostname,
+			DefaultOrganization: p.DefaultOrganization,
+			Telemetry:           p.Telemetry,
+			NoColor:             p.NoColor,
+			Active:              activeName == p.Name,
+		}
+	}
+	return result
+}
+
+type profileForDisplay struct {
+	Name                string  `json:"Name"`
+	Hostname            string  `json:"Hostname,omitempty"`
+	DefaultOrganization string  `json:"DefaultOrganization,omitempty"`
+	Telemetry           *string `json:"Telemetry,omitempty"`
+	NoColor             *bool   `json:"NoColor,omitempty"`
+	Active              bool    `json:"Active"`
+}
+
 type profileDisplayer struct {
-	profiles      []*profile.Profile
+	profiles      []profileForDisplay
 	activeProfile string
 }
 
@@ -111,7 +135,7 @@ func (p *profileDisplayer) FieldTemplates() []format.Field {
 		},
 		{
 			Name:        "Active",
-			ValueFormat: fmt.Sprintf("{{ eq ( .Name ) %q }}", p.activeProfile),
+			ValueFormat: "{{ .Active }}",
 		},
 		{
 			Name:        "Default Organization",

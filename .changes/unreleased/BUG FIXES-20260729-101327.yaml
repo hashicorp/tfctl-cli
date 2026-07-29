@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: Removed Token property from json output when using `profile profiles list --json`, preventing accidental exposure.
+time: 2026-07-29T10:13:27.549029-06:00

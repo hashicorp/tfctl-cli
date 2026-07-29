@@ -303,15 +303,14 @@ func (i *Invocation) applyGlobalFlags(_ *Command) error {
 	return nil
 }
 
-// NewAPIClient returns a new API Client configured using the invocation Profile.
-// When debug output is enabled and a non-nil logger is provided, the client's
-// HTTP transport is wrapped to log requests and responses.
-func (i *Invocation) NewAPIClient() (*client.Client, error) {
-	address := i.Profile.GetHostname()
+// NewAPIClientForHost returns a new API Client configured using the specificed
+// hostname and token.
+func (i *Invocation) NewAPIClientForHost(hostname, token string) (*client.Client, error) {
+	address := hostname
 	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
 		address = "https://" + address
 	}
-	apiClient, err := client.New(i.ShutdownCtx, address, i.Profile.GetToken(), http.Header{
+	apiClient, err := client.New(i.ShutdownCtx, address, token, http.Header{
 		"User-Agent": []string{fmt.Sprintf("%s-cli/%s", version.Name, version.Version)},
 	})
 	if err != nil {
@@ -319,6 +318,11 @@ func (i *Invocation) NewAPIClient() (*client.Client, error) {
 	}
 
 	return apiClient, nil
+}
+
+// NewAPIClient returns a new API Client configured using the invocation Profile.
+func (i *Invocation) NewAPIClient() (*client.Client, error) {
+	return i.NewAPIClientForHost(i.Profile.GetHostname(), i.Profile.GetToken())
 }
 
 // ParseFlags can be used to parse the flags for a given command before it is

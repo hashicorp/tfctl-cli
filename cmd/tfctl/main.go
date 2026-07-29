@@ -152,6 +152,7 @@ func realMain() int {
 			"--no-color": complete.PredictAnything,
 			"--profile":  profiles.PredictProfiles(false, true),
 			"--quiet":    complete.PredictAnything,
+			"--dry-run":  complete.PredictAnything,
 		},
 	}
 

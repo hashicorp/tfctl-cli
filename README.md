@@ -193,7 +193,7 @@ The `tfctl` command can manage HCP Terraform runs and variables with the corresp
 
 - `--debug`: Enable debug output.
 
-- `--dry-run`: Creates a preview of the proposed changes.
+- `--dry-run`: Creates a preview of the proposed changes without making them.
 
 - `--json`: Sets the output format to JSON.
 
