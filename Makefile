@@ -79,7 +79,7 @@ prepare-release: gen/openapi
 	@if [ -z "$(VERSION)" ]; then echo "VERSION is not set"; exit 1; fi
 	@echo $(VERSION) > $(VERSION_FILE)
 	@echo "Updated $(VERSION_FILE) to $(VERSION)"
-	@echo "v$(VERSION) $$(shasum -a 256 $(SKILL_EMBEDDED) | cut -d' ' -f1)" >> $(SKILL_HASHES)
+	@echo "$$(shasum -a 256 $(SKILL_EMBEDDED) | cut -d' ' -f1) v$(VERSION)" >> $(SKILL_HASHES)
 	@echo "Appended sha256 for $(SKILL_EMBEDDED) to $(SKILL_HASHES)"
 
 # Install development tools
