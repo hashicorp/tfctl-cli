@@ -53,6 +53,15 @@ func AllowsDelete(granted []string, class string) bool {
 	return false
 }
 
+// nonStandardPathClasses maps path collection segments to their actual resource
+// type for API paths where the URL structure doesn't match the resource type
+// name. Add entries here when a resource's PathGet uses a different collection
+// segment than its Type.
+var nonStandardPathClasses = map[string]string{
+	"views": "explorer-saved-queries", // /organizations/{org}/explorer/views/{id}
+	"tasks": "run-tasks",              // /tasks/{id}
+}
+
 // ClassFromPath derives the resource class being deleted from a resolved API
 // path. The heuristic returns the collection segment immediately preceding the
 // final id segment. It returns "" when it cannot be determined (fewer than two
@@ -88,7 +97,13 @@ func ClassFromPath(p string) string {
 	}
 
 	// The class is the collection segment immediately preceding the final id.
-	return segments[len(segments)-2]
+	class := segments[len(segments)-2]
+
+	if override, ok := nonStandardPathClasses[class]; ok {
+		return override
+	}
+
+	return class
 }
 
 func isAllDigits(s string) bool {
