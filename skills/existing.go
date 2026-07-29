@@ -46,10 +46,10 @@ func (e *InstalledSkill) ReinstallCommand() string {
 	return fmt.Sprintf("%s harness install %s", version.Name, e.agentName)
 }
 
-// sha256 calculates and returns the SHA256 hash of the existing skill file.
+// sha256AtPath calculates and returns the SHA256 hash of the file at path.
 // Returns an empty string if the file cannot be read or the hash cannot be calculated.
-func (e *InstalledSkill) sha256() string {
-	f, err := os.Open(e.Path())
+func sha256AtPath(path string) string {
+	f, err := os.Open(path)
 	if err == nil {
 		defer f.Close()
 		if hash, err := hashSHA256Hex(f); err == nil {
@@ -67,6 +67,15 @@ type KnownSkillMatch struct {
 
 // MatchesKnownVersion checks if the existing skill is from a known version.
 func (e *InstalledSkill) MatchesKnownVersion() (*KnownSkillMatch, bool) {
+	return matchesKnownVersionAtPath(e.Path())
+}
+
+func matchesKnownVersionAtPath(path string) (*KnownSkillMatch, bool) {
+	hash := sha256AtPath(path)
+	if hash == "" {
+		return nil, false
+	}
+
 	hashes, err := FS.Open(TFCTLKnownHashesPath)
 	if err != nil {
 		return nil, false
@@ -86,7 +95,7 @@ func (e *InstalledSkill) MatchesKnownVersion() (*KnownSkillMatch, bool) {
 			continue
 		}
 
-		if hash := e.sha256(); hash != "" && hash == fields[0] {
+		if hash == fields[0] {
 			return &KnownSkillMatch{
 				Version: fields[1],
 				Hash:    fields[0],

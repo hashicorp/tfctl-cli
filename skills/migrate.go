@@ -59,7 +59,7 @@ func migrateInstalled(ctx context.Context) []MigrationResult {
 					continue
 				}
 
-				if match, ok := existing.MatchesKnownVersion(); ok {
+				if match, ok := matchesKnownVersionAtPath(installedLocation); ok {
 					if match.Hash != EmbeddedSkillHash() {
 						// This is a match for a previous version and can be migrated
 						err := agent.installSkillToPath(installedLocation)

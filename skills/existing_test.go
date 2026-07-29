@@ -107,3 +107,26 @@ func TestInstalledSkill_KnownVersion(t *testing.T) {
 		require.Empty(t, version)
 	})
 }
+
+func TestMatchesKnownVersionAtPath_UsesResolvedPath(t *testing.T) {
+	dir := t.TempDir()
+	knownPath := filepath.Join(dir, "known.md")
+	unknownPath := filepath.Join(dir, "unknown.md")
+	linkPath := filepath.Join(dir, "SKILL.md")
+
+	require.NoError(t, copyFile(filepath.Join("fixtures", "0_3_0.md"), knownPath))
+	require.NoError(t, os.WriteFile(unknownPath, []byte("user-edited content"), 0644))
+	require.NoError(t, os.Symlink(knownPath, linkPath))
+
+	skill := &InstalledSkill{path: linkPath}
+	resolvedPath, err := skill.ResolvePath()
+	require.NoError(t, err)
+
+	// Simulate the original symlink changing after migration resolves its target.
+	require.NoError(t, os.Remove(linkPath))
+	require.NoError(t, os.Symlink(unknownPath, linkPath))
+
+	match, ok := matchesKnownVersionAtPath(resolvedPath)
+	require.True(t, ok)
+	require.Equal(t, "v0.3.0", match.Version)
+}
