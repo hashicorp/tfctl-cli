@@ -18,6 +18,7 @@ expected:
   output_contains:
     - "--all"
     - "--jq"
+    - "-f fields[workspaces]=id"
   output_not_contains:
     - "| jq"
   behavior:

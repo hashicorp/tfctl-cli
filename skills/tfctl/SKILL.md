@@ -59,8 +59,11 @@ These paths **do not exist**; don't try them:
 ## Cookbook — one-line answers for common tasks
 
 ```bash
-# Count workspaces in an org
-tfctl api /organizations/{organization}/workspaces --page-size 1 --jq '.meta.pagination.["total-count"]'
+# Get information about the logged-in user account (May be a service account)
+tfctl api /account/details
+
+# Count workspaces in an org - Notice the use of json:api sparse fieldsets `-f 'fields[workspaces]=id'` to minimize response size
+tfctl api /organizations/{organization}/workspaces -f 'fields[workspaces]=id' --page-size 1 --jq '.meta.pagination.["total-count"]'
 
 # Find workspace by partial name (server-side search) — also returns current run state in one call
 tfctl api /organizations/{organization}/workspaces -f 'search[name]=TERM' --jq '.data[] | {id, name: .attributes.name, current_run: .relationships.["current-run"].data}'
