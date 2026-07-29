@@ -1,0 +1,11 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Get information about the latest configuration version for the
+  'network-infra' workspace in tfc-demo-au. Show the source type and when it
+  was created.
+tags: [api-pattern, endpoint-correctness]
+accept: ['/configuration-versions', '-p\s+workspace=network-infra']
+reject: ['/organizations/tfc-demo-au/workspaces/network-infra/configuration-versions', '\|\s*jq']
+turns: 10

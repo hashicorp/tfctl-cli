@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  List all planned but not yet applied runs in the 'data-ops' workspace in
+  tfc-demo-au, showing the run ID, created time, and status.
+tags: [api-pattern, jq, runs]
+accept: ['/workspaces/', '/runs', '-p\s+workspace=data-ops', '--jq']
+reject: ['\|\s*jq']
+turns: 10

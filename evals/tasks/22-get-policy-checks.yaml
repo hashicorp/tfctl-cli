@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  For the run 'run-POLICY' in tfc-demo-au that has policy checks, show all
+  policy check results including which policies passed and which failed.
+tags: [api-pattern, endpoint-correctness, policy]
+accept: ['/runs/run-POLICY/policy-checks']
+reject: ['/workspaces/', '\|\s*jq']
+turns: 10

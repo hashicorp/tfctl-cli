@@ -5,7 +5,10 @@ ASSETS ?= assets
 VERSION_FILE ?= version/VERSION
 SKILL_HASHES = skills/tfctl/known_release_hashes
 SKILL_EMBEDDED = skills/tfctl/SKILL.md
+EVAL_ARGS ?=
+EVAL_OUTPUT ?= evals/results/latest.json
 CHANGELOG_FILE = CHANGELOG.md
+
 
 ifeq ($(GOARCH), arm64)
 	GOARCH = arm64
@@ -96,6 +99,17 @@ cleanup-release:
 	@echo "This file will be populated by automation before release. See this [CHANGELOG.md](https://github.com/hashicorp/tfctl-cli/blob/v$(VERSION)/CHANGELOG.md) for information about the latest release." >> $(CHANGELOG_FILE)
 	@echo "Release cleanup finished, version is now $(DEV_VERSION)"
 
+.PHONY: cleanup-release
+cleanup-release:
+	@if [ -z "$(DEV_VERSION)" ]; then echo "DEV_VERSION is not set"; exit 1; fi
+	@if ! $$(git tag -l v$$(cat version/VERSION) >/dev/null 2>&1); then echo "Lastest version $$(cat version/VERSION) has not been released"; exit 1; fi
+
+	@echo $(DEV_VERSION) > $(VERSION_FILE)
+	@echo "## Unreleased" > $(CHANGELOG_FILE)
+	@echo "" >> $(CHANGELOG_FILE)
+	@echo "This file will be populated by automation before release. See this [CHANGELOG.md](https://github.com/hashicorp/tfctl-cli/blob/v$(VERSION)/CHANGELOG.md) for information about the latest release." >> $(CHANGELOG_FILE)
+	@echo "Release cleanup finished, version is now $(DEV_VERSION)"
+
 # Install development tools
 .PHONY: tools
 tools:
@@ -119,8 +133,24 @@ logotools:
 		echo "Install figlet https://www.figlet.org/" && exit 1; \
 	}
 
+.PHONY: eval/test
+eval/test:
+	@$(MAKE) -C evals test
+
+.PHONY: eval/lint
+eval/lint:
+	@$(MAKE) -C evals lint
+
 .PHONY: check
-check: fmt-check go/lint go/test
+check: fmt-check go/lint go/test eval/lint eval/test
+
+.PHONY: eval
+eval: go/install
+	@PATH="$(abspath $(dir $(BIN_PATH))):$$PATH" go -C evals run . $(EVAL_ARGS)
+
+.PHONY: eval/save
+eval/save: go/install
+	@PATH="$(abspath $(dir $(BIN_PATH))):$$PATH" go -C evals run . --output "$(abspath $(EVAL_OUTPUT))" $(EVAL_ARGS)
 
 # Help (make usage)
 .PHONY: help
@@ -151,4 +181,10 @@ help:
 	@echo "                  requires VERSION argument"
 	@echo " cleanup-release  Clean up after a release"
 	@echo "                  requires DEV_VERSION argument"
+	@echo ""
+	@echo "Evaluations:"
+	@echo " eval             Run skill evaluations"
+	@echo " eval/save        Run and save evaluation results"
+	@echo " eval/test        Test the evaluator module"
+	@echo " eval/lint        Lint the evaluator module"
 	@echo ""
