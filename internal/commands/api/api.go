@@ -454,7 +454,10 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 	// session can authorize a noninteractive delete; otherwise a human must
 	// confirm at an interactive terminal.
 	if method == http.MethodDelete {
-		class := execsession.ClassFromPath(opts.URL.Path)
+		class := opts.ResourceType
+		if class == "" {
+			class = execsession.ClassFromPath(opts.URL.Path)
+		}
 
 		decision := execsession.Decision{}
 		if opts.Authorizer != nil {
