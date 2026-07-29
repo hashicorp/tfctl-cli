@@ -204,7 +204,7 @@ func TestStatus_Unauthorized(t *testing.T) {
 	err := runStatus(context.Background(), opts)
 	r.Error(err)
 	out := io.Error.String()
-	r.Contains(out, "rejected")
+	r.Contains(out, "invalid")
 	r.Contains(out, "HTTP 401")
 	r.Contains(out, srv.URL)
 	r.Contains(out, "SSO")
