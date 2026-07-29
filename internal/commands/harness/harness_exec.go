@@ -156,7 +156,7 @@ func runExec(ctx context.Context, opts *ExecOpts) error {
 	}()
 
 	logger.Debug("exec session created", "allow_delete", perms)
-	fmt.Fprintf(opts.IO.Err(), "%s tfctl deletes enabled for this session: %v\n", cs.WarningLabel(), perms)
+	fmt.Fprintln(opts.IO.Err(), heredoc.New(opts.IO, heredoc.WithNoWrap()).Mustf(`%s %s allows non-interactive deletes in this session for these types: {{ template "mdCodeOrBold" "%s" }}`, cs.WarningLabel(), version.Name, strings.Join(perms, ", ")))
 
 	env := append(os.Environ(), execsession.EnvVar+"="+handle.Token())
 	code, runErr := opts.Run(ctx, opts.Argv, env, opts.IO)
