@@ -501,6 +501,24 @@ func CreatableNames() []string {
 	return names
 }
 
+// DestroyableNames returns names and aliases of destroyable resource types
+// that have a known path (PathGet is reused as the destroy path).
+func DestroyableNames() []string {
+	var names []string
+	for _, r := range registry {
+		if r.Destroyable == NotDestroyable {
+			continue
+		}
+		if r.PathGet == "" {
+			continue
+		}
+		names = append(names, r.Type)
+		names = append(names, r.Aliases...)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // AllDestroyable returns all registered resources that are destroyable.
 func AllDestroyable() []Resource {
 	out := make([]Resource, 0, len(registry)-20) // Estimated number of NotDestroyable resources above
