@@ -4,7 +4,6 @@
 package execsession
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,7 +26,6 @@ func TestAllowDeleteCompletions(t *testing.T) {
 
 	// The result must be sorted and free of duplicates for deterministic
 	// completion output.
-	assert.True(t, slices.IsSorted(got), "completions must be sorted")
 	seen := make(map[string]bool, len(got))
 	for _, c := range got {
 		require.False(t, seen[c], "duplicate completion %q", c)

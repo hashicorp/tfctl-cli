@@ -4,7 +4,6 @@
 package skills
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"iter"
@@ -39,8 +38,8 @@ func detectHomeDirPath(dir string) bool {
 const (
 	// TFCTLSkillPath is the path to the embedded SKILL.md file within the binary.
 	TFCTLSkillPath = "tfctl/SKILL.md"
-	// TFCTLChecksumsPath is the path to the embedded checksums file within the binary.
-	TFCTLChecksumsPath = "tfctl/checksums"
+	// TFCTLKnownHashesPath is the path to the embedded hashes file within the binary.
+	TFCTLKnownHashesPath = "tfctl/known_release_hashes"
 )
 
 var (
@@ -48,11 +47,6 @@ var (
 
 	// AgentNames is a list of the names of all supported agents.
 	AgentNames []string
-
-	// ErrSkillCreatedButNotInstalledd is raised during installation if the target file was
-	// created or truncated but could not be successfully installed. This would indicate
-	// that the created skill should be cleaned up or removed.
-	ErrSkillCreatedButNotInstalledd = errors.New("failed to copy skill file to target location")
 )
 
 func init() {
@@ -315,16 +309,23 @@ func (a AgentSpec) installSkillToPath(path string) error {
 	}
 	defer file.Close()
 
-	tempFile, err := os.CreateTemp("", fmt.Sprintf("SKILL-%s-*", version.Name))
+	tempFile, err := os.CreateTemp(filepath.Dir(path), fmt.Sprintf("SKILL-%s-*", version.Name))
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
 	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
 
 	_, err = io.Copy(tempFile, file)
 	if err != nil {
 		return fmt.Errorf("failed to write temporary file: %w", err)
+	}
+	err = tempFile.Sync()
+	if err != nil {
+		return fmt.Errorf("failed to sync temporary file: %w", err)
+	}
+	err = tempFile.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close temporary file: %w", err)
 	}
 
 	if err := os.Rename(tempFile.Name(), path); err != nil {

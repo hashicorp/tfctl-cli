@@ -29,8 +29,26 @@ import (
 	"github.com/hashicorp/tfctl-cli/version"
 )
 
+var (
+	envSkipMigrate       = "TFCTL_SKIP_MIGRATE"
+	envCheckpointDisable = "CHECKPOINT_DISABLE"
+)
+
 func main() {
 	os.Exit(realMain())
+}
+
+func isGlobalBooleanArg(arg string, bareForm string) bool {
+	return arg == bareForm || arg == fmt.Sprintf("%s=true", bareForm)
+}
+
+func isDryRun(args []string) bool {
+	for _, a := range args {
+		if isGlobalBooleanArg(a, "--dry-run") {
+			return true
+		}
+	}
+	return false
 }
 
 func isVersion(args []string) bool {
@@ -45,7 +63,7 @@ func isVersion(args []string) bool {
 			return false
 		}
 
-		if arg != "--no-color" && arg != "--debug" && arg != "--quiet" {
+		if !isGlobalBooleanArg(arg, "--no-color") && !isGlobalBooleanArg(arg, "--debug") && !isGlobalBooleanArg(arg, "--quiet") {
 			allowVersionCommand = false
 		}
 
@@ -85,13 +103,13 @@ func realMain() int {
 	// Explore relevant global args before the command parses them to set up non-command output
 	initialLogLevel := logging.LevelDefault
 	for _, a := range args {
-		if a == "--debug" {
+		if isGlobalBooleanArg(a, "--debug") {
 			initialLogLevel = logging.LevelDebug
 		}
-		if a == "--no-color" {
+		if isGlobalBooleanArg(a, "--no-color") {
 			io.ForceNoColor()
 		}
-		if a == "--quiet" {
+		if isGlobalBooleanArg(a, "--quiet") {
 			io.SetQuiet(true)
 		}
 	}
@@ -106,10 +124,13 @@ func realMain() int {
 	// latest, providing any relevant warnings about the current release in rare situations.
 	// Run the request in a separate goroutine. It's important to always execute
 	// this without condition because checkForNewVersion will block until it is complete
-	go checkpoint.Run(shutdownCtx, os.Getenv("CHECKPOINT_DISABLE") != "")
+	go checkpoint.Run(shutdownCtx, os.Getenv(envCheckpointDisable) != "")
 
-	// Begin migrating any existing skills that match an older version to the embedded version.
-	go skills.MigrateInstalled(shutdownCtx)
+	// Conditionally begin migrating any existing skills that match an older version to the embedded version.
+	var migration *skills.Migration
+	if !isDryRun(args) && os.Getenv(envSkipMigrate) == "" {
+		migration = skills.StartMigration(shutdownCtx)
+	}
 
 	// Create the profile loader and load the active profile.
 	loader, err := profile.NewLoader()
@@ -198,22 +219,28 @@ func realMain() int {
 		fmt.Fprintf(io.Err(), "Error executing %s: %s\n", version.Name, err.Error())
 	}
 
-	shutdownMain(shutdownCtx, status)
+	shutdownMain(shutdownCtx, status, migration)
 
 	return status
 }
 
-func shutdownMain(ctx context.Context, exitCode int) {
+func shutdownMain(ctx context.Context, exitCode int, migration *skills.Migration) {
 	logger := logging.FromContext(ctx)
 	tel := telemetry.FromContext(ctx)
 
 	// Wait for any ongoing skill migrations to complete
-	migrationResults := skills.WaitForMigration()
-	for _, result := range migrationResults {
-		if result.FailedReason != nil {
-			logger.Error("Failed to migrate skill", "path", result.SkillPath, "reason", result.FailedReason.Error())
-		} else {
-			logger.Debug("Migrated skill", "path", result.SkillPath, "from", result.PreviousVersion)
+	if migration != nil {
+		migrationResults, err := migration.Wait(ctx)
+		if err != nil {
+			logger.Debug("Skipped skill migration", "error", err)
+		}
+
+		for _, result := range migrationResults {
+			if result.FailedReason != nil {
+				logger.Error("Failed to migrate skill", "path", result.SkillPath, "reason", result.FailedReason.Error())
+			} else {
+				logger.Debug("Migrated skill", "path", result.SkillPath, "from", result.PreviousVersion)
+			}
 		}
 	}
 

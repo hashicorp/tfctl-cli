@@ -49,7 +49,7 @@ func (e *InstalledSkill) ReinstallCommand() string {
 // sha256 calculates and returns the SHA256 hash of the existing skill file.
 // Returns an empty string if the file cannot be read or the hash cannot be calculated.
 func (e *InstalledSkill) sha256() string {
-	f, err := os.Open(e.path)
+	f, err := os.Open(e.Path())
 	if err == nil {
 		defer f.Close()
 		if hash, err := hashSHA256Hex(f); err == nil {
@@ -67,7 +67,7 @@ type KnownSkillMatch struct {
 
 // MatchesKnownVersion checks if the existing skill is from a known version.
 func (e *InstalledSkill) MatchesKnownVersion() (*KnownSkillMatch, bool) {
-	hashes, err := FS.Open("tfctl/known_release_hashes")
+	hashes, err := FS.Open(TFCTLKnownHashesPath)
 	if err != nil {
 		return nil, false
 	}

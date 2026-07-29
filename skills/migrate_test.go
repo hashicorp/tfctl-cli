@@ -13,20 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func resetMigrationState(t *testing.T) {
+func setupMigrationTest(t *testing.T, names ...string) {
 	t.Helper()
 
-	migrationBegun = false
-	migrationResult = make(chan *MigrationResult, 10)
-	t.Cleanup(func() {
-		migrationBegun = false
-		migrationResult = make(chan *MigrationResult, 10)
-	})
-}
+	// Isolate tests from users' globally installed skills
+	t.Setenv("HOME", t.TempDir())
 
-func setupMigrationAgents(t *testing.T, names ...string) {
-	t.Helper()
-
+	// Register just the named agents in the specified order
 	oldAgents := agents
 	oldAgentNames := AgentNames
 	agents = registerAgents()
@@ -66,13 +59,15 @@ func embeddedSkillContents(t *testing.T) []byte {
 func runMigration(t *testing.T) []MigrationResult {
 	t.Helper()
 
-	MigrateInstalled(context.Background())
-	return WaitForMigration()
+	ctx := context.Background()
+	migration := StartMigration(ctx)
+	results, err := migration.Wait(ctx)
+	require.NoError(t, err)
+	return results
 }
 
 func TestMigrateInstalled_MultipleMigrations(t *testing.T) {
-	resetMigrationState(t)
-	setupMigrationAgents(t, "bob", "pi", "codex")
+	setupMigrationTest(t, "bob", "pi", "codex")
 	tmpDir := t.TempDir()
 	oldSkill := oldSkillContents(t)
 
@@ -88,26 +83,32 @@ func TestMigrateInstalled_MultipleMigrations(t *testing.T) {
 
 	results := runMigration(t)
 
-	require.Len(t, results, 3)
+	require.Len(t, results, 2)
 	absBobPath, err := filepath.Abs(bobPath)
 	require.NoError(t, err)
 	absPiPath, err := filepath.Abs(piPath)
 	require.NoError(t, err)
 	require.Equal(t, absBobPath, results[0].SkillPath)
 	require.Equal(t, absPiPath, results[1].SkillPath)
-	absCodexPath, err := filepath.Abs(codexPath)
+
 	require.NoError(t, err)
-	require.Equal(t, absCodexPath, results[2].SkillPath)
 	require.Equal(t, "v0.3.0", results[0].PreviousVersion)
 	require.Equal(t, "v0.3.0", results[1].PreviousVersion)
 	require.NoError(t, results[0].FailedReason)
 	require.NoError(t, results[1].FailedReason)
-	require.ErrorContains(t, results[2].FailedReason, "does not match any known skill")
+
+	bobUpgradedContents, err := os.ReadFile(absBobPath)
+	require.NoError(t, err)
+
+	piUpgradedContents, err := os.ReadFile(absPiPath)
+	require.NoError(t, err)
+
+	require.Equal(t, embeddedSkillContents(t), bobUpgradedContents)
+	require.Equal(t, embeddedSkillContents(t), piUpgradedContents)
 }
 
 func TestMigrateInstalled_SkillFileIsSymlink(t *testing.T) {
-	resetMigrationState(t)
-	setupMigrationAgents(t, "pi")
+	setupMigrationTest(t, "pi")
 	tmpDir := t.TempDir()
 	t.Chdir(tmpDir)
 
@@ -135,8 +136,7 @@ func TestMigrateInstalled_SkillFileIsSymlink(t *testing.T) {
 }
 
 func TestMigrateInstalled_SkillFileIsBrokenSymlink(t *testing.T) {
-	resetMigrationState(t)
-	setupMigrationAgents(t, "pi")
+	setupMigrationTest(t, "pi")
 	tmpDir := t.TempDir()
 	t.Chdir(tmpDir)
 
@@ -148,20 +148,4 @@ func TestMigrateInstalled_SkillFileIsBrokenSymlink(t *testing.T) {
 	require.Empty(t, results)
 	_, err := os.Lstat(linkPath)
 	require.NoError(t, err)
-}
-
-func TestMigrateInstalled_MultipleCalls(t *testing.T) {
-	resetMigrationState(t)
-	setupMigrationAgents(t, "pi")
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
-
-	path := filepath.Join(".agents", "skills", TFCTLSkillPath)
-	writeSkill(t, path, oldSkillContents(t))
-
-	firstResults := runMigration(t)
-	require.Len(t, firstResults, 1)
-
-	MigrateInstalled(context.Background())
-	require.Empty(t, WaitForMigration())
 }

@@ -165,9 +165,9 @@ The CLI stores configuration for individual profiles in the `profiles` subdirect
 
 If you have not configured a token for the active profile with `tfctl auth login`, the `tfctl` CLI checks your Terraform configuration for a matching token. These tokens may either be in your Terraform configuration directory, for example `~/.terraform.d/credentials.tfrc.json`, or the corresponding Terraform environment variables, such as `TF_TOKEN_app_terraform_io`.
 
-### Environment variables
+### Profile Environment variables
 
-If you have not configured a particular option for the active profile, `tfctl` checks the following environment variables:
+If you have **not** configured a particular option for the active profile, `tfctl` checks the following environment variables:
 
 `TFCTL_ORGANIZATION`: The organization to use for commands that require an organization.
 
@@ -178,6 +178,14 @@ If you have not configured a particular option for the active profile, `tfctl` c
 `TFCTL_TOKEN_<profile>`: An HCP Terraform API token to use in conjunction with the named profile.
 
 `TF_TOKEN_<hostname>`: An HCP Terraform API token to present during authentication, with the specified hostname in Punycode formatting, for example `TF_TOKEN_app_terraform_io`. The CLI present the Terraform token only if it has not been configured in any other way.
+
+### Behavior Environment Variables
+
+`TFCTL_CONFIG_DIR`: Change the location of the tfctl config directory, which is `~/.config/tfctl` by default.
+
+`TFCTL_SKIP_MIGRATE`: Don't migrate installed skill files to the latest version (if contents are known to be installed by a previous version).
+
+`CHECKPOINT_DISABLE`: Don't check for newer versions of tfctl.
 
 ## Command reference
 
