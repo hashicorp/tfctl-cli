@@ -55,6 +55,9 @@ func TestClassFromPath(t *testing.T) {
 		{name: "short path collection only", path: "/workspaces", want: ""},
 		{name: "empty", path: "", want: ""},
 		{name: "root", path: "/", want: ""},
+		{name: "non-standard explorer-saved-queries", path: "/organizations/my-org/explorer/views/sq-abc", want: "explorer-saved-queries"},
+		{name: "non-standard explorer-saved-queries with api prefix", path: "/api/v2/organizations/my-org/explorer/views/sq-abc", want: "explorer-saved-queries"},
+		{name: "non-standard run-tasks", path: "/tasks/task-abc", want: "run-tasks"},
 	}
 
 	for _, tc := range cases {
