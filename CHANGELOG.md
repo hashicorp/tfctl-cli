@@ -1,3 +1,21 @@
+## v0.5.0 (July 30, 2026)
+
+
+ENHANCEMENTS:
+
+* Running tfctl, tfctl version, or tfctl --version checks whether there is a newer version of tfctl available and whether `auth login` needs to be run.
+
+* tfctl now detects outdated skills it installed and migrates them to the latest version.
+
+
+BUG FIXES:
+
+* Using `auth login --dry-run` no longer opens a web browser. --dry-run now appears in argument autocomplete lists.
+
+* Using `profile display --markdown` no longer produces an error.
+
+* Removed Token property from json output when using `profile profiles list --json`, preventing accidental exposure.
+
 ## v0.4.0-beta (July 23, 2026)
 
 

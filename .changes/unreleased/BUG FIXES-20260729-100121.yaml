@@ -1,3 +1,0 @@
-kind: BUG FIXES
-body: Using `auth login --dry-run` no longer opens a web browser. --dry-run now appears in argument autocomplete lists.
-time: 2026-07-29T10:01:21.23869-06:00

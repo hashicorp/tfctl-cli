@@ -1,3 +1,0 @@
-kind: ENHANCEMENTS
-body: Running tfctl, tfctl version, or tfctl --version checks whether there is a newer version of tfctl available and whether `auth login` needs to be run.
-time: 2026-07-24T17:20:11.173085-06:00
