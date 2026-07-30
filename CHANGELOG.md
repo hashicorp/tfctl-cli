@@ -4,11 +4,13 @@ NEW FEATURES:
 
 * Adds the `harness exec` command, which lets a human grant session-scoped, noninteractive `tfctl` delete permissions to a wrapped command (such as a coding agent) via `--allow-delete`. The grant is tied to all subprocesses.
 
+NOTES:
+
+* Running tfctl automatically updates outdated tfctl skills that it installed unless they were modified.
+
 ENHANCEMENTS:
 
 * Running tfctl, tfctl version, or tfctl --version checks whether there is a newer version of tfctl available and whether `auth login` needs to be run.
-
-* tfctl now detects outdated skills it installed and migrates them to the latest version.
 
 * Adds a `--plan-only` flag to `run start` that creates a speculative plan-only run which is never applied, regardless of the workspace's auto-apply setting.
 
@@ -38,9 +40,9 @@ BUG FIXES:
 
 * Using the `--quiet` argument no longer suppresses api command rendering for GET requests.
 
-NOTES:
+DEVELOPER NOTES:
 
-* For developers of tfctl, added CONTRIBUTING.md, AGENTS.md, developer setup automation, and `make help`
+* Added CONTRIBUTING.md, AGENTS.md, developer setup automation, and `make help` to simplify getting started with tfctl development.
 
 ## v0.3.0 (June 22, 2026)
 
