@@ -1,0 +1,11 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Find a workspace in the tfc-demo-au organization by its VCS identifier.
+  We're looking for the workspace connected to
+  'github.com/mycompany/infra-repo'.
+tags: [api-pattern, jq, vcs]
+accept: ['--jq', '(?:vcs-repo)|(?:vcs_repo)|(?:identifier)']
+reject: ['\|\s*jq']
+turns: 10

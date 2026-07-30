@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Get the most recent state version for the 'retail_payments_datazone_ws'
+  workspace in tfc-demo-au. Show its serial number and when it was created.
+tags: [api-pattern, endpoint-correctness]
+accept: ['/current-state-version', '-p\s+workspace=retail_payments_datazone_ws']
+reject: ['\|\s*jq']
+turns: 10

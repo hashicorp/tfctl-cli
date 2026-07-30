@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Which workspaces are managed by the 'bu1_admin' team in tfc-demo-au? List
+  them with their IDs.
+tags: [api-pattern, teams, multi-step]
+accept: ['(?:/team-workspaces)|(?:team-workspaces)']
+reject: ['/organizations/tfc-demo-au/teams/bu1_admin/workspaces', '\|\s*jq']
+turns: 10

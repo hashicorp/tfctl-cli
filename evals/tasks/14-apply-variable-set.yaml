@@ -1,0 +1,13 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Apply the 'security-vars' variable set to the 'web-prod' workspace in
+  tfc-demo-au. Show the API call needed.
+tags: [api-pattern, mutation, varsets]
+accept:
+  - '/relationships/varsets'
+  - '-p\s+workspace=web-prod'
+  - '["\x27]type["\x27]\s*:\s*["\x27]varsets["\x27]'
+reject: ['\|\s*jq']
+turns: 10

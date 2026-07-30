@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  What other workspaces consume the remote state from 'state-provider-ws' in
+  tfc-demo-au? Show their IDs and names.
+tags: [api-pattern, endpoint-correctness, relationships]
+accept: ['/relationships/remote-state-consumers', '-p\s+workspace=state-provider-ws']
+reject: ['\|\s*jq']
+turns: 10

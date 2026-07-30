@@ -1,0 +1,11 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  The run 'run-vs8ZrFkXbRNUHJcP' in tfc-demo-au failed planning. Diagnose what
+  went wrong by checking the plan status, error messages, and the plan log URL.
+tags: [api-pattern, relationships, diagnostics]
+accept:
+  - '(?:run-vs8ZrFkXbRNUHJcP)|(?:/runs/run-vs8ZrFkXbRNUHJcP)|(?:/plans/)|(?:plan)'
+reject: ['\|\s*jq']
+turns: 10

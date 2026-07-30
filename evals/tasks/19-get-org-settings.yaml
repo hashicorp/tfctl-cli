@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Show the organization settings for 'tfc-demo-au'. What is the default
+  Terraform version and when was the organization created?
+tags: [api-pattern, basic]
+accept: ['(?:/organizations/tfc-demo-au)|(?:GET\s+/organizations)']
+reject: ['\|\s*jq']
+turns: 10

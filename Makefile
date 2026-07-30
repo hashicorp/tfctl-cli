@@ -5,6 +5,9 @@ ASSETS ?= assets
 VERSION_FILE ?= version/VERSION
 SKILL_HASHES = skills/tfctl/known_release_hashes
 SKILL_EMBEDDED = skills/tfctl/SKILL.md
+EVAL_ARGS ?=
+EVAL_OUTPUT ?= evals/results/latest.json
+EVAL_BASELINE ?= evals/baseline.json
 
 ifeq ($(GOARCH), arm64)
 	GOARCH = arm64
@@ -105,8 +108,32 @@ logotools:
 		echo "Install figlet https://www.figlet.org/" && exit 1; \
 	}
 
+.PHONY: eval/test
+eval/test:
+	@$(MAKE) -C evals test
+
+.PHONY: eval/lint
+eval/lint:
+	@$(MAKE) -C evals lint
+
 .PHONY: check
-check: fmt-check go/lint go/test
+check: fmt-check go/lint go/test eval/lint eval/test
+
+.PHONY: eval
+eval: bin
+	@PATH="$(abspath $(dir $(BIN_PATH))):$$PATH" go -C evals run . $(EVAL_ARGS)
+
+.PHONY: eval/save
+eval/save: bin
+	@PATH="$(abspath $(dir $(BIN_PATH))):$$PATH" go -C evals run . --output "$(abspath $(EVAL_OUTPUT))" $(EVAL_ARGS)
+
+.PHONY: eval/baseline
+eval/baseline: bin
+	@PATH="$(abspath $(dir $(BIN_PATH))):$$PATH" go -C evals run . --output "$(abspath $(EVAL_BASELINE))" $(EVAL_ARGS)
+
+.PHONY: eval/compare
+eval/compare: bin
+	@PATH="$(abspath $(dir $(BIN_PATH))):$$PATH" go -C evals run . --compare "$(abspath $(EVAL_BASELINE))" --output "$(abspath $(EVAL_OUTPUT))" $(EVAL_ARGS)
 
 # Help (make usage)
 .PHONY: help
@@ -135,4 +162,12 @@ help:
 	@echo " gen/openapi      Update embedded OpenAPI spec"
 	@echo " prepare-release  Prepare next semantic version release,"
 	@echo "                  requires VERSION argument"
+	@echo ""
+	@echo "Evaluations:"
+	@echo " eval            Run skill evaluations"
+	@echo " eval/save       Run and save evaluation results"
+	@echo " eval/baseline   Generate a baseline for review"
+	@echo " eval/compare    Run and compare with the baseline"
+	@echo " eval/test       Test the evaluator module"
+	@echo " eval/lint       Lint the evaluator module"
 	@echo ""

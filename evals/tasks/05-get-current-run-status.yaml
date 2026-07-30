@@ -1,0 +1,11 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  What is the current run status for the 'retail_payments_datazone_ws'
+  workspace in tfc-demo-au? If there's a run, show its status and the log URL
+  if available.
+tags: [api-pattern, relationships, log-url]
+accept: ['(?:/plans/)|(?:/applies/)|(?:log-read-url)']
+reject: ['\|\s*jq']
+turns: 10

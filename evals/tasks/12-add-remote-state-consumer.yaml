@@ -1,0 +1,13 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Add workspace 'consumer-ws-123' as a remote state consumer for the state
+  provider workspace 'state-host' in tfc-demo-au. Provide the exact API call to
+  make.
+tags: [api-pattern, mutation, relationships]
+accept:
+  - '/relationships/remote-state-consumers'
+  - '["\x27]type["\x27]\s*:\s*["\x27]workspaces["\x27]'
+reject: ['\|\s*jq']
+turns: 10

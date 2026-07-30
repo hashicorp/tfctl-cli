@@ -5,15 +5,18 @@ on:
     inputs:
       model:
         description: "Model to evaluate against"
+        required: false
+        default: "openai.gpt-5.6-luna"
+        type: string
+      provider:
+        description: "Responses API provider"
         required: true
-        default: "claude-sonnet-4.6"
+        default: "bedrock"
         type: choice
         options:
-          - claude-sonnet-4.6
-          - claude-opus-4.6
-          - gpt-4.1
-          - gpt-5.2
-      tasks:
+          - bedrock
+          - openai
+      task:
         description: "Task filter glob (blank = all)"
         required: false
         type: string
@@ -25,31 +28,46 @@ on:
 jobs:
   eval:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      EVAL_PROVIDER: ${{ inputs.provider }}
+      EVAL_MODEL: ${{ inputs.model }}
+      EVAL_TASK: ${{ inputs.task }}
+      EVAL_TAGS: ${{ inputs.tags }}
+      EVAL_OUTPUT: evals/results/ci.json
+      EVAL_COMPARE: evals/baseline.json
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Install waza
-        run: curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            evals/go.sum
 
-      - name: Run evals
-        working-directory: evals/tfctl-evals
+      - name: Run evals against baseline
+        if: ${{ hashFiles('evals/baseline.json') != '' }}
+        run: make eval/compare
+
+      - name: Run evals without baseline
+        if: ${{ hashFiles('evals/baseline.json') == '' }}
         env:
-          # Uses the Actions-provided GITHUB_TOKEN if org has Copilot enabled.
-          # Falls back to COPILOT_TOKEN secret if that doesn't work.
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_TOKEN || github.token }}
-        run: |
-          ARGS="--model ${{ inputs.model }}"
-          if [ -n "${{ inputs.tasks }}" ]; then
-            ARGS="$ARGS --task '${{ inputs.tasks }}'"
-          fi
-          if [ -n "${{ inputs.tags }}" ]; then
-            ARGS="$ARGS --tags '${{ inputs.tags }}'"
-          fi
-          eval waza run evals/tfctl/eval.yaml $ARGS -o results.json
+          EVAL_COMPARE: ""
+        run: make eval/save
 
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: eval-results-${{ inputs.model }}
-          path: evals/tfctl-evals/results.json
+          path: evals/results/ci.json

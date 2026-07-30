@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Find all API operations related to 'policy' in the HCP Terraform API. Show
+  their operation IDs.
+tags: [api-pattern, schema-search]
+accept: ['policy', 'schema\s+search']
+reject: ['\|\s*jq']
+turns: 10

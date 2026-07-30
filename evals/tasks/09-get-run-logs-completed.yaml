@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  For the run 'run-ABC123' in the 'data-pipeline' workspace in tfc-demo-au,
+  get the apply log URL. The run is already completed.
+tags: [api-pattern, relationships, log-url]
+accept: ['(?:/applies/)|(?:/plans/)']
+reject: ['\|\s*jq']
+turns: 10

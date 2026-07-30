@@ -1,0 +1,11 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Try to list workspaces in tfc-demo-au with an expired auth token. How should
+  the error be handled?
+tags: [error-handling, auth]
+accept:
+  - '(?:expired)|(?:re-authenticate)|(?:login)|(?:exit\s+3)|(?:token)'
+reject: ['retry\s+indefinitely', '\|\s*jq']
+turns: 10

@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  What notification configurations are set up for the 'alerts-workspace' in
+  tfc-demo-au? Show destination type and delivery type.
+tags: [api-pattern, endpoint-correctness]
+accept: ['/notification-configurations', '-p\s+workspace=alerts-workspace']
+reject: ['\|\s*jq']
+turns: 10
