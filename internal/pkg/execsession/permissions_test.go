@@ -12,10 +12,10 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
-func TestAllowDeleteCompletions(t *testing.T) {
+func TestDestroyableResourceTypes(t *testing.T) {
 	t.Parallel()
 
-	got := AllowDeleteCompletions()
+	got := DestroyableResourceTypes()
 	all := resource.AllDestroyable()
 
 	// Every known class must be offered, including the irreversible ones so a

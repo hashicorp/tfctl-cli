@@ -5,14 +5,15 @@ package execsession
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
-// AllowDeleteCompletions returns the suggested values for --allow-delete: every
+// DestroyableResourceTypes returns the suggested values for --allow-delete: every
 // known destroyable resource class.
-func AllowDeleteCompletions() []string {
+func DestroyableResourceTypes() []string {
 	allResources := resource.All()
 
 	out := make([]string, 0, len(allResources))
@@ -21,6 +22,7 @@ func AllowDeleteCompletions() []string {
 			out = append(out, r.Type)
 		}
 	}
+	slices.Sort(out)
 	return out
 }
 

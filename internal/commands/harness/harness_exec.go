@@ -56,12 +56,14 @@ func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 
 		This is a deliberate, per-session opt-in by a human. The permission is tied to the lifetime of this process and {{ Bold "auto-reverts" }} to the safe default (deletes require an interactive confirmation) as soon as the child exits.
 
-		This is a {{ Bold "safety rail, not a security boundary" }}: the child runs as the same OS user, so a true guarantee that an agent cannot delete must come from the API token scope server-side.
+		This is a {{ Bold "safety rail, not a security boundary" }}: the child runs as the same OS user, so a true guarantee that an agent cannot delete must come from the API token permissions set by the server.
 
 		Use {{ template "mdCodeOrBold" "--allow-delete" }} to name the resource types that may be deleted noninteractively. Only resource types that are explicitly named may be deleted noninteractively. Repeat the flag or pass a comma-separated list.
 
+		Some possible values for {{ template "mdCodeOrBold" "--allow-delete" }} are: %s }}.
+
 		The child command and its arguments must follow a {{ template "mdCodeOrBold" "--" }} separator.
-		`, version.Name),
+		`, version.Name, strings.Join(execsession.DestroyableResourceTypes(), ", ")),
 		Examples: []cmd.Example{
 			{
 				Preamble: "Allow an agent to delete workspaces and vars for one session:",
@@ -100,10 +102,10 @@ func NewCmdHarnessExec(inv *cmd.Invocation) *cmd.Command {
 				{
 					Name:         "allow-delete",
 					DisplayValue: "RESOURCE_TYPES",
-					Description:  "Resource types that nested processes may delete noninteractively (repeatable, CSV). Use with caution.",
+					Description:  "Resource types that nested processes may delete noninteractively. May use comma-separated list. Use with caution.",
 					Repeatable:   true,
 					Value:        flagvalue.SimpleSlice(nil, &execOpts.AllowDelete),
-					Autocomplete: complete.PredictSet(execsession.AllowDeleteCompletions()...),
+					Autocomplete: complete.PredictSet(execsession.DestroyableResourceTypes()...),
 				},
 			},
 		},
