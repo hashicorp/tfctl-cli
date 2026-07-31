@@ -1,69 +1,43 @@
-## v0.4.0 (July 30, 2026)
+## v0.4.0 (July 31, 2026)
 
 NEW FEATURES:
 
-* Adds the `harness exec` command, which lets a human grant session-scoped, noninteractive `tfctl` delete permissions to a wrapped command (such as a coding agent) via `--allow-delete`. The grant is tied to all subprocesses.
+* This release adds `harness exec`. The command lets a user give noninteractive `tfctl` delete permission to a wrapped command. Use `--allow-delete=resources,other-resources` to give permission to delete those resource types for one session. The permission applies to all subprocesses.
 
-NOTES:
-
-* Running tfctl automatically updates outdated tfctl skills that it installed unless they were modified.
+* tfctl automatically updates outdated tfctl skills that it installed. tfctl does not update modified skills.
 
 ENHANCEMENTS:
 
-* Running tfctl, tfctl version, or tfctl --version checks whether there is a newer version of tfctl available and whether `auth login` needs to be run.
+* tfctl now checks for a newer release when you run `tfctl`, `tfctl version`, or `tfctl --version`. These commands also tell you when you must run `auth login`.
 
-* Adds a `--plan-only` flag to `run start` that creates a speculative plan-only run which is never applied, regardless of the workspace's auto-apply setting.
+* `run start` now has a `--plan-only` flag. The flag creates a speculative plan-only run. You cannot apply this run, regardless of the workspace auto-apply setting.
 
-* Positional arguments and API path parameters are now checked for basic input hygiene, rejecting control characters and invalid UTF-8. This keeps malformed values out of requests and out of terminal/audit output. This is not a security boundary; authorization is still enforced by your API token.
+* tfctl now checks positional arguments and API path parameters for control characters and invalid UTF-8. It rejects malformed values before requests, terminal output, and audit output. These checks are not a security boundary. Your API token still controls authorization.
 
-* The config directory can now be overridden with the TFCTL_CONFIG_DIR environment variable. Profiles and exec sessions both resolve against this directory, making it easy to isolate tfctl state (for example, in CI or eval harnesses).
-
-BUG FIXES:
-
-* Using `auth login --dry-run` no longer opens a web browser. `--dry-run` now appears in argument autocomplete lists.
-
-* Using `profile display --markdown` no longer produces an error.
-
-* Removed Token property from json output when using `profile profiles list --json`, preventing accidental exposure.
-
-* Don't attempt to retry telemetry transmission on server errors, like rate limiting 429 errors.
-
-* Detect Terraform's `TF_TOKEN_<hostname>` environment variables (such as `TF_TOKEN_app_terraform_io`) during authentication, matching Terraform CLI's resolution. This includes punycode hostnames and the interchangeable dash encodings (literal `-` or double underscore). Previously these tokens were not detected.
-
-* Clarify the not-found (404) API error message to point at verifying the request path and resource IDs instead of suggesting an authentication problem.
-
-* Fix `api --all` returning no output when the result fits in a single page. The response body was consumed while checking for additional pages and not restored, so single-page responses rendered empty.
-
-* Fix `api` `--json` and `--jq` output incorrectly including one-to-one relationship IDs under `attributes`. Those IDs are surfaced for table and pretty output only, and are no longer written back into the raw JSON payload.
-
-* Redacts customer data within HTTP paths in telemetry payloads, such as organization and workspace names.
-
-* Using the `--quiet` argument no longer suppresses api command rendering for GET requests.
-
-DEVELOPER NOTES:
-
-* Added CONTRIBUTING.md, AGENTS.md, developer setup automation, and `make help` to simplify getting started with tfctl development.
-
-## v0.3.0 (June 22, 2026)
-
-ENHANCEMENTS:
-
-* The `harness install` command supports shell autocompletion for supported coding agents and support for the Amp coding agent has been added.
-
-* Adds debug logging for token configuration sources.
-
-* Hostnames are normalized before storage within profiles.
-
-* The `api` command now accepts arbitrary URLs, such as Archivist, but does not send tokens to any host except the configured API host.
+* The `TFCTL_CONFIG_DIR` environment variable can now set the configuration directory. Profiles and exec sessions use the specified directory. Use this variable to isolate tfctl state in continuous integration or test harnesses.
 
 BUG FIXES:
 
-* Profile configuration files are now created with read/write permissions for owner only.
+* `auth login --dry-run` no longer opens a web browser. Argument completion now includes `--dry-run`.
 
-* Hostname telemetry is anonymized when configured with a Terraform Enterprise host.
+* `profile display --markdown` no longer returns an error.
 
-## v0.2.0 (June 12, 2026)
+* The `profile profiles list --json` output no longer includes the Token property. This change prevents accidental token exposure.
+
+* tfctl no longer tries to send telemetry again after responses such as the 429 rate-limit response.
+
+* Authentication now detects Terraform `TF_TOKEN_<hostname>` environment variables, such as `TF_TOKEN_app_terraform_io`. This behavior matches Terraform CLI token resolution. Detection supports punycode hostnames and both Terraform dash encodings. You can encode each dash as `-` or `__`. tfctl did not previously detect these tokens.
+
+* The not-found (404) API error now tells you to verify the request path and resource IDs. It no longer suggests an authentication problem.
+
+* `api --all` now returns output when a result has only one page. Previously, the pagination check read the response body but did not restore it. Thus, the command returned no output.
+
+* `api --json` and `api --jq` no longer put one-to-one relationship IDs in `attributes`. Table and pretty output still show these IDs. Raw JSON output remains unchanged.
+
+* Telemetry payloads now redact customer data in HTTP paths, such as organization and workspace names.
+
+* `--quiet` no longer suppresses output from `api` GET requests.
 
 NOTES:
 
-* tfctl is an agent-first, human-friendly CLI for accessing HCP Terraform and Terraform Enterprise. Future changes will be documented here. For now, see README.md for installation, usage, and a command reference.
+* This release adds `CONTRIBUTING.md`, `AGENTS.md`, developer setup automation, and `make help`. These resources make the initial development setup easier.
