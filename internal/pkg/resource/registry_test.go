@@ -367,3 +367,34 @@ func TestRegistryInvariants(t *testing.T) {
 		}
 	})
 }
+
+func TestTypeFromPathSegment(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		segment string
+		want    string
+	}{
+		// Standard cases where segment == type
+		{segment: "workspaces", want: "workspaces"},
+		{segment: "projects", want: "projects"},
+		{segment: "runs", want: "runs"},
+		{segment: "vars", want: "vars"},
+		{segment: "organizations", want: "organizations"},
+
+		// Non-standard cases where the PathGet uses a different segment
+		{segment: "views", want: "explorer-saved-queries"},
+		{segment: "tasks", want: "run-tasks"},
+
+		// Unknown segment returns as-is
+		{segment: "unknown-segment", want: "unknown-segment"},
+		{segment: "", want: ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.segment, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, TypeFromPathSegment(tc.segment))
+		})
+	}
+}
