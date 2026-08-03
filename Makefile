@@ -5,6 +5,7 @@ ASSETS ?= assets
 VERSION_FILE ?= version/VERSION
 SKILL_HASHES = skills/tfctl/known_release_hashes
 SKILL_EMBEDDED = skills/tfctl/SKILL.md
+CHANGELOG_FILE = CHANGELOG.md
 
 ifeq ($(GOARCH), arm64)
 	GOARCH = arm64
@@ -82,6 +83,17 @@ prepare-release: gen/openapi
 	@echo "$$(shasum -a 256 $(SKILL_EMBEDDED) | cut -d' ' -f1) v$(VERSION)" >> $(SKILL_HASHES)
 	@echo "Appended sha256 for $(SKILL_EMBEDDED) to $(SKILL_HASHES)"
 
+.PHONY: cleanup-release
+cleanup-release:
+	@if [ -z "$(DEV_VERSION)" ]; then echo "DEV_VERSION is not set"; exit 1; fi
+	@if ! $$(git tag -l v$$(cat version/VERSION) >/dev/null 2>&1); then echo "Lastest version $$(cat version/VERSION) has not been released"; exit 1; fi
+
+	@echo $(DEV_VERSION) > $(VERSION_FILE)
+	@echo "## Unreleased" > $(CHANGELOG_FILE)
+	@echo "" >> $(CHANGELOG_FILE)
+	@echo "This file will be populated by automation before release. See this [CHANGELOG.md](https://github.com/hashicorp/tfctl-cli/blob/v$(VERSION)/CHANGELOG.md) for information about the latest release." >> $(CHANGELOG_FILE)
+	@echo "Release cleanup finished, version is now $(DEV_VERSION)"
+
 # Install development tools
 .PHONY: tools
 tools:
@@ -135,4 +147,6 @@ help:
 	@echo " gen/openapi      Update embedded OpenAPI spec"
 	@echo " prepare-release  Prepare next semantic version release,"
 	@echo "                  requires VERSION argument"
+	@echo " cleanup-release  Clean up after a release"
+	@echo "                  requires DEV_VERSION argument"
 	@echo ""
