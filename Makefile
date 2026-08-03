@@ -78,10 +78,12 @@ fmt-check:
 .PHONY: prepare-release
 prepare-release: gen/openapi
 	@if [ -z "$(VERSION)" ]; then echo "VERSION is not set"; exit 1; fi
+	@if [ -z "$(CHANGIE_VERSION)" ]; then echo "CHANGIE_VERSION is not set"; exit 1; fi
 	@echo $(VERSION) > $(VERSION_FILE)
 	@echo "Updated $(VERSION_FILE) to $(VERSION)"
 	@echo "$$(shasum -a 256 $(SKILL_EMBEDDED) | cut -d' ' -f1) v$(VERSION)" >> $(SKILL_HASHES)
 	@echo "Appended sha256 for $(SKILL_EMBEDDED) to $(SKILL_HASHES)"
+	@npx -q changie@$(CHANGIE_VERSION) batch $(VERSION)
 
 .PHONY: cleanup-release
 cleanup-release:
