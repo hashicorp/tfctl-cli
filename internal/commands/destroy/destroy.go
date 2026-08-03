@@ -126,13 +126,28 @@ func runDestroy(ctx context.Context, opts *Opts) error {
 
 	path := strings.ReplaceAll(res.PathGet, "{id}", id)
 
-	if strings.Contains(path, "{organization_name}") {
-		org := cmdutil.ResolveOrganization(opts.ProfileOrganization, opts.Organization)
-		var err error
-		path, err = cmdutil.ResolvePath(path, org)
-		if err != nil {
-			return err
+	// Auto-fill organization params if present in the path
+	pathParams := make(map[string]string)
+	paramSegments := client.ParsePathParams(path)
+	for param, segment := range paramSegments {
+		if segment == "organizations" {
+			org := cmdutil.ResolveOrganization(opts.ProfileOrganization, opts.Organization)
+			if org == "" {
+				return fmt.Errorf(
+					"organization is required but not set\n\n" +
+						"Set one with:\n" +
+						"  tfctl profile set default_organization <name>\n" +
+						"Or use --organization <name> / -o <name>",
+				)
+			}
+			pathParams[param] = org
 		}
+	}
+
+	// Substitute all path parameters
+	path, err := client.ResolvePathParams(path, pathParams)
+	if err != nil {
+		return err
 	}
 
 	resolvedURL, err := client.ResolveURL(*opts.client.BaseURL, path)
@@ -147,7 +162,11 @@ func runDestroy(ctx context.Context, opts *Opts) error {
 	apiOpts.Quiet = opts.Quiet
 	apiOpts.DryRun = opts.DryRun
 
-	if store, err := execsession.DefaultStore(); err == nil {
+	// Use the authorizer from opts if set (e.g. in tests), otherwise create one
+	// from the default exec session store.
+	if opts.Authorizer != nil {
+		apiOpts.Authorizer = opts.Authorizer
+	} else if store, err := execsession.DefaultStore(); err == nil {
 		apiOpts.Authorizer = &execsession.EnvAuthorizer{Store: store}
 	}
 

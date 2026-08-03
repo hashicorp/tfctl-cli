@@ -12,8 +12,21 @@ import (
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/cmdtest"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/execsession"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 )
+
+// fakeAuthorizer is a programmable execsession.Authorizer for tests.
+type fakeAuthorizer struct {
+	decision execsession.Decision
+	err      error
+	gotTypes []string
+}
+
+func (f *fakeAuthorizer) AuthorizeDelete(class string) (execsession.Decision, error) {
+	f.gotTypes = append(f.gotTypes, class)
+	return f.decision, f.err
+}
 
 func TestRunDestroy(t *testing.T) {
 	t.Parallel()
@@ -157,5 +170,65 @@ func TestRunDestroy(t *testing.T) {
 		err = runDestroy(inv.ShutdownCtx, opts)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "organization is required")
+	})
+
+	t.Run("noninteractive authorized by exec session", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+			"DELETE /api/v2/workspaces/ws-abc123": func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			},
+		}))
+
+		auth := &fakeAuthorizer{decision: execsession.Decision{Allowed: true, Token: "TOKEN123", Reason: execsession.ReasonGranted}}
+
+		opts := &Opts{Args: []string{"workspace", "ws-abc123"}}
+		opts.IO = io
+		opts.Output = inv.Output
+		opts.Authorizer = auth
+
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+		opts.client = client
+
+		err = runDestroy(inv.ShutdownCtx, opts)
+		require.NoError(t, err)
+
+		// Verify the typed command declared its resource class directly
+		require.Equal(t, []string{"workspaces"}, auth.gotTypes)
+		// Audit notice emitted
+		require.Contains(t, io.Error.String(), "authorized by exec session")
+	})
+
+	t.Run("explorer-saved-queries uses correct class via ResourceType", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, cmdtest.RouteMap{
+			"DELETE /api/v2/organizations/my-org/explorer/views/sq-abc": func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			},
+		}))
+
+		auth := &fakeAuthorizer{decision: execsession.Decision{Allowed: true, Token: "TOKEN123", Reason: execsession.ReasonGranted}}
+
+		opts := &Opts{
+			Args:                []string{"explorer-saved-queries", "sq-abc"},
+			Organization:        "my-org",
+			ProfileOrganization: "my-org",
+		}
+		opts.IO = io
+		opts.Output = inv.Output
+		opts.Authorizer = auth
+
+		client, err := inv.NewAPIClient()
+		require.NoError(t, err)
+		opts.client = client
+
+		err = runDestroy(inv.ShutdownCtx, opts)
+		require.NoError(t, err)
+
+		// The key test: authorizer received "explorer-saved-queries" not "views"
+		require.Equal(t, []string{"explorer-saved-queries"}, auth.gotTypes)
 	})
 }
