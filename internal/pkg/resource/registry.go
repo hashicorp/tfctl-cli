@@ -560,3 +560,37 @@ func IsResolvableType(typeName string) bool {
 	}
 	return r.Resolvable
 }
+
+// TypeFromPathSegment maps a URL path segment to its resource type. For most
+// resources the segment matches the type (e.g. "workspaces" → "workspaces"),
+// but some have non-standard URL structures where the path segment differs
+// from the type name (e.g. "views" → "explorer-saved-queries", "tasks" → "run-tasks").
+// Returns the segment unchanged if no mapping is found.
+func TypeFromPathSegment(segment string) string {
+	// Check all registered resources for a PathGet that uses this segment
+	// in a non-standard way (segment != type).
+	for _, r := range registry {
+		if r.PathGet == "" {
+			continue
+		}
+		// Extract the collection segment immediately before {id} in PathGet
+		parts := strings.Split(strings.Trim(r.PathGet, "/"), "/")
+		if len(parts) < 2 {
+			continue
+		}
+		// Find the last non-placeholder segment before the trailing {id}
+		var collectionSegment string
+		for i := len(parts) - 1; i >= 0; i-- {
+			if strings.HasPrefix(parts[i], "{") {
+				continue
+			}
+			collectionSegment = parts[i]
+			break
+		}
+		if collectionSegment == segment && collectionSegment != r.Type {
+			return r.Type
+		}
+	}
+	// No non-standard mapping found, return the segment as-is
+	return segment
+}

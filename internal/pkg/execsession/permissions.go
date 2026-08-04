@@ -90,7 +90,10 @@ func ClassFromPath(p string) string {
 	}
 
 	// The class is the collection segment immediately preceding the final id.
-	return segments[len(segments)-2]
+	// Map it to the actual resource type (handles non-standard paths where
+	// the URL segment differs from the type name, e.g. "views" → "explorer-saved-queries").
+	segment := segments[len(segments)-2]
+	return resource.TypeFromPathSegment(segment)
 }
 
 func isAllDigits(s string) bool {

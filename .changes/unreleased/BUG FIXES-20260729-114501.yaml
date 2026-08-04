@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "Delete permissions now resolve correctly for resources with non-standard API paths (e.g. `explorer-saved-queries`, `run-tasks`)"
+time: 2026-07-29T11:45:01.000000-06:00
