@@ -58,6 +58,7 @@ func TestClassFromPath(t *testing.T) {
 		{name: "non-standard explorer-saved-queries", path: "/organizations/my-org/explorer/views/sq-abc", want: "explorer-saved-queries"},
 		{name: "non-standard explorer-saved-queries with api prefix", path: "/api/v2/organizations/my-org/explorer/views/sq-abc", want: "explorer-saved-queries"},
 		{name: "non-standard run-tasks", path: "/tasks/task-abc", want: "run-tasks"},
+		{name: "non-standard github-app-installations", path: "/github-app/installation/ghain-abc", want: "github-app-installations"},
 	}
 
 	for _, tc := range cases {

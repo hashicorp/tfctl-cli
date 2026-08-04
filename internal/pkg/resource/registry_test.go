@@ -385,6 +385,7 @@ func TestTypeFromPathSegment(t *testing.T) {
 		// Non-standard cases where the PathGet uses a different segment
 		{segment: "views", want: "explorer-saved-queries"},
 		{segment: "tasks", want: "run-tasks"},
+		{segment: "installation", want: "github-app-installations"},
 
 		// Unknown segment returns as-is
 		{segment: "unknown-segment", want: "unknown-segment"},
