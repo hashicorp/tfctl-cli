@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"reflect"
 	"slices"
 	"strings"
@@ -17,7 +18,12 @@ import (
 	"github.com/itchyny/gojq"
 
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/redact"
 )
+
+// maxReportedRedactions is the number of masked field names listed before the
+// report is summarized.
+const maxReportedRedactions = 3
 
 // Displayer is the interface for displaying a given payload. By implementing
 // this interface, the payload can be outputted in any of the given Formats.
@@ -226,6 +232,14 @@ type TemplatedPayload interface {
 	TemplatedPayload() any
 }
 
+// Redactable allows a Displayer whose payload comes from an API response to
+// return a copy of itself with sensitive values masked. Display calls Redacted
+// before it selects a format, so masking applies to every format, including
+// JSON and the jq filter.
+type Redactable interface {
+	Redacted(r *redact.Redactor) Displayer
+}
+
 // StringPayload allows a Displayer to provide pre-formatted string output for
 // pretty and markdown formats instead of using field templates. The displayer
 // receives the active Format so it can tailor the output (e.g. ANSI codes for
@@ -291,6 +305,13 @@ type Outputter struct {
 
 	// jqFilter is an optional jq filter expression to apply to JSON output.
 	jqFilter string
+
+	// redactor masks sensitive values in a payload before any format renders
+	// it. A nil redactor performs no masking.
+	redactor *redact.Redactor
+
+	// reported is the number of masked fields already reported to the user.
+	reported int
 }
 
 // New returns an new outputter that will write to the provided IOStreams.
@@ -315,6 +336,17 @@ func (o *Outputter) GetFormat() Format {
 	return o.forcedFormat
 }
 
+// SetRedactor sets the redactor used to mask sensitive values in every payload
+// this outputter renders.
+func (o *Outputter) SetRedactor(r *redact.Redactor) {
+	o.redactor = r
+}
+
+// Redactor returns the configured redactor, which can be nil.
+func (o *Outputter) Redactor() *redact.Redactor {
+	return o.redactor
+}
+
 // SetJQFilter sets a jq filter expression to apply to JSON output.
 func (o *Outputter) SetJQFilter(filter string) {
 	o.jqFilter = filter
@@ -323,6 +355,16 @@ func (o *Outputter) SetJQFilter(filter string) {
 // Display displays the passed Displayer. The format used is the DefaultFormat
 // unless the outputter has had a Format set which overrides the default.
 func (o *Outputter) Display(d Displayer) error {
+	// Mask sensitive values before a format is selected. Masking here rather
+	// than inside outputJSON keeps --json, --jq, and the templated formats
+	// consistent, and stops the jq filter from reaching a value that the JSON
+	// format would have hidden.
+	if o.redactor.Enabled() {
+		if r, ok := d.(Redactable); ok {
+			d = r.Redacted(o.redactor)
+		}
+	}
+
 	// Determine what format to use
 	format := d.DefaultFormat()
 	if o.forcedFormat != Unset {
@@ -330,20 +372,115 @@ func (o *Outputter) Display(d Displayer) error {
 	}
 
 	// Display the payload based on the selected format.
+	var err error
 	switch format {
 	case Pretty:
-		return o.outputPretty(d)
+		err = o.outputPretty(d)
 	case Table:
-		return o.outputTable(d)
+		err = o.outputTable(d)
 	case Markdown:
-		return o.outputMarkdown(d)
+		err = o.outputMarkdown(d)
 	case JSON:
-		return o.outputJSON(d)
+		err = o.outputJSON(d)
 	case Agent:
-		return o.outputAgent(d)
+		err = o.outputAgent(d)
+	default:
+		return fmt.Errorf("invalid output format")
 	}
 
-	return fmt.Errorf("invalid output format")
+	if err != nil {
+		return err
+	}
+
+	o.ReportRedactions()
+	return nil
+}
+
+// ReportRedactions tells the user which fields were masked, once per field. The
+// report is unessential output, so --quiet suppresses it.
+func (o *Outputter) ReportRedactions() {
+	if !o.redactor.Enabled() || o.redactor.Count() <= o.reported {
+		return
+	}
+	o.reported = o.redactor.Count()
+
+	fields := o.redactor.Fields()
+	shown := fields
+	suffix := ""
+	if len(shown) > maxReportedRedactions {
+		shown = shown[:maxReportedRedactions]
+		suffix = fmt.Sprintf(" and %d more", len(fields)-maxReportedRedactions)
+	}
+
+	cs := o.io.ColorScheme()
+	fmt.Fprintf(o.io.ErrUnessential(), "%s masked %d sensitive %s: %s%s. Use --no-redact to show %s.\n",
+		cs.WarningLabel(),
+		len(fields),
+		pluralize("field", len(fields)),
+		strings.Join(shown, ", "),
+		suffix,
+		pluralize("it", len(fields)),
+	)
+}
+
+func pluralize(word string, count int) string {
+	if count == 1 {
+		return word
+	}
+	if word == "it" {
+		return "them"
+	}
+	return word + "s"
+}
+
+// CopyRaw writes a response body that no displayer handles, such as a plan JSON
+// output document. Direct stdout is used because the body is an opaque stream
+// that global format conversion does not apply to.
+//
+// When redaction is active and the body is JSON, the body is buffered and masked
+// instead of streamed. Plan JSON contains every value Terraform wrote, including
+// values that were marked sensitive in the configuration, so it cannot be
+// exempt. The original bytes are written unchanged when nothing was masked, so
+// output stays byte-for-byte identical in the common case.
+func (o *Outputter) CopyRaw(body io.Reader, contentType string) error {
+	if !o.redactor.Enabled() || !isJSONContentType(contentType) {
+		_, err := io.Copy(o.io.Out(), body)
+		return err
+	}
+
+	raw, err := io.ReadAll(body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var decoded any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		// The content type claimed JSON but the body is not JSON. Pass it
+		// through rather than dropping it.
+		_, err := o.io.Out().Write(raw)
+		return err
+	}
+
+	before := o.redactor.Count()
+	masked := o.redactor.Apply(decoded)
+	if o.redactor.Count() == before {
+		_, err := o.io.Out().Write(raw)
+		return err
+	}
+
+	data, err := json.MarshalIndent(masked, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal masked result to JSON: %w", err)
+	}
+
+	fmt.Fprintln(o.io.Out(), string(data))
+	o.ReportRedactions()
+	return nil
+}
+
+func isJSONContentType(contentType string) bool {
+	mediaType := strings.TrimSpace(strings.Split(contentType, ";")[0])
+	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
 }
 
 // Show outputs the given val using the DisplayFields function.

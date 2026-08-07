@@ -1067,7 +1067,7 @@ func TestWriteDryRunRequest(t *testing.T) {
 	}
 	body := []byte(`{"data":{"type":"projects"}}`)
 
-	writeDryRunRequest(io.Err(), http.MethodPost, u, headers, body)
+	writeDryRunRequest(io.Err(), http.MethodPost, u, headers, body, nil)
 
 	output := io.Error.String()
 	if !strings.Contains(output, "> POST https://example.com/api/v2/projects") {

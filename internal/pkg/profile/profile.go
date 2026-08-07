@@ -21,6 +21,8 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/posener/complete"
 	"golang.org/x/net/idna"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/redact"
 )
 
 const (
@@ -96,6 +98,13 @@ type Profile struct {
 	// "log" to write spans to stderr, or any other value (including empty) to enable OTLP export.
 	Telemetry *string `hcl:"telemetry,optional" json:",omitempty"`
 
+	// Redact controls masking of sensitive values in output. Values: "strict"
+	// (the default) masks known secret fields, values the API declares
+	// sensitive, and values whose name or shape indicates a credential; "known"
+	// masks only known secret fields and declared sensitive values; "off"
+	// disables masking.
+	Redact *string `hcl:"redact,optional" json:",omitempty"`
+
 	// tokenFromEnv is the token extracted from the environment. This is not written to disk and is only used to allow GetToken
 	// to return a token from the environment if one is not set on the profile.
 	tokenFromEnv string
@@ -112,6 +121,7 @@ func (p *Profile) Predict(args complete.Args) []string {
 	properties := map[string][]string{
 		"no_color":  {"true", "false"},
 		"telemetry": {"true", "false", "disabled", "log"},
+		"redact":    {"strict", "known", "off"},
 	}
 
 	// If the property has been specified, return possible values.
@@ -124,7 +134,7 @@ func (p *Profile) Predict(args complete.Args) []string {
 
 	// predicting the property
 	if len(args.All) == 1 {
-		return []string{"default_organization", "no_color", "hostname", "token", "telemetry"}
+		return []string{"default_organization", "no_color", "hostname", "token", "telemetry", "redact"}
 	}
 
 	return nil
@@ -149,6 +159,10 @@ func (p *Profile) Validate() error {
 	const nameRegex = "^[A-Za-z][A-Za-z0-9_]{0,63}$"
 	if matched, _ := regexp.MatchString(nameRegex, p.Name); !matched {
 		err = multierror.Append(err, ErrInvalidProfileName)
+	}
+
+	if _, modeErr := redact.ParseMode(p.GetRedact()); modeErr != nil {
+		err = multierror.Append(err, modeErr)
 	}
 
 	err.ErrorFormat = func(errors []error) string {
@@ -363,4 +377,13 @@ func (p *Profile) GetTelemetry() string {
 	}
 
 	return *p.Telemetry
+}
+
+// GetRedact returns the redaction setting or an empty string if unset.
+func (p *Profile) GetRedact() string {
+	if p == nil || p.Redact == nil {
+		return ""
+	}
+
+	return *p.Redact
 }
