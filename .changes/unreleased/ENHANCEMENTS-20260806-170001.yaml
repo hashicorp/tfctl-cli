@@ -1,0 +1,3 @@
+kind: ENHANCEMENTS
+body: "Added a `redact` profile property and a `TFCTL_REDACT` environment variable to control masking of sensitive values in output, with modes `strict` (the default), `known`, and `off`, plus a `--no-redact` global flag to show masked values for a single command"
+time: 2026-08-06T17:00:01.000000-04:00

@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/profile"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/redact"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/telemetry"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -57,6 +58,7 @@ type GlobalFlags struct {
 	json     bool
 	markdown bool
 	noColor  bool
+	noRedact bool
 	jq       string
 	debug    int
 	dryRun   bool
@@ -165,6 +167,12 @@ func ConfigureRootCommand(i *Invocation, cmd *Command) {
 		Name:          "no-color",
 		Description:   "Disables color output.",
 		Value:         flagvalue.Simple(false, &i.flags.noColor),
+		IsBooleanFlag: true,
+		global:        true,
+	}, &Flag{
+		Name:          "no-redact",
+		Description:   "Shows sensitive values in output instead of masking them.",
+		Value:         flagvalue.Simple(false, &i.flags.noRedact),
 		IsBooleanFlag: true,
 		global:        true,
 	}, &Flag{
@@ -290,6 +298,12 @@ func (i *Invocation) applyGlobalFlags(_ *Command) error {
 		i.Output.SetFormat(f)
 	}
 
+	// Configure output redaction. API responses can carry credentials and signed
+	// URLs, so masking is on unless the user opts out.
+	if err := i.applyRedaction(); err != nil {
+		return err
+	}
+
 	// Disable color if set
 	if i.flags.noColor || (i.Profile != nil && i.Profile.NoColor != nil && *i.Profile.NoColor) {
 		i.IO.ForceNoColor()
@@ -298,6 +312,38 @@ func (i *Invocation) applyGlobalFlags(_ *Command) error {
 	// Set quiet on the IOStream if enabled by the flag
 	if i.flags.Quiet {
 		i.IO.SetQuiet(true)
+	}
+
+	return nil
+}
+
+// applyRedaction resolves the redaction mode and configures the outputter. It
+// warns when masking is off and stdout is not a terminal, because that is the
+// case where a secret is most likely to be captured by a log, a file, or an
+// automated caller rather than read once and discarded.
+func (i *Invocation) applyRedaction() error {
+	if i.Output == nil {
+		return nil
+	}
+
+	// An unusable setting must not stop the command. Masking falls back to
+	// strict, which is the safe direction, and the reason is reported. A profile
+	// that was edited by hand, or a typo in the environment, would otherwise
+	// make every command fail with no obvious way to recover.
+	mode, err := redact.ResolveMode(i.flags.noRedact, i.Profile.GetRedact())
+	if err != nil {
+		mode = redact.ModeStrict
+		if i.IO != nil {
+			fmt.Fprintf(i.IO.Err(), "%s %v. Masking sensitive values in %s mode.\n",
+				i.IO.ColorScheme().WarningLabel(), err, mode)
+		}
+	}
+
+	i.Output.SetRedactor(redact.New(mode))
+
+	if mode == redact.ModeOff && i.IO != nil && !i.IO.IsOutputTTY() {
+		fmt.Fprintf(i.IO.Err(), "%s output redaction is off. Sensitive values in API responses are written to stdout.\n",
+			i.IO.ColorScheme().WarningLabel())
 	}
 
 	return nil

@@ -185,6 +185,8 @@ If you have **not** configured a particular option for the active profile, `tfct
 
 `TFCTL_SKIP_MIGRATE`: Don't migrate installed skill files to the latest version (if contents are known to be installed by a previous version).
 
+`TFCTL_REDACT`: Control masking of sensitive values in output. Accepts `strict` (the default), `known`, or `off`. Refer to [Output redaction](#output-redaction).
+
 `CHECKPOINT_DISABLE`: Don't check for newer versions of tfctl.
 
 ## Command reference
@@ -211,11 +213,25 @@ The `tfctl` command can manage HCP Terraform runs and variables with the corresp
 
 - `--no-color`: Disables color output.
 
+- `--no-redact`: Shows sensitive values in output instead of masking them. Refer to [Output redaction](#output-redaction).
+
 - `--profile=<name>`: The profile to use. If omitted, the CLI uses the current profile.
 
 - `--quiet`: Minimizes output, rendering only essential content.
 
 - `--version`: Print the version of `tfctl` CLI.
+
+### Output redaction
+
+Some API responses carry credentials. A created token is returned once in full, and a state version carries signed download URLs that grant access to the state, which contains every value Terraform wrote. `tfctl` masks these values in all output formats, including `--json` and `--jq`, and reports which fields it masked. Masking applies to the response body only. It is not an access control boundary: the API decides what your token can read, and redaction limits what a permitted response leaves behind in a terminal, a log, or an automated caller.
+
+Set the mode with the `redact` profile property or the `TFCTL_REDACT` environment variable:
+
+- `strict` (the default): masks known secret fields, values the API declares sensitive, and values whose name or shape indicates a credential.
+
+- `known`: masks only known secret fields and values the API declares sensitive. Use this mode when a name or shape heuristic hides a value you need.
+
+- `off`: disables masking. The `--no-redact` flag does the same for one command.
 
 ### Exit Codes
 

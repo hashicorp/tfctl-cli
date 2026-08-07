@@ -42,6 +42,12 @@ func addCoreProperties(b *availablePropertiesBuilder) {
 		Controls telemetry behavior. Set to {{ template "mdCodeOrBold" "false" }} or
 		{{ template "mdCodeOrBold" "disabled" }} to disable telemetry, {{ template "mdCodeOrBold" "log" }}
 		to output span data to stderr, or any other value to enable OTLP export.`)
+	b.AddProperty("", "redact", `
+		Controls masking of sensitive values in output. {{ template "mdCodeOrBold" "strict" }}
+		(the default) masks known secret fields, values the API declares sensitive, and values
+		whose name or shape indicates a credential. {{ template "mdCodeOrBold" "known" }} masks
+		only known secret fields and declared sensitive values.
+		{{ template "mdCodeOrBold" "off" }} disables masking.`)
 }
 
 type availablePropertiesBuilder struct {
