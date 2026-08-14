@@ -87,7 +87,14 @@ func TestProfile_Predict(t *testing.T) {
 			Args: complete.Args{
 				All: []string{""},
 			},
-			Expected: []string{"default_organization", "no_color", "hostname", "token", "telemetry"},
+			Expected: []string{"default_organization", "no_color", "hostname", "token", "telemetry", "redact"},
+		},
+		{
+			Name: "redact values",
+			Args: complete.Args{
+				All: []string{"redact"},
+			},
+			Expected: []string{"strict", "known", "off"},
 		},
 	}
 

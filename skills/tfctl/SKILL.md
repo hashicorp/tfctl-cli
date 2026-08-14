@@ -140,14 +140,19 @@ tfctl api schema search "KEYWORD" --json     # returns operationIds
 tfctl api schema get OPERATION_ID            # full OpenAPI schema (large response — only call when needed)
 ```
 
+### Secret Redaction
+
+By default, tfctl will redact the output of sensitive values from `api` command output, which includes artifact download URLs, log URLs, tokens, private SSH keys, and some unknown things such as variable values that match a token heuristic. This includes --json and --jq output. When extracting a secret that you need, use the --no-redact global flag to disable redaction for a single request.
+
 ## Output flags
 
-| Need              | Flag             |
-|-------------------|------------------|
-| Filter / extract  | `--jq '<expr>'`  |
-| Full JSON         | `--json`         |
-| Render for human  | `--markdown`     |
-| Audit a mutation  | `--dry-run`      |
+| Need                 | Flag             |
+|----------------------|------------------|
+| Filter / extract     | `--jq '<expr>'`  |
+| Full JSON            | `--json`         |
+| Render for human     | `--markdown`     |
+| Audit a mutation     | `--dry-run`      |
+| Don't redact secrets | `--no-redact`    |
 
 `--jq` implies `--json`. Don't pass both. Always pass one explicitly — don't rely on auto-detect.
 

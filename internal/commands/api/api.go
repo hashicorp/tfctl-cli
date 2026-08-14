@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/logging"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/redact"
 	terraformcfg "github.com/hashicorp/tfctl-cli/internal/pkg/terraform"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -507,7 +508,8 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 	// In dry-run mode, skip mutating requests and report what would have happened.
 	if opts.DryRun && isMutationMethod(method) {
 		fmt.Fprintf(opts.IO.Err(), "%s would send %s request\n", opts.IO.ColorScheme().DryRunLabel(), method)
-		writeDryRunRequest(opts.IO.Err(), method, opts.URL, requestHeaders, body)
+		writeDryRunRequest(opts.IO.Err(), method, opts.URL, requestHeaders, body, opts.Output.Redactor())
+		opts.Output.ReportRedactions()
 		return nil
 	}
 
@@ -553,7 +555,11 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 
 	if !strings.HasPrefix(response.Header.Get("Content-Type"), "application/vnd.api+json") {
 		logger.Debug("Response body was not application/vnd.api+json, rendering raw body")
-		_, _ = io.Copy(opts.IO.Out(), response.Body)
+		// A raw body still needs masking. Plan JSON output, for example, holds
+		// every value Terraform wrote, including sensitive ones.
+		if err := opts.Output.CopyRaw(response.Body, response.Header.Get("Content-Type")); err != nil {
+			logger.Debug("Failed to render raw body", "error", err)
+		}
 		return nil
 	}
 
@@ -793,25 +799,60 @@ func isMutationMethod(method string) bool {
 	}
 }
 
-func writeDryRunRequest(w io.Writer, method string, u *url.URL, headers http.Header, body []byte) {
+// writeDryRunRequest reports the request that would have been sent.
+//
+// The request is masked with the same rules as a response. A dry run is what a
+// careful person does before setting a sensitive variable, so this is the moment
+// a secret is most likely to be written to a terminal, and the value being set
+// is the secret itself.
+func writeDryRunRequest(w io.Writer, method string, u *url.URL, headers http.Header, body []byte, redactor *redact.Redactor) {
 	fmt.Fprintf(w, "> %s %s\n", method, u.String())
+
 	keys := make([]string, 0, len(headers))
 	for key := range headers {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
+
 	for _, key := range keys {
-		fmt.Fprintf(w, "> %s: %s\n", key, strings.Join(headers.Values(key), ", "))
+		value := strings.Join(headers.Values(key), ", ")
+		if masked, ok := redactor.MaskHeader(key, value); ok {
+			value = masked
+		}
+		fmt.Fprintf(w, "> %s: %s\n", key, value)
 	}
+
 	if len(body) == 0 {
 		return
 	}
+
 	fmt.Fprintln(w)
-	_, _ = w.Write(formatDryRunBody(body))
+	_, _ = w.Write(formatDryRunBody(body, redactor))
 	fmt.Fprintln(w)
 }
 
-func formatDryRunBody(body []byte) []byte {
+// formatDryRunBody indents the request body and masks any sensitive value in it.
+//
+// A body that cannot be parsed cannot be masked, so it is withheld rather than
+// printed. Every body this command sends is JSON that it built or that the user
+// supplied with --input, so an unparseable body is already a request that would
+// fail.
+func formatDryRunBody(body []byte, redactor *redact.Redactor) []byte {
+	if redactor.Enabled() {
+		var decoded any
+		if err := json.Unmarshal(body, &decoded); err != nil {
+			return []byte("(body withheld: it is not valid JSON, so it cannot be masked. Use --no-redact to show it)")
+		}
+
+		before := redactor.Count()
+		masked := redactor.Apply(decoded)
+		if redactor.Count() != before {
+			if formatted, err := json.MarshalIndent(masked, "", "  "); err == nil {
+				return formatted
+			}
+		}
+	}
+
 	var formatted bytes.Buffer
 	if err := json.Indent(&formatted, body, "", "  "); err == nil {
 		return formatted.Bytes()

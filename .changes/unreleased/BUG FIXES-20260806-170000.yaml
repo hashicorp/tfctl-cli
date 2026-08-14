@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "Credentials returned by the API are no longer printed. A created token, and the `hosted-state-download-url` and `hosted-json-state-download-url` of a state version, which grant access to state without a token, were rendered in every output format including `--json` and `--jq`. `--dry-run` echoed the request body and headers, so previewing a sensitive variable printed the value being set"
+time: 2026-08-06T17:00:00.000000-04:00

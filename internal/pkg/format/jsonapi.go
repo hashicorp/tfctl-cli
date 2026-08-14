@@ -16,6 +16,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/hashicorp/tfctl-cli/internal/pkg/redact"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 )
 
@@ -58,8 +59,11 @@ type JSONAPIDisplayer struct {
 	logger       hclog.Logger
 }
 
-// Check interface at compile time.
-var _ Displayer = JSONAPIDisplayer{}
+// Check interfaces at compile time.
+var (
+	_ Displayer  = JSONAPIDisplayer{}
+	_ Redactable = JSONAPIDisplayer{}
+)
 
 // Any attribute keys that contain characters other than letters, numbers, hyphens, underscores,
 // and periods are skipped for display. Usually indicates user content in embedded
@@ -84,6 +88,36 @@ func (d JSONAPIDisplayer) Payload() any {
 // flattened attribute rows for use by table and pretty output formats.
 func (d JSONAPIDisplayer) TemplatedPayload() any {
 	return d.payload
+}
+
+// Redacted implements the Redactable interface. Both views of the response are
+// masked: the envelope that backs JSON output and the flattened rows that back
+// table and pretty output. The redactor reports a masked field once even though
+// it sees it in both views.
+func (d JSONAPIDisplayer) Redacted(r *redact.Redactor) Displayer {
+	masked := d
+
+	if envelope, ok := r.Apply(d.rawPayload).(map[string]any); ok {
+		masked.rawPayload = envelope
+	} else {
+		// Apply preserves the type of its input, so this cannot happen for a
+		// validated envelope. Fail closed rather than render the raw payload.
+		d.logger.Debug("Could not mask the JSON:API envelope, dropping the payload")
+		masked.rawPayload = map[string]any{}
+	}
+
+	switch rows := d.payload.(type) {
+	case []map[string]any:
+		maskedRows := make([]map[string]any, len(rows))
+		for i, row := range rows {
+			maskedRows[i] = r.ApplyRow(row)
+		}
+		masked.payload = maskedRows
+	case map[string]any:
+		masked.payload = r.ApplyRow(rows)
+	}
+
+	return masked
 }
 
 // FieldTemplates implements the Displayer interface.
