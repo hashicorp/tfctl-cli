@@ -212,8 +212,7 @@ func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 
 	newRunID := *response.GetData().GetId()
 
-	runURL := fmt.Sprintf("https://%s/app/%s/workspaces/%s/runs/%s",
-		opts.Profile.GetHostname(), *organizationName, *ws.GetAttributes().GetName(), newRunID)
+	runURL := opts.APIClient.RunAppURL(*organizationName, *ws.GetAttributes().GetName(), newRunID)
 
 	if !opts.Wait {
 		fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`
@@ -237,7 +236,7 @@ func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL stri
 	io := opts.IO
 	cs := io.ColorScheme()
 
-	fmt.Fprintf(io.Err(), "%s %s created; waiting for it to finish...\n", cs.SuccessIcon(), runID)
+	fmt.Fprintf(io.ErrUnessential(), "%s %s created; waiting for it to finish...\n", cs.SuccessIcon(), runID)
 
 	if opts.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -251,19 +250,16 @@ func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL stri
 	if err != nil {
 		// The wait was interrupted (timeout or cancel), but the run itself keeps
 		// running in HCP Terraform. Point the user at it before returning.
-		fmt.Fprintf(io.Err(), "%s Stopped waiting; the run may still be running in HCP Terraform:\n  %s\n",
+		fmt.Fprintf(io.ErrUnessential(), "%s Stopped waiting; the run may still be running in HCP Terraform:\n  %s\n",
 			cs.FailureIcon(), runURL)
 		return err
 	}
 
+	// The run URL and the confirmation wording are both owned by NewRunSummary so
+	// this path stays identical to `run status`.
 	summary, err := client.NewRunSummary(ctx, opts.APIClient, runID)
 	if err != nil {
 		return err
-	}
-	summary.RunURL = runURL
-
-	if outcome == client.RunAwaitingConfirm {
-		summary.Message = "Plan finished; a manual apply is required (auto-apply is off). Confirm the apply by visiting the run URL."
 	}
 
 	if err := opts.Output.Display(&summaryDisplayer{summary: summary, io: io}); err != nil {
