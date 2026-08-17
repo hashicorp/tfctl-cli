@@ -388,6 +388,11 @@ func TestRunStart_Wait_Success(t *testing.T) {
 				"data": map[string]any{
 					"id": "run-waited", "type": "runs",
 					"attributes": map[string]any{"status": status},
+					"relationships": map[string]any{
+						"workspace": map[string]any{
+							"data": map[string]any{"id": "ws-abc123", "type": "workspaces"},
+						},
+					},
 				},
 			})
 		default:
@@ -413,6 +418,72 @@ func TestRunStart_Wait_Success(t *testing.T) {
 	// The run URL is surfaced in the displayer output.
 	assert.Contains(t, io.Output.String(), "View run:")
 	assert.Contains(t, io.Output.String(), "workspaces/foobar/runs/run-waited")
+}
+
+func TestRunStart_Wait_Quiet(t *testing.T) {
+	t.Parallel()
+	io := iostreams.Test()
+	io.SetQuiet(true)
+
+	var runGets int32
+	c := testAPI(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch route(r) {
+		case "GET /api/v2/workspaces/ws-abc123":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "ws-resolved", "type": "workspaces",
+					"attributes": map[string]any{"name": "foobar"},
+					"relationships": map[string]any{
+						"organization": map[string]any{
+							"data": map[string]any{"id": "my-org", "type": "organizations"},
+						},
+					},
+				},
+			})
+		case "POST /api/v2/runs":
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "run-quiet", "type": "runs",
+					"attributes": map[string]any{"status": "pending"},
+				},
+			})
+		case "GET /api/v2/runs/run-quiet":
+			status := "planning"
+			if atomic.AddInt32(&runGets, 1) > 1 {
+				status = "planned_and_finished"
+			}
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "run-quiet", "type": "runs",
+					"attributes": map[string]any{"status": status},
+					"relationships": map[string]any{
+						"workspace": map[string]any{
+							"data": map[string]any{"id": "ws-abc123", "type": "workspaces"},
+						},
+					},
+				},
+			})
+		default:
+			http.Error(w, "unexpected: "+route(r), http.StatusInternalServerError)
+		}
+	}))
+
+	err := runStart(context.Background(), StartOpts{
+		IO:           io,
+		APIClient:    c,
+		Profile:      profile.TestProfile(t),
+		Output:       format.New(io),
+		Workspace:    "ws-abc123",
+		Wait:         true,
+		PollInterval: time.Millisecond,
+	}, CreateOpts{})
+
+	require.NoError(t, err)
+	// --quiet suppresses all wait progress on stderr...
+	assert.Empty(t, io.Error.String())
+	assert.NotContains(t, io.Error.String(), "waiting for it to finish")
+	// ...but the final summary result still prints to stdout.
+	assert.Contains(t, io.Output.String(), "Plan complete, no apply needed")
 }
 
 func TestRunStart_Wait_Timeout(t *testing.T) {
@@ -507,6 +578,11 @@ func TestRunStart_Wait_AwaitingConfirm(t *testing.T) {
 						"status":  "planned",
 						"actions": map[string]any{"is-confirmable": true},
 					},
+					"relationships": map[string]any{
+						"workspace": map[string]any{
+							"data": map[string]any{"id": "ws-abc123", "type": "workspaces"},
+						},
+					},
 				},
 			})
 		default:
@@ -565,6 +641,11 @@ func TestRunStart_Wait_Failure(t *testing.T) {
 				"data": map[string]any{
 					"id": "run-cancel", "type": "runs",
 					"attributes": map[string]any{"status": "canceled"},
+					"relationships": map[string]any{
+						"workspace": map[string]any{
+							"data": map[string]any{"id": "ws-abc123", "type": "workspaces"},
+						},
+					},
 				},
 			})
 		default:
