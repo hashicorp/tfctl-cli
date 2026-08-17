@@ -246,7 +246,7 @@ func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL stri
 	}
 
 	_, outcome, err := client.PollRunUntilTerminated(ctx, opts.APIClient, runID, io, opts.PollInterval, func(status string) {
-		fmt.Fprintln(io.Err(), cs.String("  ⋯ "+status).Faint().String())
+		fmt.Fprintln(io.ErrUnessential(), cs.String("  ⋯ "+status).Faint().String())
 	})
 	if err != nil {
 		// The wait was interrupted (timeout or cancel), but the run itself keeps
