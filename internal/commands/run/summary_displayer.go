@@ -89,9 +89,6 @@ func (d *summaryDisplayer) formatFooter(f format.Format) string {
 		if s.Elapsed > 0 {
 			fmt.Fprintf(&out, "**Duration:** %d\n", s.Elapsed)
 		}
-		if s.RunURL != "" {
-			fmt.Fprintf(&out, "\n[View run](%s)\n", s.RunURL)
-		}
 		return strings.TrimRight(out.String(), "\n")
 
 	default:
