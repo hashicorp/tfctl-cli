@@ -43,11 +43,13 @@ func NewCmdCreate(inv *cmd.Invocation) *cmd.Command {
 		LongHelp: heredoc.New(inv.IO, heredoc.WithPreserveNewlines()).Mustf(`
 		The {{ template "mdCodeOrBold" "%s create" }} command creates a new resource via the API.
 
-		Provide attributes using {{ template "mdCodeOrBold" "-a key=value" }} (repeatable) or a raw request body with {{ template "mdCodeOrBold" "-i" }}.
+		Provide attributes using {{ template "mdCodeOrBold" "-a key=value" }} (repeatable), relationships using
+		{{ template "mdCodeOrBold" "-r name=id" }} (repeatable), or a raw request body with {{ template "mdCodeOrBold" "-i" }}.
 		Use {{ template "mdCodeOrBold" "-i -" }} to read the request body from stdin.
 
-		Note: {{ template "mdCodeOrBold" "-a" }} only sets data.attributes. Resources that require a relationships block
-		(e.g. variable sets, policy sets) must use {{ template "mdCodeOrBold" "-i" }} with a full JSON:API request body.
+		{{ template "mdCodeOrBold" "-r" }} sets data.relationships. The linkage type is inferred from the schema
+		(e.g. {{ template "mdCodeOrBold" "-r project=prj-..." }} links to type "projects"); override an unresolved
+		one with {{ template "mdCodeOrBold" "name:type=id" }}, and comma-separate ids for to-many relationships.
 		`, version.Name),
 		Args: cmd.PositionalArguments{
 			Autocomplete: complete.PredictSet(resource.CreatableNames()...),
@@ -75,6 +77,14 @@ func NewCmdCreate(inv *cmd.Invocation) *cmd.Command {
 					Value:        flagvalue.SimpleMap(nil, &opts.Attributes),
 				},
 				{
+					Name:         "relationship",
+					Shorthand:    "r",
+					DisplayValue: "NAME=ID",
+					Description:  "Relationship for the JSON:API request body as name=id (repeatable). The linkage type is inferred from the schema; override an unresolved one with name:type=id. Comma-separate ids for to-many relationships.",
+					Repeatable:   true,
+					Value:        flagvalue.SimpleMap(nil, &opts.Relationships),
+				},
+				{
 					Name:         "input",
 					Shorthand:    "i",
 					DisplayValue: "BODY",
@@ -91,6 +101,10 @@ func NewCmdCreate(inv *cmd.Invocation) *cmd.Command {
 			{
 				Preamble: "Create a workspace from a JSON file",
 				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s create workspace -i @workspace.json`, version.Name),
+			},
+			{
+				Preamble: "Create a workspace in a project (relationship type inferred from the schema)",
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s create workspace -a name=my-workspace -r project=prj-12dff4673ab9`, version.Name),
 			},
 			{
 				Preamble: "Create a project with inline JSON",
@@ -130,12 +144,12 @@ func runCreate(ctx context.Context, opts *Opts) error {
 		return fmt.Errorf("create is not supported for %s", res.Type)
 	}
 
-	if len(opts.Attributes) == 0 && opts.InputRequest == "" {
-		return fmt.Errorf("provide attributes with -a key=value or a request body with -i")
+	if len(opts.Attributes) == 0 && len(opts.Relationships) == 0 && opts.InputRequest == "" {
+		return fmt.Errorf("provide attributes with -a key=value, relationships with -r name=id, or a request body with -i")
 	}
 
-	if len(opts.Attributes) > 0 && opts.InputRequest != "" {
-		return fmt.Errorf("cannot use both -a (attributes) and -i (input body); choose one")
+	if opts.InputRequest != "" && (len(opts.Attributes) > 0 || len(opts.Relationships) > 0) {
+		return fmt.Errorf("cannot use -i (input body) together with -a (attributes) or -r (relationships); choose one")
 	}
 
 	org := cmdutil.ResolveOrganization(opts.ProfileOrganization, opts.Organization)
@@ -156,11 +170,13 @@ func runCreate(ctx context.Context, opts *Opts) error {
 	apiOpts.DryRun = opts.DryRun
 	apiOpts.InputRequest = opts.InputRequest
 	apiOpts.Attributes = opts.Attributes
+	apiOpts.Relationships = opts.Relationships
 
-	// ResourceType is only needed for the attribute path (api builds the JSON:API
-	// envelope from it). On the -i branch the user supplies the full body, so the
-	// type is unused — but setting it is harmless and keeps diagnostic logging accurate.
-	if len(opts.Attributes) > 0 {
+	// ResourceType names data.type when api builds the JSON:API envelope from
+	// attributes and/or relationships. On the -i branch the user supplies the full
+	// body, so the type is unused — but setting it is harmless and keeps diagnostic
+	// logging accurate.
+	if len(opts.Attributes) > 0 || len(opts.Relationships) > 0 {
 		apiOpts.ResourceType = res.Type
 	}
 

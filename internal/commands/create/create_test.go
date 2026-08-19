@@ -129,7 +129,7 @@ func TestRunCreate(t *testing.T) {
 
 		err := runCreate(inv.ShutdownCtx, opts)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "provide attributes with -a key=value or a request body with -i")
+		assert.Contains(t, err.Error(), "provide attributes with -a key=value, relationships with -r name=id, or a request body with -i")
 	})
 
 	t.Run("create unsupported resource type", func(t *testing.T) {
@@ -204,7 +204,7 @@ func TestRunCreate(t *testing.T) {
 
 		err := runCreate(inv.ShutdownCtx, opts)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot use both -a (attributes) and -i (input body)")
+		assert.Contains(t, err.Error(), "cannot use -i (input body) together with -a (attributes) or -r (relationships)")
 	})
 
 	t.Run("explicit org flag overrides profile", func(t *testing.T) {
