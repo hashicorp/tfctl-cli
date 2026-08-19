@@ -467,6 +467,17 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 			specPath = strings.TrimPrefix(specPath, strings.TrimRight(opts.Client.BaseURL.Path, "/"))
 		}
 		linkages, haveSchema = relationshipLinkages(oas, specPath)
+		if haveSchema {
+			names := make([]string, 0, len(linkages))
+			for name := range linkages {
+				names = append(names, name)
+			}
+			logger.Debug("resolved relationship linkages from schema", "path", specPath, "relationships", names)
+		} else {
+			// Not fatal: the request can still be built if every -r carries an
+			// explicit name:type=id. Otherwise buildRelationships returns a clear error.
+			logger.Debug("no relationship linkages resolved from schema; explicit types required for -r", "path", specPath)
+		}
 	}
 
 	// Construct a request
