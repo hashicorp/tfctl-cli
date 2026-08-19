@@ -41,16 +41,21 @@ func TestRelationshipLinkages_FromEmbeddedSchema(t *testing.T) {
 
 	// To-one linkage: the key differs from the type, which is exactly why we
 	// read the type from the schema rather than the flag key.
-	require.Equal(t, linkage{Type: "projects", ToMany: false}, linkages["project"])
-	require.Equal(t, linkage{Type: "agent-pools", ToMany: false}, linkages["agent-pool"])
+	require.Equal(t, linkage{Type: "projects", Types: []string{"projects"}, ToMany: false}, linkages["project"])
+	require.Equal(t, linkage{Type: "agent-pools", Types: []string{"agent-pools"}, ToMany: false}, linkages["agent-pool"])
 
 	// To-many linkage.
-	require.Equal(t, linkage{Type: "workspace-outputs", ToMany: true}, linkages["outputs"])
+	require.Equal(t, linkage{Type: "workspace-outputs", Types: []string{"workspace-outputs"}, ToMany: true}, linkages["outputs"])
 
-	// Ambiguous (type enum has several members, e.g. users|teams|runs) and
-	// links-only relationships are omitted so the caller requires an explicit type.
-	_, ambiguous := linkages["locked-by"]
-	require.False(t, ambiguous, "ambiguous relationship should be omitted")
+	// Ambiguous (type enum has several members, e.g. users|teams|runs): kept
+	// with an empty Type so the caller requires an explicit type, but its
+	// candidates are preserved to name them in the error.
+	lockedBy, ok := linkages["locked-by"]
+	require.True(t, ok, "ambiguous relationship should still be reported")
+	require.Empty(t, lockedBy.Type, "ambiguous relationship has no single pinned type")
+	require.Greater(t, len(lockedBy.Types), 1, "ambiguous relationship lists its candidates")
+
+	// Links-only relationships (no data linkage) are omitted.
 	_, linksOnly := linkages["remote-state-consumers"]
 	require.False(t, linksOnly, "links-only relationship should be omitted")
 }
@@ -102,6 +107,30 @@ func TestBuildRelationships(t *testing.T) {
 		require.Equal(t, map[string]any{
 			"locked-by": map[string]any{"data": map[string]any{"type": "users", "id": "user-1"}},
 		}, got)
+	})
+
+	t.Run("ambiguous relationship names its candidate types", func(t *testing.T) {
+		t.Parallel()
+		ambiguous := map[string]linkage{
+			"locked-by": {Types: []string{"users", "teams", "runs"}, ToMany: false},
+		}
+		_, err := buildRelationships(map[string]string{"locked-by": "user-1"}, ambiguous, true)
+		require.Error(t, err)
+		// Distinct from the "unknown relationship" message: it names the types
+		// and points at the explicit override.
+		assert.Contains(t, err.Error(), "maps to multiple types")
+		assert.Contains(t, err.Error(), "runs, teams, users") // sorted
+		assert.Contains(t, err.Error(), "locked-by:<type>=<id>")
+	})
+
+	t.Run("same relationship specified twice errors", func(t *testing.T) {
+		t.Parallel()
+		_, err := buildRelationships(
+			map[string]string{"project": "prj-1", "project:projects": "prj-2"},
+			linkages, true,
+		)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `relationship "project" specified more than once`)
 	})
 
 	t.Run("unknown relationship with schema lists valid names", func(t *testing.T) {
