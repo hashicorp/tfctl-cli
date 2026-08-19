@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -117,6 +118,10 @@ func NewCmdCreate(inv *cmd.Invocation) *cmd.Command {
 			opts.ProfileOrganization = inv.Profile.DefaultOrganization
 			opts.Args = args
 
+			// Reuse the process-cached schema for -r linkage inference instead of
+			// having RunAPI re-parse the embedded spec on every invocation.
+			opts.Schema = openapi.SchemaFactory(inv)
+
 			client, err := inv.NewAPIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create API client: %w", err)
@@ -171,6 +176,7 @@ func runCreate(ctx context.Context, opts *Opts) error {
 	apiOpts.InputRequest = opts.InputRequest
 	apiOpts.Attributes = opts.Attributes
 	apiOpts.Relationships = opts.Relationships
+	apiOpts.Schema = opts.Schema
 
 	// ResourceType names data.type when api builds the JSON:API envelope from
 	// attributes and/or relationships. On the -i branch the user supplies the full
