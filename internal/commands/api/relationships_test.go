@@ -1,0 +1,214 @@
+// Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package api
+
+import (
+	"context"
+	"net/http"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
+	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
+)
+
+func TestMatchTemplatePath(t *testing.T) {
+	t.Parallel()
+
+	oas := openapi.LoadEmbeddedSchema()
+
+	require.Equal(t,
+		"/organizations/{organization_name}/workspaces",
+		matchTemplatePath(oas, "/organizations/acme/workspaces"),
+	)
+	// A placeholder segment matches any concrete value.
+	require.Equal(t,
+		"/organizations/{organization_name}",
+		matchTemplatePath(oas, "/organizations/acme"),
+	)
+	// A path the spec does not describe.
+	require.Equal(t, "", matchTemplatePath(oas, "/nope/not/a/real/path"))
+}
+
+func TestRelationshipLinkages_FromEmbeddedSchema(t *testing.T) {
+	t.Parallel()
+
+	linkages, ok := relationshipLinkages(openapi.LoadEmbeddedSchema(), "/organizations/acme/workspaces")
+	require.True(t, ok)
+
+	// To-one linkage: the key differs from the type, which is exactly why we
+	// read the type from the schema rather than the flag key.
+	require.Equal(t, linkage{Type: "projects", ToMany: false}, linkages["project"])
+	require.Equal(t, linkage{Type: "agent-pools", ToMany: false}, linkages["agent-pool"])
+
+	// To-many linkage.
+	require.Equal(t, linkage{Type: "workspace-outputs", ToMany: true}, linkages["outputs"])
+
+	// Ambiguous (type enum has several members, e.g. users|teams|runs) and
+	// links-only relationships are omitted so the caller requires an explicit type.
+	_, ambiguous := linkages["locked-by"]
+	require.False(t, ambiguous, "ambiguous relationship should be omitted")
+	_, linksOnly := linkages["remote-state-consumers"]
+	require.False(t, linksOnly, "links-only relationship should be omitted")
+}
+
+func TestRelationshipLinkages_NoSchemaOrNoMatch(t *testing.T) {
+	t.Parallel()
+
+	_, ok := relationshipLinkages(nil, "/organizations/acme/workspaces")
+	require.False(t, ok)
+
+	_, ok = relationshipLinkages(openapi.LoadEmbeddedSchema(), "/nope/not/real")
+	require.False(t, ok)
+}
+
+func TestBuildRelationships(t *testing.T) {
+	t.Parallel()
+
+	linkages := map[string]linkage{
+		"project": {Type: "projects", ToMany: false},
+		"outputs": {Type: "workspace-outputs", ToMany: true},
+	}
+
+	t.Run("schema-inferred to-one", func(t *testing.T) {
+		t.Parallel()
+		got, err := buildRelationships(map[string]string{"project": "prj-1"}, linkages, true)
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{
+			"project": map[string]any{"data": map[string]any{"type": "projects", "id": "prj-1"}},
+		}, got)
+	})
+
+	t.Run("schema-inferred to-many, comma-separated ids", func(t *testing.T) {
+		t.Parallel()
+		got, err := buildRelationships(map[string]string{"outputs": "wsout-1, wsout-2"}, linkages, true)
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{
+			"outputs": map[string]any{"data": []any{
+				map[string]any{"type": "workspace-outputs", "id": "wsout-1"},
+				map[string]any{"type": "workspace-outputs", "id": "wsout-2"},
+			}},
+		}, got)
+	})
+
+	t.Run("explicit name:type=id override", func(t *testing.T) {
+		t.Parallel()
+		// "locked-by" is ambiguous in the schema, so the user pins the type.
+		got, err := buildRelationships(map[string]string{"locked-by:users": "user-1"}, linkages, true)
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{
+			"locked-by": map[string]any{"data": map[string]any{"type": "users", "id": "user-1"}},
+		}, got)
+	})
+
+	t.Run("unknown relationship with schema lists valid names", func(t *testing.T) {
+		t.Parallel()
+		_, err := buildRelationships(map[string]string{"projects": "prj-1"}, linkages, true)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `unknown relationship "projects"`)
+		assert.Contains(t, err.Error(), "valid relationships:")
+		assert.Contains(t, err.Error(), "project")
+	})
+
+	t.Run("unknown relationship without schema advises explicit type", func(t *testing.T) {
+		t.Parallel()
+		_, err := buildRelationships(map[string]string{"whatever": "x-1"}, nil, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "could not infer the resource type")
+		assert.Contains(t, err.Error(), "whatever:<type>=<id>")
+	})
+
+	t.Run("to-one with multiple ids errors", func(t *testing.T) {
+		t.Parallel()
+		_, err := buildRelationships(map[string]string{"project": "prj-1,prj-2"}, linkages, true)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "is to-one but got 2 ids")
+	})
+
+	t.Run("empty id errors", func(t *testing.T) {
+		t.Parallel()
+		_, err := buildRelationships(map[string]string{"project": "  "}, linkages, true)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "has no id")
+	})
+
+	t.Run("unknown relationship with explicit type and multiple ids infers to-many", func(t *testing.T) {
+		t.Parallel()
+		got, err := buildRelationships(map[string]string{"widgets:widgets": "w-1,w-2"}, nil, false)
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{
+			"widgets": map[string]any{"data": []any{
+				map[string]any{"type": "widgets", "id": "w-1"},
+				map[string]any{"type": "widgets", "id": "w-2"},
+			}},
+		}, got)
+	})
+}
+
+// TestRunAPI_RelationshipInfersTypeAndPost exercises the full path: -r implies
+// POST, and the linkage type is read from the embedded schema for the matched
+// operation.
+func TestRunAPI_RelationshipInfersTypeAndPost(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"POST /api/v2/organizations/acme/workspaces": func(w http.ResponseWriter, _ *http.Request) {
+			writeJSONAPIResponse(w, http.StatusCreated, map[string]any{
+				"data": map[string]any{"id": "ws-1", "type": "workspaces"},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/organizations/acme/workspaces")
+		opts.Attributes = map[string]string{"name": "foo"}
+		opts.Relationships = map[string]string{"project": "prj-12dff4673ab9"}
+	}))
+	require.NoError(t, err)
+
+	require.Equal(t, "POST", recorder.Last().Method)
+	assertJSONBodyEqual(t, map[string]any{
+		"data": map[string]any{
+			"type":       "workspaces",
+			"attributes": map[string]any{"name": "foo"},
+			"relationships": map[string]any{
+				"project": map[string]any{
+					"data": map[string]any{"type": "projects", "id": "prj-12dff4673ab9"},
+				},
+			},
+		},
+	}, recorder.Last().JSONBody(t))
+}
+
+// TestRunAPI_RelationshipOnlyBody confirms a relationship-only request still
+// produces a valid data envelope (no attributes key).
+func TestRunAPI_RelationshipOnlyBody(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"POST /api/v2/organizations/acme/workspaces": func(w http.ResponseWriter, _ *http.Request) {
+			writeJSONAPIResponse(w, http.StatusCreated, map[string]any{
+				"data": map[string]any{"id": "ws-1", "type": "workspaces"},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/organizations/acme/workspaces")
+		opts.Relationships = map[string]string{"project": "prj-1"}
+	}))
+	require.NoError(t, err)
+
+	body := recorder.Last().JSONBody(t)
+	data := nestedMap(t, body, "data")
+	_, hasAttrs := data["attributes"]
+	require.False(t, hasAttrs, "no attributes key expected for relationship-only body")
+	require.Contains(t, data, "relationships")
+}
