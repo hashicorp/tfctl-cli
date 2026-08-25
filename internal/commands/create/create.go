@@ -18,7 +18,6 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/cmd"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/flagvalue"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/heredoc"
-	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/resource"
 	"github.com/hashicorp/tfctl-cli/version"
 )
@@ -117,10 +116,6 @@ func NewCmdCreate(inv *cmd.Invocation) *cmd.Command {
 			opts.Quiet = inv.IsQuiet()
 			opts.ProfileOrganization = inv.Profile.DefaultOrganization
 			opts.Args = args
-
-			// Reuse the process-cached schema for -r linkage inference instead of
-			// having RunAPI re-parse the embedded spec on every invocation.
-			opts.Schema = openapi.SchemaFactory(inv)
 
 			client, err := inv.NewAPIClient()
 			if err != nil {
