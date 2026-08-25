@@ -15,6 +15,51 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/openapi"
 )
 
+const relationshipTestSchema = `{
+  "openapi": "3.0.0",
+  "info": {"title": "relationship test", "version": "1"},
+  "paths": {
+    "/custom-resources": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/vnd.api+json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "relationships": {
+                        "type": "object",
+                        "properties": {
+                          "owner": {
+                            "type": "object",
+                            "properties": {
+                              "data": {
+                                "type": "object",
+                                "properties": {
+                                  "type": {"type": "string", "enum": ["custom-owners"]},
+                                  "id": {"type": "string"}
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {"200": {"description": "OK"}}
+      }
+    }
+  }
+}`
+
 func TestMatchTemplatePath(t *testing.T) {
 	t.Parallel()
 
@@ -288,4 +333,59 @@ func TestRunAPI_RelationshipInfersTypeForPatch(t *testing.T) {
 			},
 		},
 	}, recorder.Last().JSONBody(t))
+}
+
+func TestRunAPI_RelationshipSchemaSelection(t *testing.T) {
+	t.Parallel()
+
+	t.Run("uses injected schema", func(t *testing.T) {
+		t.Parallel()
+
+		schema, err := openapi.NewFromData([]byte(relationshipTestSchema))
+		require.NoError(t, err)
+		server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+			"POST /api/v2/custom-resources": func(w http.ResponseWriter, _ *http.Request) {
+				writeJSONAPIResponse(w, http.StatusOK, map[string]any{
+					"data": map[string]any{"id": "custom-1", "type": "custom-resources"},
+				})
+			},
+		})
+		defer server.Close()
+
+		err = RunAPI(context.Background(), newTestOpts(t, server.URL, iostreams.Test(), func(opts *Opts) {
+			opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/custom-resources")
+			opts.Schema = schema
+			opts.Relationships = map[string]string{"owner": "owner-1"}
+		}))
+		require.NoError(t, err)
+
+		data := nestedMap(t, recorder.Last().JSONBody(t), "data")
+		relationships := nestedMap(t, data, "relationships")
+		owner := nestedMap(t, relationships, "owner")
+		require.Equal(t, map[string]any{"type": "custom-owners", "id": "owner-1"}, owner["data"])
+	})
+
+	t.Run("allows explicit type without endpoint schema", func(t *testing.T) {
+		t.Parallel()
+
+		server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+			"POST /api/v2/custom-resources": func(w http.ResponseWriter, _ *http.Request) {
+				writeJSONAPIResponse(w, http.StatusOK, map[string]any{
+					"data": map[string]any{"id": "custom-1", "type": "custom-resources"},
+				})
+			},
+		})
+		defer server.Close()
+
+		err := RunAPI(context.Background(), newTestOpts(t, server.URL, iostreams.Test(), func(opts *Opts) {
+			opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/custom-resources")
+			opts.Relationships = map[string]string{"owner:custom-owners": "owner-1"}
+		}))
+		require.NoError(t, err)
+
+		data := nestedMap(t, recorder.Last().JSONBody(t), "data")
+		relationships := nestedMap(t, data, "relationships")
+		owner := nestedMap(t, relationships, "owner")
+		require.Equal(t, map[string]any{"type": "custom-owners", "id": "owner-1"}, owner["data"])
+	})
 }
