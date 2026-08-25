@@ -467,8 +467,7 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 		if opts.Client != nil && opts.Client.BaseURL != nil {
 			specPath = strings.TrimPrefix(specPath, strings.TrimRight(opts.Client.BaseURL.Path, "/"))
 		}
-		linkages, haveSchema = relationshipLinkages(oas, method, specPath)
-		if haveSchema {
+		if linkages, haveSchema = relationshipLinkages(oas, method, specPath); haveSchema {
 			names := make([]string, 0, len(linkages))
 			for name := range linkages {
 				names = append(names, name)
