@@ -466,11 +466,10 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 		if opts.Client != nil && opts.Client.BaseURL != nil {
 			specPath = strings.TrimPrefix(specPath, strings.TrimRight(opts.Client.BaseURL.Path, "/"))
 		}
-		linkages, haveSchema = relationshipLinkages(oas, specPath)
-		if haveSchema {
-			names := make([]string, 0, len(linkages))
-			for name := range linkages {
-				names = append(names, name)
+		if linkages, haveSchema = relationshipLinkages(oas, specPath); haveSchema {
+			names := make([]string, len(linkages))
+			for i, name := range linkages {
+				names[i] = name
 			}
 			logger.Debug("resolved relationship linkages from schema", "path", specPath, "relationships", names)
 		} else {
