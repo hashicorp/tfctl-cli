@@ -26,9 +26,9 @@ type linkage struct {
 	ToMany bool
 }
 
-// relationshipLinkages returns the settable relationships declared on the POST
-// request body for the operation whose templated path matches the concrete
-// requestPath, keyed by relationship name.
+// relationshipLinkages returns the settable relationships declared on the
+// request body for the operation whose method and templated path match the
+// request, keyed by relationship name.
 //
 // Relationships whose linkage type the schema pins to a single value carry that
 // type; ambiguous ones (a type enum with more than one member, e.g. locked-by →
@@ -37,9 +37,9 @@ type linkage struct {
 // (pin a type) rather than unknown. Links-only relationships (no data) are
 // omitted, as they cannot be set via a linkage.
 //
-// ok is false when no schema was available, no POST operation matched the path,
-// or the operation declares no settable relationships.
-func relationshipLinkages(oas openapi.Schema, requestPath string) (result map[string]linkage, ok bool) {
+// ok is false when no schema was available, no operation matched the method and
+// path, or the operation declares no settable relationships.
+func relationshipLinkages(oas openapi.Schema, method, requestPath string) (result map[string]linkage, ok bool) {
 	if oas == nil {
 		return nil, false
 	}
@@ -50,10 +50,14 @@ func relationshipLinkages(oas openapi.Schema, requestPath string) (result map[st
 	}
 
 	pathItem, err := oas.PathByPath(tmpl)
-	if err != nil || pathItem.Post == nil {
+	if err != nil {
 		return nil, false
 	}
-	rels := requestBodyRelationships(pathItem.Post)
+	op := pathItem.Operations()[strings.ToUpper(method)]
+	if op == nil {
+		return nil, false
+	}
+	rels := requestBodyRelationships(op)
 	if rels == nil {
 		return nil, false
 	}

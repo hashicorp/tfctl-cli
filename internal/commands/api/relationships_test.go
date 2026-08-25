@@ -36,7 +36,7 @@ func TestMatchTemplatePath(t *testing.T) {
 func TestRelationshipLinkages_FromEmbeddedSchema(t *testing.T) {
 	t.Parallel()
 
-	linkages, ok := relationshipLinkages(openapi.LoadEmbeddedSchema(), "/organizations/acme/workspaces")
+	linkages, ok := relationshipLinkages(openapi.LoadEmbeddedSchema(), http.MethodPost, "/organizations/acme/workspaces")
 	require.True(t, ok)
 
 	// To-one linkage: the key differs from the type, which is exactly why we
@@ -60,13 +60,28 @@ func TestRelationshipLinkages_FromEmbeddedSchema(t *testing.T) {
 	require.False(t, linksOnly, "links-only relationship should be omitted")
 }
 
+func TestRelationshipLinkages_UsesHTTPMethod(t *testing.T) {
+	t.Parallel()
+
+	linkages, ok := relationshipLinkages(openapi.LoadEmbeddedSchema(), http.MethodPatch, "/workspaces/ws-1")
+	require.True(t, ok)
+	require.Equal(t, linkage{Type: "projects", Types: []string{"projects"}, ToMany: false}, linkages["project"])
+
+	linkages, ok = relationshipLinkages(openapi.LoadEmbeddedSchema(), http.MethodPut, "/organizations/acme")
+	require.True(t, ok)
+	require.Equal(t, linkage{Type: "projects", Types: []string{"projects"}, ToMany: false}, linkages["default-project"])
+
+	_, ok = relationshipLinkages(openapi.LoadEmbeddedSchema(), http.MethodPost, "/workspaces/ws-1")
+	require.False(t, ok)
+}
+
 func TestRelationshipLinkages_NoSchemaOrNoMatch(t *testing.T) {
 	t.Parallel()
 
-	_, ok := relationshipLinkages(nil, "/organizations/acme/workspaces")
+	_, ok := relationshipLinkages(nil, http.MethodPost, "/organizations/acme/workspaces")
 	require.False(t, ok)
 
-	_, ok = relationshipLinkages(openapi.LoadEmbeddedSchema(), "/nope/not/real")
+	_, ok = relationshipLinkages(openapi.LoadEmbeddedSchema(), http.MethodPost, "/nope/not/real")
 	require.False(t, ok)
 }
 
@@ -240,4 +255,37 @@ func TestRunAPI_RelationshipOnlyBody(t *testing.T) {
 	_, hasAttrs := data["attributes"]
 	require.False(t, hasAttrs, "no attributes key expected for relationship-only body")
 	require.Contains(t, data, "relationships")
+}
+
+func TestRunAPI_RelationshipInfersTypeForPatch(t *testing.T) {
+	t.Parallel()
+
+	server, recorder := newAPITestServer(map[string]http.HandlerFunc{
+		"PATCH /api/v2/workspaces/ws-1": func(w http.ResponseWriter, _ *http.Request) {
+			writeJSONAPIResponse(w, http.StatusOK, map[string]any{
+				"data": map[string]any{"id": "ws-1", "type": "workspaces"},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/workspaces/ws-1")
+		opts.Method = http.MethodPatch
+		opts.Relationships = map[string]string{"project": "prj-1"}
+	}))
+	require.NoError(t, err)
+
+	require.Equal(t, http.MethodPatch, recorder.Last().Method)
+	assertJSONBodyEqual(t, map[string]any{
+		"data": map[string]any{
+			"type": "workspaces",
+			"relationships": map[string]any{
+				"project": map[string]any{
+					"data": map[string]any{"type": "projects", "id": "prj-1"},
+				},
+			},
+		},
+	}, recorder.Last().JSONBody(t))
 }
