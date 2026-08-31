@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -115,6 +116,19 @@ func TestRelationshipLinkages_FromEmbeddedSchema(t *testing.T) {
 func TestRelationshipLinkages_EmbeddedSchemaShapesAreSupported(t *testing.T) {
 	t.Parallel()
 
+	type relationshipKey struct {
+		method string
+		path   string
+		name   string
+	}
+	// These relationships are inside a top-level data.oneOf. DashR does not yet
+	// traverse composed resource schemas to discover them.
+	knownExceptions := map[relationshipKey]struct{}{
+		{method: http.MethodPost, path: "/organizations/{organization_name}/oidc-configurations", name: "organization"}: {},
+		{method: http.MethodPatch, path: "/oidc-configurations/{oidc_configuration_id}", name: "organization"}:          {},
+	}
+	seenExceptions := make(map[relationshipKey]bool, len(knownExceptions))
+
 	oas := openapi.LoadEmbeddedSchema()
 	var unsupported []string
 	settableRelationships := 0
@@ -127,64 +141,74 @@ func TestRelationshipLinkages_EmbeddedSchemaShapesAreSupported(t *testing.T) {
 		if media == nil || media.Schema == nil || media.Schema.Value == nil {
 			continue
 		}
-		data := media.Schema.Value.Properties["data"]
-		if data == nil || data.Value == nil {
-			continue
-		}
-		rels := data.Value.Properties["relationships"]
-		if rels == nil || rels.Value == nil {
-			continue
-		}
 
 		linkages, _ := relationshipLinkages(oas, operation.Method, operation.Path)
-		for name, relationshipRef := range rels.Value.Properties {
-			location := fmt.Sprintf("%s %s (%s) relationship %q", operation.Method, operation.Path, operation.OperationID, name)
-			if relationshipRef == nil || relationshipRef.Value == nil {
-				unsupported = append(unsupported, location+": relationship schema is unresolved")
-				continue
-			}
+		for _, data := range composedPropertySchemas(media.Schema.Value, "data") {
+			for _, rels := range composedPropertySchemas(data, "relationships") {
+				for name, relationshipRef := range rels.Properties {
+					key := relationshipKey{method: operation.Method, path: operation.Path, name: name}
+					location := fmt.Sprintf("%s %s (%s) relationship %q", operation.Method, operation.Path, operation.OperationID, name)
+					if relationshipRef == nil || relationshipRef.Value == nil {
+						unsupported = append(unsupported, location+": relationship schema is unresolved")
+						continue
+					}
 
-			dataRef, hasData := relationshipRef.Value.Properties["data"]
-			if !hasData {
-				continue // Links-only relationships are not settable with -r.
-			}
-			settableRelationships++
-			if dataRef == nil || dataRef.Value == nil {
-				unsupported = append(unsupported, location+": data schema is unresolved")
-				continue
-			}
+					dataRef, hasData := relationshipRef.Value.Properties["data"]
+					if !hasData {
+						continue // Links-only relationships are not settable with -r.
+					}
+					settableRelationships++
+					if dataRef == nil || dataRef.Value == nil {
+						unsupported = append(unsupported, location+": data schema is unresolved")
+						continue
+					}
 
-			target := dataRef.Value
-			toMany := dataRef.Value.Items != nil
-			if toMany {
-				if dataRef.Value.Items.Value == nil {
-					unsupported = append(unsupported, location+": array data has no resolved item schema")
-					continue
+					target := dataRef.Value
+					toMany := dataRef.Value.Items != nil
+					if toMany {
+						if dataRef.Value.Items.Value == nil {
+							unsupported = append(unsupported, location+": array data has no resolved item schema")
+							continue
+						}
+						target = dataRef.Value.Items.Value
+					} else if dataRef.Value.Type != nil && dataRef.Value.Type.Is("array") {
+						unsupported = append(unsupported, location+": array data has no item schema")
+						continue
+					}
+
+					types := enumStrings(schemaTypeEnum(target))
+					if len(types) == 0 {
+						unsupported = append(unsupported, location+": identifier type has no supported non-empty string enum")
+						continue
+					}
+
+					got, ok := linkages[name]
+					if !ok {
+						if _, known := knownExceptions[key]; known {
+							seenExceptions[key] = true
+							continue
+						}
+						unsupported = append(unsupported, location+": DashR did not discover the relationship")
+						continue
+					}
+					gotTypes := append([]string(nil), got.Types...)
+					wantTypes := append([]string(nil), types...)
+					sort.Strings(gotTypes)
+					sort.Strings(wantTypes)
+					if !slices.Equal(gotTypes, wantTypes) || got.ToMany != toMany {
+						unsupported = append(unsupported, fmt.Sprintf("%s: DashR inferred types %v and to-many %t; want types %v and to-many %t", location, got.Types, got.ToMany, types, toMany))
+					}
 				}
-				target = dataRef.Value.Items.Value
-			} else if dataRef.Value.Type != nil && dataRef.Value.Type.Is("array") {
-				unsupported = append(unsupported, location+": array data has no item schema")
-				continue
 			}
+		}
+	}
 
-			types := enumStrings(schemaTypeEnum(target))
-			if len(types) == 0 {
-				unsupported = append(unsupported, location+": identifier type has no supported non-empty string enum")
-				continue
-			}
-
-			got, ok := linkages[name]
-			if !ok {
-				unsupported = append(unsupported, location+": DashR did not discover the relationship")
-				continue
-			}
-			gotTypes := append([]string(nil), got.Types...)
-			wantTypes := append([]string(nil), types...)
-			sort.Strings(gotTypes)
-			sort.Strings(wantTypes)
-			if !slices.Equal(gotTypes, wantTypes) || got.ToMany != toMany {
-				unsupported = append(unsupported, fmt.Sprintf("%s: DashR inferred types %v and to-many %t; want types %v and to-many %t", location, got.Types, got.ToMany, types, toMany))
-			}
+	for exception := range knownExceptions {
+		if !seenExceptions[exception] {
+			unsupported = append(unsupported, fmt.Sprintf(
+				"known exception %s %s relationship %q was not found; remove it from the exception list",
+				exception.method, exception.path, exception.name,
+			))
 		}
 	}
 
@@ -194,6 +218,31 @@ func TestRelationshipLinkages_EmbeddedSchemaShapesAreSupported(t *testing.T) {
 		"the OpenAPI spec contains relationship shapes that DashR does not support; update DashR or make the relationship definition unambiguous:\n%s",
 		strings.Join(unsupported, "\n"),
 	)
+}
+
+func composedPropertySchemas(root *openapi3.Schema, property string) []*openapi3.Schema {
+	var matches []*openapi3.Schema
+	seen := make(map[*openapi3.Schema]bool)
+	var walk func(*openapi3.Schema)
+	walk = func(schema *openapi3.Schema) {
+		if schema == nil || seen[schema] {
+			return
+		}
+		seen[schema] = true
+
+		if ref := schema.Properties[property]; ref != nil && ref.Value != nil {
+			matches = append(matches, ref.Value)
+		}
+		for _, refs := range []openapi3.SchemaRefs{schema.AllOf, schema.AnyOf, schema.OneOf} {
+			for _, ref := range refs {
+				if ref != nil {
+					walk(ref.Value)
+				}
+			}
+		}
+	}
+	walk(root)
+	return matches
 }
 
 func TestRelationshipLinkages_UsesHTTPMethod(t *testing.T) {
