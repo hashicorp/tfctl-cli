@@ -5,7 +5,11 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"slices"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -103,6 +107,93 @@ func TestRelationshipLinkages_FromEmbeddedSchema(t *testing.T) {
 	// Links-only relationships (no data linkage) are omitted.
 	_, linksOnly := linkages["remote-state-consumers"]
 	require.False(t, linksOnly, "links-only relationship should be omitted")
+}
+
+// DashR relies on the OpenAPI spec for relationship inference. Scan the full
+// embedded spec so a new relationship shape cannot silently produce an
+// incorrect request or fail only when a user invokes the command.
+func TestRelationshipLinkages_EmbeddedSchemaShapesAreSupported(t *testing.T) {
+	t.Parallel()
+
+	oas := openapi.LoadEmbeddedSchema()
+	var unsupported []string
+	settableRelationships := 0
+
+	for _, operation := range oas.Operations() {
+		if operation.RequestBody == nil || operation.RequestBody.Value == nil {
+			continue
+		}
+		media := operation.RequestBody.Value.Content["application/vnd.api+json"]
+		if media == nil || media.Schema == nil || media.Schema.Value == nil {
+			continue
+		}
+		data := media.Schema.Value.Properties["data"]
+		if data == nil || data.Value == nil {
+			continue
+		}
+		rels := data.Value.Properties["relationships"]
+		if rels == nil || rels.Value == nil {
+			continue
+		}
+
+		linkages, _ := relationshipLinkages(oas, operation.Method, operation.Path)
+		for name, relationshipRef := range rels.Value.Properties {
+			location := fmt.Sprintf("%s %s (%s) relationship %q", operation.Method, operation.Path, operation.OperationID, name)
+			if relationshipRef == nil || relationshipRef.Value == nil {
+				unsupported = append(unsupported, location+": relationship schema is unresolved")
+				continue
+			}
+
+			dataRef, hasData := relationshipRef.Value.Properties["data"]
+			if !hasData {
+				continue // Links-only relationships are not settable with -r.
+			}
+			settableRelationships++
+			if dataRef == nil || dataRef.Value == nil {
+				unsupported = append(unsupported, location+": data schema is unresolved")
+				continue
+			}
+
+			target := dataRef.Value
+			toMany := dataRef.Value.Items != nil
+			if toMany {
+				if dataRef.Value.Items.Value == nil {
+					unsupported = append(unsupported, location+": array data has no resolved item schema")
+					continue
+				}
+				target = dataRef.Value.Items.Value
+			} else if dataRef.Value.Type != nil && dataRef.Value.Type.Is("array") {
+				unsupported = append(unsupported, location+": array data has no item schema")
+				continue
+			}
+
+			types := enumStrings(schemaTypeEnum(target))
+			if len(types) == 0 {
+				unsupported = append(unsupported, location+": identifier type has no supported non-empty string enum")
+				continue
+			}
+
+			got, ok := linkages[name]
+			if !ok {
+				unsupported = append(unsupported, location+": DashR did not discover the relationship")
+				continue
+			}
+			gotTypes := append([]string(nil), got.Types...)
+			wantTypes := append([]string(nil), types...)
+			sort.Strings(gotTypes)
+			sort.Strings(wantTypes)
+			if !slices.Equal(gotTypes, wantTypes) || got.ToMany != toMany {
+				unsupported = append(unsupported, fmt.Sprintf("%s: DashR inferred types %v and to-many %t; want types %v and to-many %t", location, got.Types, got.ToMany, types, toMany))
+			}
+		}
+	}
+
+	require.NotZero(t, settableRelationships, "expected the embedded OpenAPI spec to contain settable relationships")
+	sort.Strings(unsupported)
+	require.Empty(t, unsupported,
+		"the OpenAPI spec contains relationship shapes that DashR does not support; update DashR or make the relationship definition unambiguous:\n%s",
+		strings.Join(unsupported, "\n"),
+	)
 }
 
 func TestRelationshipLinkages_UsesHTTPMethod(t *testing.T) {
