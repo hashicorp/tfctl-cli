@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-tfe/v2/api/models"
 	"github.com/microsoft/kiota-abstractions-go/serialization"
@@ -29,6 +31,12 @@ type RunSummary struct {
 	PolicyCheckStatus string             `json:"policy_check_status,omitempty"` // "hard_failed", "soft_failed", "errored"
 	PolicyEvaluations []PolicyEvalResult `json:"policy_evaluations,omitempty"`
 	TaskResults       []TaskResult       `json:"task_results,omitempty"`
+	// RunURL is the HCP Terraform UI URL for the run. Resolved by NewRunSummary
+	// from the run's workspace relationship; empty if it cannot be determined.
+	RunURL string `json:"run_url,omitempty"`
+	// Elapsed is the time from run creation to terminal status, derived from
+	// the run's status timestamps. Zero if timestamps are unavailable.
+	Elapsed uint64 `json:"elapsed_seconds,omitempty"`
 }
 
 // PolicyEvalResult holds the outcome of a policy evaluation (OPA/Sentinel via task stages).
@@ -99,6 +107,15 @@ type jsonLog struct {
 	Diagnostic *Diagnostic `json:"diagnostic,omitempty"`
 }
 
+var statusesThatMayRequireConfirmation = []models.Runs_attributes_status{
+	models.PLANNED_RUNS_ATTRIBUTES_STATUS,
+	models.COST_ESTIMATED_RUNS_ATTRIBUTES_STATUS,
+	models.POLICY_CHECKED_RUNS_ATTRIBUTES_STATUS,
+	models.POLICY_OVERRIDE_RUNS_ATTRIBUTES_STATUS,
+	models.POST_PLAN_COMPLETED_RUNS_ATTRIBUTES_STATUS,
+	models.PRE_APPLY_COMPLETED_RUNS_ATTRIBUTES_STATUS,
+}
+
 // NewRunSummary fetches a run and returns a summary of its status. If the run
 // has errored, it fetches the relevant log and extracts diagnostics. Additionally,
 // it probes policy checks and run task stages for failures. All failures are surfaced
@@ -109,15 +126,111 @@ func NewRunSummary(ctx context.Context, c *Client, runID string) (*RunSummary, e
 		return nil, fmt.Errorf("fetching run %s: %w", runID, err)
 	}
 
-	status := run.GetData().GetAttributes().GetStatus()
+	attrs := run.GetData().GetAttributes()
+	status := attrs.GetStatus()
 	if status == nil {
 		return nil, fmt.Errorf("run %s has no status", runID)
 	}
 
-	return buildRunSummary(ctx, c, runID, *status)
+	confirmable := false
+	if actions := run.GetData().GetAttributes().GetActions(); actions != nil {
+		if confirmablePtr := actions.GetIsConfirmable(); confirmablePtr != nil {
+			confirmable = *confirmablePtr
+		}
+	}
+
+	result, err := buildRunSummary(ctx, c, runID, *status, confirmable)
+	if err != nil {
+		return nil, err
+	}
+
+	result.Elapsed = uint64(elapsedFromTimestamps(attrs.GetCreatedAt(), attrs.GetStatusTimestamps(), *status).Seconds())
+	result.RunURL = c.resolveRunURL(ctx, run.GetData().GetRelationships(), runID)
+	return result, nil
 }
 
-func buildRunSummary(ctx context.Context, c *Client, runID string, status models.Runs_attributes_status) (*RunSummary, error) {
+// RunAppURL returns the HCP Terraform UI URL for a run. It is the single source
+// of the URL format shared by `run status` and `run start --wait`.
+func (c *Client) RunAppURL(org, workspaceName, runID string) string {
+	return fmt.Sprintf("https://%s/app/%s/workspaces/%s/runs/%s", c.BaseURL.Host, org, workspaceName, runID)
+}
+
+// resolveRunURL best-effort builds the run's UI URL by resolving its workspace
+// name and organization. It returns "" if any required piece is unavailable: the
+// URL is supplementary and must never fail summary construction.
+func (c *Client) resolveRunURL(ctx context.Context, rel models.Runs_relationshipsable, runID string) string {
+	if rel == nil {
+		return ""
+	}
+	wsRel := rel.GetWorkspace()
+	if wsRel == nil || wsRel.GetData() == nil || wsRel.GetData().GetId() == nil {
+		return ""
+	}
+	wsID := *wsRel.GetData().GetId()
+
+	resp, err := c.TFE.API.Workspaces().ByWorkspace_id(wsID).Get(ctx, nil)
+	if err != nil {
+		return ""
+	}
+	ws, ok := resp.GetData().(*models.Workspaces)
+	if !ok || ws == nil {
+		return ""
+	}
+	attrs := ws.GetAttributes()
+	if attrs == nil || attrs.GetName() == nil {
+		return ""
+	}
+	rels := ws.GetRelationships()
+	if rels == nil {
+		return ""
+	}
+	orgRel := rels.GetOrganization()
+	if orgRel == nil || orgRel.GetData() == nil || orgRel.GetData().GetId() == nil {
+		return ""
+	}
+	return c.RunAppURL(*orgRel.GetData().GetId(), *attrs.GetName(), runID)
+}
+
+// elapsedFromTimestamps derives the run duration from the terminal status timestamp
+// minus the run's created-at time. Returns zero if either value is unavailable.
+func elapsedFromTimestamps(createdAt *time.Time, ts models.Runs_attributes_statusTimestampsable, status models.Runs_attributes_status) time.Duration {
+	if createdAt == nil || ts == nil {
+		return 0
+	}
+
+	var endTime *time.Time
+	switch status {
+	case models.APPLIED_RUNS_ATTRIBUTES_STATUS:
+		endTime = ts.GetAppliedAt()
+	case models.PLANNED_AND_FINISHED_RUNS_ATTRIBUTES_STATUS:
+		endTime = ts.GetPlannedAndFinishedAt()
+	case models.PLANNED_AND_SAVED_RUNS_ATTRIBUTES_STATUS:
+		endTime = ts.GetPlannedAndSavedAt()
+	case models.PLANNED_RUNS_ATTRIBUTES_STATUS:
+		endTime = ts.GetPlannedAt()
+	case models.ERRORED_RUNS_ATTRIBUTES_STATUS:
+		endTime = ts.GetErroredAt()
+	case models.CANCELED_RUNS_ATTRIBUTES_STATUS:
+		endTime = ts.GetCanceledAt()
+	case models.DISCARDED_RUNS_ATTRIBUTES_STATUS:
+		endTime = ts.GetDiscardedAt()
+	case models.POLICY_SOFT_FAILED_RUNS_ATTRIBUTES_STATUS:
+		endTime = ts.GetPolicySoftFailedAt()
+	case models.POLICY_OVERRIDE_RUNS_ATTRIBUTES_STATUS:
+		endTime = ts.GetPolicyCheckedAt()
+	}
+
+	if endTime == nil || endTime.IsZero() {
+		return 0
+	}
+	d := endTime.Sub(*createdAt)
+	if d < 0 {
+		return 0
+	}
+	return d.Round(time.Second)
+}
+
+func buildRunSummary(ctx context.Context, c *Client, runID string, status models.Runs_attributes_status, confirmable bool) (*RunSummary, error) {
 	result := &RunSummary{
 		RunID:  runID,
 		Status: status.String(),
@@ -131,6 +244,8 @@ func buildRunSummary(ctx context.Context, c *Client, runID string, status models
 		models.PLANNING_RUNS_ATTRIBUTES_STATUS,
 		models.PRE_PLAN_RUNNING_RUNS_ATTRIBUTES_STATUS:
 		result.Message = "Plan in progress"
+	case models.PLANNED_RUNS_ATTRIBUTES_STATUS:
+		result.Message = "Plan finished"
 
 	case models.PLANNED_AND_FINISHED_RUNS_ATTRIBUTES_STATUS,
 		models.PLANNED_AND_SAVED_RUNS_ATTRIBUTES_STATUS:
@@ -163,6 +278,10 @@ func buildRunSummary(ctx context.Context, c *Client, runID string, status models
 
 	default:
 		result.Message = fmt.Sprintf("Run status: %s", status.String())
+	}
+
+	if confirmable && slices.Contains(statusesThatMayRequireConfirmation, status) {
+		result.Message += "; a manual apply is required (auto-apply is off). Confirm the apply by visiting the run URL."
 	}
 
 	return result, nil

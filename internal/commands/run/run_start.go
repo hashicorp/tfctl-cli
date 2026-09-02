@@ -5,8 +5,10 @@ package run
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-tfe/v2/api/models"
 
@@ -30,6 +32,14 @@ type StartOpts struct {
 	Workspace    string
 	DryRun       bool
 	Organization string
+	// Wait blocks until the run reaches a terminal state, then prints its
+	// status and exits non-zero if the run failed.
+	Wait bool
+	// Timeout bounds how long Wait polls (0 means wait indefinitely).
+	Timeout time.Duration
+	// PollInterval overrides the wait poll cadence (0 uses defaultPollInterval).
+	// Primarily a test seam.
+	PollInterval time.Duration
 }
 
 // CreateOpts defines the options for running a run start, which may be shared with other commands.
@@ -100,6 +110,17 @@ func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 					Value:         flagvalue.Simple(false, &runOpts.PlanOnly),
 					IsBooleanFlag: true,
 				},
+				{
+					Name:          "wait",
+					Description:   "Wait for the run to reach a terminal state, printing status as it progresses. Exits non-zero if the run fails.",
+					Value:         flagvalue.Simple(false, &startOpts.Wait),
+					IsBooleanFlag: true,
+				},
+				{
+					Name:        "timeout",
+					Description: "With --wait, the maximum time to wait for the run to finish. Defaults to waiting indefinitely. Examples include \"30s\", \"1.5h\" or \"2h45m\". Valid time units are \"s\", \"m\", \"h\".",
+					Value:       flagvalue.Duration(0, &startOpts.Timeout),
+				},
 			},
 		},
 		Examples: []cmd.Example{
@@ -114,6 +135,10 @@ func NewCmdRunStart(inv *cmd.Invocation) *cmd.Command {
 			{
 				Preamble: "Start a plan-only run that will not be applied",
 				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start ws-abc123 --plan-only`, version.Name),
+			},
+			{
+				Preamble: "Wait for a run to terminate for up to 90 minutes",
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s run start ws-abc123 --wait --timeout 1.5h`, version.Name),
 			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
@@ -187,14 +212,63 @@ func runStart(ctx context.Context, opts StartOpts, runOpts CreateOpts) error {
 
 	newRunID := *response.GetData().GetId()
 
-	fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`
+	runURL := opts.APIClient.RunAppURL(*organizationName, *ws.GetAttributes().GetName(), newRunID)
+
+	if !opts.Wait {
+		fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`
 %s %s created. You can monitor the status of the run using:
 
 {{ Bold "$ %s run status %s" }}
 
-or by visiting {{ Bold "https://%s/app/%s/workspaces/%s/runs/%s" }}
-`, cs.SuccessIcon(), newRunID, version.Name, newRunID, opts.Profile.GetHostname(), *organizationName, *ws.GetAttributes().GetName(), newRunID))
-	fmt.Fprintln(io.ErrUnessential())
+or by visiting {{ Bold "%s" }}
+`, cs.SuccessIcon(), newRunID, version.Name, newRunID, runURL))
+		fmt.Fprintln(io.ErrUnessential())
+		return nil
+	}
+
+	return waitForRunAndReport(ctx, opts, newRunID, runURL)
+}
+
+// waitForRunAndReport polls a freshly created run to a terminal state, renders
+// its status summary (reusing the same displayer as `run status`), and maps the
+// outcome to an exit code: failed runs return cmd.ErrUnderlyingError.
+func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL string) error {
+	io := opts.IO
+	cs := io.ColorScheme()
+
+	fmt.Fprintf(io.ErrUnessential(), "%s %s created; waiting for it to finish...\n", cs.SuccessIcon(), runID)
+
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeoutCause(ctx, opts.Timeout, errors.New("--wait timeout exceeded"))
+		defer cancel()
+	}
+
+	_, outcome, err := client.PollRunUntilTerminated(ctx, opts.APIClient, runID, io, opts.PollInterval, func(status string) {
+		fmt.Fprintln(io.ErrUnessential(), cs.String("  ⋯ "+status).Faint().String())
+	})
+	if err != nil {
+		// The wait was interrupted (timeout or cancel), but the run itself keeps
+		// running in HCP Terraform. Point the user at it before returning.
+		fmt.Fprintf(io.ErrUnessential(), "%s Stopped waiting; the run may still be running in HCP Terraform:\n  %s\n",
+			cs.FailureIcon(), runURL)
+		return err
+	}
+
+	// The run URL and the confirmation wording are both owned by NewRunSummary so
+	// this path stays identical to `run status`.
+	summary, err := client.NewRunSummary(ctx, opts.APIClient, runID)
+	if err != nil {
+		return err
+	}
+
+	if err := opts.Output.Display(&summaryDisplayer{summary: summary, io: io}); err != nil {
+		return err
+	}
+
+	if outcome == client.RunFailed {
+		return cmd.ErrUnderlyingError
+	}
 	return nil
 }
 
