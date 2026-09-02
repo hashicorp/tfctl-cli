@@ -60,12 +60,14 @@ func NewCmdPublish(inv *cmd.Invocation) *cmd.Command {
 
 		Provide exactly one of {{ template "mdCodeOrBold" "--oauth-token-id" }} or {{ template "mdCodeOrBold" "--github-app-installation-id" }}.
 
+		To find an OAuth token ID, run {{ template "mdCodeOrBold" "%s api /organizations/{organization}/oauth-tokens --all" }} and use the applicable {{ template "mdCodeOrBold" "data[].id" }} value. Find a GitHub App installation ID in Account Settings in HCP Terraform or Terraform Enterprise.
+
 		Publishing from tags is the default. Use {{ template "mdCodeOrBold" "--branch" }} to publish from a branch and optionally set its first version with {{ template "mdCodeOrBold" "--initial-version" }}.
 
 		The command uses {{ template "mdCodeOrBold" "--repo" }} for both the VCS identifier and display identifier. Repositories that require different values, such as some Bitbucket Cloud repositories, are not supported. Use {{ template "mdCodeOrBold" "%s api" }} for those repositories.
 
 		The module name and provider are derived from the repository name. Explicit overrides for repositories that do not follow Terraform module naming conventions are not supported.
-		`, version.Name, version.Name),
+		`, version.Name, version.Name, version.Name),
 		Flags: cmd.Flags{
 			// These remote and repository-specific values have no reliable local predictors.
 			Local: []*cmd.Flag{
@@ -227,12 +229,13 @@ func runPublish(ctx context.Context, opts *PublishOpts) error {
 
 	logger := logging.FromContext(ctx)
 	logger.Debug("Publishing VCS-backed registry module",
-		"method", http.MethodPost,
-		"path", requestURL.Path,
 		"organization", organization,
 		"mode", publishingMode,
 	)
 
+	// The generated go-tfe client and embedded OpenAPI schema do not expose VCS
+	// registry-module publishing. Use the configured raw client to retain shared
+	// authentication, headers, retries, telemetry, logging, and API-error handling.
 	resp, err := opts.Client.Do(ctx, &client.Request{
 		Method: http.MethodPost,
 		URL:    requestURL,
@@ -250,6 +253,11 @@ func runPublish(ctx context.Context, opts *PublishOpts) error {
 
 	if opts.Quiet {
 		logger.Debug("Quiet mode enabled, rendering skipped")
+		if resp != nil && resp.Body != nil {
+			if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+				logger.Debug("Failed to drain registry module publish response", "error", err)
+			}
+		}
 		return nil
 	}
 
@@ -277,6 +285,7 @@ func runPublish(ctx context.Context, opts *PublishOpts) error {
 		Provider:  response.Data.Attributes.Provider,
 		Status:    response.Data.Attributes.Status,
 	}
+	result.HTMLLink = resolvePublishHTMLLink(opts.Client.BaseURL, organization, result.Name, result.Provider)
 
 	if response.Data.Links.Self != "" {
 		result.SelfLink, err = resolvePublishSelfLink(opts.Client.BaseURL, response.Data.Links.Self)
@@ -297,6 +306,8 @@ func runPublish(ctx context.Context, opts *PublishOpts) error {
 	return nil
 }
 
+// These narrow wire types model the documented publish request and safe
+// response fields until a generated go-tfe operation is available.
 type publishRequestEnvelope struct {
 	Data publishRequestData `json:"data"`
 }
@@ -347,6 +358,7 @@ type publishResult struct {
 	Provider  string `json:"provider,omitempty"`
 	Status    string `json:"status,omitempty"`
 	SelfLink  string `json:"self_link,omitempty"`
+	HTMLLink  string `json:"html_link,omitempty"`
 }
 
 type publishDisplayer struct {
@@ -358,7 +370,7 @@ var _ format.Displayer = (*publishDisplayer)(nil)
 func (d *publishDisplayer) DefaultFormat() format.Format { return format.Pretty }
 func (d *publishDisplayer) Payload() any                 { return d.result }
 func (d *publishDisplayer) FieldTemplates() []format.Field {
-	fields := make([]format.Field, 0, 6)
+	fields := make([]format.Field, 0, 7)
 	if d.result.ID != "" {
 		fields = append(fields, format.NewField("ID", "{{ .ID }}"))
 	}
@@ -376,6 +388,9 @@ func (d *publishDisplayer) FieldTemplates() []format.Field {
 	}
 	if d.result.SelfLink != "" {
 		fields = append(fields, format.NewField("Self Link", "{{ .SelfLink }}"))
+	}
+	if d.result.HTMLLink != "" {
+		fields = append(fields, format.NewField("HTML Link", "{{ .HTMLLink }}"))
 	}
 	return fields
 }
@@ -399,4 +414,21 @@ func resolvePublishSelfLink(base *url.URL, self string) (string, error) {
 	ref.Host = ""
 	origin := url.URL{Scheme: base.Scheme, Host: base.Host, Path: "/"}
 	return origin.ResolveReference(ref).String(), nil
+}
+
+func resolvePublishHTMLLink(base *url.URL, organization, name, provider string) string {
+	if base == nil || base.Scheme == "" || base.Host == "" || organization == "" || name == "" || provider == "" {
+		return ""
+	}
+
+	// HashiCorp support documentation gives the corresponding /status route for
+	// HCP Terraform and Terraform Enterprise; PR review verified this base route.
+	origin := (&url.URL{Scheme: base.Scheme, Host: base.Host}).String()
+	return fmt.Sprintf("%s/app/%s/registry/modules/private/%s/%s/%s",
+		origin,
+		url.PathEscape(organization),
+		url.PathEscape(organization),
+		url.PathEscape(name),
+		url.PathEscape(provider),
+	)
 }

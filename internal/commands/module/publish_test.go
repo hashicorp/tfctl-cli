@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -100,8 +101,10 @@ func TestNewCmdPublishHelpDocumentsConnectionAndRepositoryLimits(t *testing.T) {
 	longHelp := strings.Join(strings.Fields(publish.LongHelp), " ")
 
 	assert.Contains(t, longHelp, "exactly one of --oauth-token-id or --github-app-installation-id")
+	assert.Contains(t, longHelp, "tfctl api /organizations/{organization}/oauth-tokens --all")
+	assert.Contains(t, longHelp, "Account Settings")
 	assert.Contains(t, longHelp, "such as some Bitbucket Cloud repositories")
-	assert.Contains(t, longHelp, "tfctl api")
+	assert.Contains(t, longHelp, "Use tfctl api for those repositories.")
 }
 
 func TestNewCmdPublishOptionalFlagPresence(t *testing.T) {
@@ -435,12 +438,12 @@ func TestRunPublishOutputFormats(t *testing.T) {
 	tests := map[string]struct {
 		format       format.Format
 		selfLink     string
-		assertOutput func(*testing.T, string, string)
+		assertOutput func(*testing.T, string, string, string)
 	}{
 		"default": {
 			format:   format.Unset,
 			selfLink: "/api/v2/organizations/my-org/registry-modules/private/my-org/network/aws",
-			assertOutput: func(t *testing.T, output, resolvedSelf string) {
+			assertOutput: func(t *testing.T, output, resolvedSelf, htmlLink string) {
 				t.Helper()
 				assert.Contains(t, output, "mod-123")
 				assert.Contains(t, output, "network")
@@ -448,12 +451,13 @@ func TestRunPublishOutputFormats(t *testing.T) {
 				assert.Contains(t, output, "aws")
 				assert.Contains(t, output, "setup_complete")
 				assert.Contains(t, output, resolvedSelf)
+				assert.Contains(t, output, htmlLink)
 			},
 		},
 		"JSON": {
 			format:   format.JSON,
 			selfLink: "https://app.example.test/api/v2/organizations/my-org/registry-modules/private/my-org/network/aws",
-			assertOutput: func(t *testing.T, output, resolvedSelf string) {
+			assertOutput: func(t *testing.T, output, resolvedSelf, htmlLink string) {
 				t.Helper()
 				var got map[string]any
 				require.NoError(t, json.Unmarshal([]byte(output), &got))
@@ -464,13 +468,14 @@ func TestRunPublishOutputFormats(t *testing.T) {
 					"provider":  "aws",
 					"status":    "setup_complete",
 					"self_link": resolvedSelf,
+					"html_link": htmlLink,
 				}, got)
 			},
 		},
 		"Markdown": {
 			format:   format.Markdown,
 			selfLink: "/api/v2/organizations/my-org/registry-modules/private/my-org/network/aws",
-			assertOutput: func(t *testing.T, output, resolvedSelf string) {
+			assertOutput: func(t *testing.T, output, resolvedSelf, htmlLink string) {
 				t.Helper()
 				assert.Contains(t, output, "| Field")
 				assert.Contains(t, output, "| ID")
@@ -480,6 +485,7 @@ func TestRunPublishOutputFormats(t *testing.T) {
 				assert.Contains(t, output, "aws")
 				assert.Contains(t, output, "setup_complete")
 				assert.Contains(t, output, resolvedSelf)
+				assert.Contains(t, output, htmlLink)
 			},
 		},
 	}
@@ -504,8 +510,9 @@ func TestRunPublishOutputFormats(t *testing.T) {
 			if strings.HasPrefix(tc.selfLink, "/") {
 				resolvedSelf = strings.TrimSuffix(opts.Client.BaseURL.Scheme+"://"+opts.Client.BaseURL.Host, "/") + tc.selfLink
 			}
+			htmlLink := opts.Client.BaseURL.Scheme + "://" + opts.Client.BaseURL.Host + "/app/my-org/registry/modules/private/my-org/network/aws"
 			output := streams.Output.String()
-			tc.assertOutput(t, output, resolvedSelf)
+			tc.assertOutput(t, output, resolvedSelf, htmlLink)
 
 			for _, unsafe := range []string{
 				"ot-response-secret",
@@ -564,7 +571,7 @@ func TestRunPublishPendingAndQuiet(t *testing.T) {
 	})
 }
 
-func TestRunPublishAPIValidationError(t *testing.T) {
+func TestRunPublishAPIValidationErrorPropagatesInQuietMode(t *testing.T) {
 	t.Parallel()
 
 	opts, streams := newPublishTestOpts(t, cmdtest.RouteMap{
@@ -590,6 +597,21 @@ func TestRunPublishAPIValidationError(t *testing.T) {
 	require.Equal(t, []string{"Validation failed: repository identifier is invalid"}, apiErr.Details)
 }
 
+func TestRunPublishSelfLinkResolutionError(t *testing.T) {
+	t.Parallel()
+
+	opts, streams := newPublishTestOpts(t, cmdtest.RouteMap{
+		"POST " + publishPath: func(w http.ResponseWriter, _ *http.Request) {
+			writePublishJSONAPI(w, http.StatusCreated, publishResponse("%", "setup_complete"))
+		},
+	})
+
+	err := runPublish(context.Background(), opts)
+	require.ErrorContains(t, err, "failed to resolve registry module self link")
+	assert.ErrorContains(t, err, "invalid URL escape")
+	assert.Empty(t, streams.Output.String())
+}
+
 func TestRunPublishMalformedSuccess(t *testing.T) {
 	t.Parallel()
 
@@ -605,6 +627,106 @@ func TestRunPublishMalformedSuccess(t *testing.T) {
 	require.ErrorContains(t, err, "decode")
 	var syntaxErr *json.SyntaxError
 	require.ErrorAs(t, err, &syntaxErr)
+}
+
+func TestResolvePublishSelfLink(t *testing.T) {
+	t.Parallel()
+
+	base := &url.URL{Scheme: "https", Host: "app.example.test", Path: "/api/v2/"}
+	tests := map[string]struct {
+		base    *url.URL
+		self    string
+		want    string
+		wantErr string
+	}{
+		"absolute link": {
+			base: base,
+			self: "https://modules.example.test/api/v2/registry-modules/mod-123",
+			want: "https://modules.example.test/api/v2/registry-modules/mod-123",
+		},
+		"root-relative link": {
+			base: base,
+			self: "/api/v2/registry-modules/mod-123",
+			want: "https://app.example.test/api/v2/registry-modules/mod-123",
+		},
+		"network-path link keeps configured origin": {
+			base: base,
+			self: "//modules.example.test/api/v2/registry-modules/mod-123",
+			want: "https://app.example.test/api/v2/registry-modules/mod-123",
+		},
+		"malformed link": {
+			base:    base,
+			self:    "%",
+			wantErr: "invalid URL escape",
+		},
+		"relative link requires base": {
+			self:    "/api/v2/registry-modules/mod-123",
+			wantErr: "configured API origin is missing",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := resolvePublishSelfLink(tc.base, tc.self)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestResolvePublishHTMLLink(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		base         *url.URL
+		organization string
+		name         string
+		provider     string
+		want         string
+	}{
+		"HCP Terraform": {
+			base:         &url.URL{Scheme: "https", Host: "app.terraform.io", Path: "/api/v2/"},
+			organization: "my-org",
+			name:         "network",
+			provider:     "aws",
+			want:         "https://app.terraform.io/app/my-org/registry/modules/private/my-org/network/aws",
+		},
+		"Terraform Enterprise": {
+			base:         &url.URL{Scheme: "https", Host: "tfe.example.test", Path: "/api/v2/"},
+			organization: "my-org",
+			name:         "network",
+			provider:     "aws",
+			want:         "https://tfe.example.test/app/my-org/registry/modules/private/my-org/network/aws",
+		},
+		"escapes path segments": {
+			base:         &url.URL{Scheme: "https", Host: "app.terraform.io", Path: "/api/v2/"},
+			organization: "my org",
+			name:         "network/core",
+			provider:     "aws cloud",
+			want:         "https://app.terraform.io/app/my%20org/registry/modules/private/my%20org/network%2Fcore/aws%20cloud",
+		},
+		"missing required data": {
+			base:         &url.URL{Scheme: "https", Host: "app.terraform.io", Path: "/api/v2/"},
+			organization: "my-org",
+			provider:     "aws",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := resolvePublishHTMLLink(tc.base, tc.organization, tc.name, tc.provider)
+			assert.Equal(t, tc.want, got)
+		})
+	}
 }
 
 type capturedRequest struct {
