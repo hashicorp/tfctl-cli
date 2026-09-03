@@ -1,0 +1,12 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  List all variables in the 'billing-prod' workspace in the tfc-demo-au
+  organization, showing their keys, categories (env vs terraform), and whether
+  they're sensitive. Use tfctl with the -p workspace= flag for the workspace
+  parameter.
+tags: [api-pattern, endpoint-correctness, anti-pattern]
+accept: ['/workspaces/', '/vars', '-p\s+workspace=billing-prod']
+reject: ['/organizations/tfc-demo-au/workspaces/billing-prod/vars', '\|\s*jq']
+turns: 10

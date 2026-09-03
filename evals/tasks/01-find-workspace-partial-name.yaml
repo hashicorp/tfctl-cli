@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Find the workspace named 'staging-api' in the 'tfc-demo-au' organization and
+  show its current run status including the run ID if one exists.
+tags: [api-pattern, error-handling, stop-on-not-found]
+accept: ['(?:--filter)|(?:-f)|(?:search)|(?:/organizations/)']
+reject: ['\|\s*jq']
+turns: 10

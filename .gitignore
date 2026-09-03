@@ -1,3 +1,4 @@
 dist/tfctl
 .plans/
 dist/
+evals/results/

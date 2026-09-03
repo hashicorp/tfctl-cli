@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Which workspaces are managed by the 'team-89Pc9kzFk4YBe4uY' team in tfc-demo-au? List
+  them with their IDs.
+tags: [api-pattern, teams, multi-step]
+accept: ['(?:/team-workspaces)|(?:team-workspaces)']
+reject: ['/organizations/tfc-demo-au/teams/team-89Pc9kzFk4YBe4uY/workspaces', '\|\s*jq']
+turns: 10
