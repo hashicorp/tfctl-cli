@@ -1,3 +1,6 @@
+// Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
+
 // Package checkpoint provides functionality for interacting with HashiCorp's
 // Checkpoint service to check for new versions and alerts related to the
 // current version of the CLI.

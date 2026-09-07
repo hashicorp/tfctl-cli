@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 kind: ENHANCEMENTS
 body: "Added a `-r name=id` flag to `api` and `create` for setting JSON:API relationships without a full request body. The relationship's linkage type is inferred from the schema (e.g. `-r project=prj-...` links to type `projects`); ambiguous or unknown relationships can be pinned with `-r name:type=id`, and to-many relationships accept comma-separated ids"
 time: 2026-08-19T16:19:36.000000-04:00

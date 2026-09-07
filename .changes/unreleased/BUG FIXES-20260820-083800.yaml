@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 kind: BUG FIXES
 body: "Fixed a gap in the output masking added in #101: CopyRaw only attempted to parse and mask a raw response body when its Content-Type was application/json (or ended in +json). At least one Terraform Enterprise endpoint (plan JSON export) serves valid JSON labeled application/octet-stream, so its response bypassed masking entirely. A body labeled application/octet-stream is now peeked at, without buffering it, to check whether it opens with a JSON object or array before deciding whether to mask it, so this content type is no longer treated as a blanket mask candidate: genuinely binary or large bodies served under the same label, such as state archives and plan or apply logs, are streamed through exactly as before"
 time: 2026-08-20T08:38:00.000000-04:00
