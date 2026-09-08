@@ -7,7 +7,7 @@ require (
 	github.com/blugelabs/bluge v0.2.2
 	github.com/cli/browser v1.3.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/getkin/kin-openapi v0.145.0
+	github.com/getkin/kin-openapi v0.149.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/cli v1.1.7
 	github.com/hashicorp/go-checkpoint v0.5.0
@@ -99,7 +99,7 @@ require (
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
 	github.com/std-uritemplate/std-uritemplate/go/v2 v2.0.10 // indirect
