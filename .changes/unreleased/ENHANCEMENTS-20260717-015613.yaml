@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 kind: ENHANCEMENTS
 body: '`tfctl auth status` now explains why authentication failed instead of printing a bare "Unauthorized". It distinguishes a missing token, a token the server rejected (401), and a request that never reached the server, and prints the matching remedy. On SSO-protected Terraform Enterprise the 401 message also calls out a lapsed browser SSO session. JSON and agent output gain a machine-readable `reason` field.'
 time: 2026-07-17T01:56:13-04:00

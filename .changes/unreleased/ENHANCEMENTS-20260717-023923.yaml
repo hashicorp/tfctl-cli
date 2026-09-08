@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 kind: ENHANCEMENTS
 body: '`run start` now accepts `--wait`, which blocks until the run reaches a terminal state, streaming each status transition and exiting non-zero if the run fails, is canceled, is discarded, or fails a mandatory policy. A run whose plan finishes but needs a manual apply (auto-apply disabled) stops instead of hanging. `--timeout` bounds how long to wait; if it elapses, tfctl stops watching and exits non-zero while the run continues in HCP Terraform. On completion the run URL is printed. `run status` now surfaces the same run URL as well.'
 time: 2026-07-17T02:39:23-04:00

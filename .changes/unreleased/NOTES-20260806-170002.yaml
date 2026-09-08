@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 kind: NOTES
 body: 'Sensitive values in command output are now masked by default. A script that reads a state version download URL, or a newly created token, out of `tfctl` output will see `(redacted)` until it passes `--no-redact` or sets `redact = "off"` in its profile'
 time: 2026-08-06T17:00:02.000000-04:00

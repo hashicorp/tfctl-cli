@@ -5,10 +5,6 @@ updates:
   - package-ecosystem: "docker"
     open-pull-requests-limit: 1
     directory: "/"
-    cooldown:
-      semver-major-days: 14
-      semver-minor-days: 7
-      semver-patch-days: 3
     schedule:
       interval: "weekly"
     labels:
@@ -18,10 +14,6 @@ updates:
   - package-ecosystem: "github-actions"
     open-pull-requests-limit: 3
     directory: "/"
-    cooldown:
-      semver-major-days: 14
-      semver-minor-days: 7
-      semver-patch-days: 3
     schedule:
       interval: "weekly"
     labels:
