@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Update 3 environment variables in the 'batch-test' workspace in tfc-demo-au:
+  'ENV=production', 'LOG_LEVEL=debug', 'TIMEOUT=300'. Show the API calls needed.
+tags: [api-pattern, mutation, batch]
+accept: ['/workspaces/', '/vars']
+reject: ['\|\s*jq']
+turns: 10

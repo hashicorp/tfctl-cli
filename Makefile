@@ -5,6 +5,8 @@ ASSETS ?= assets
 VERSION_FILE ?= version/VERSION
 SKILL_HASHES = skills/tfctl/known_release_hashes
 SKILL_EMBEDDED = skills/tfctl/SKILL.md
+EVAL_ARGS ?=
+EVAL_OUTPUT ?= evals/results/latest.json
 CHANGELOG_FILE = CHANGELOG.md
 
 ifeq ($(GOARCH), arm64)
@@ -119,8 +121,24 @@ logotools:
 		echo "Install figlet https://www.figlet.org/" && exit 1; \
 	}
 
+.PHONY: eval/test
+eval/test:
+	@$(MAKE) -C evals test
+
+.PHONY: eval/lint
+eval/lint:
+	@$(MAKE) -C evals lint
+
 .PHONY: check
-check: fmt-check go/lint go/test
+check: fmt-check go/lint go/test eval/lint eval/test
+
+.PHONY: eval
+eval: go/install
+	@PATH="$(abspath $(dir $(BIN_PATH))):$$PATH" go -C evals run . $(EVAL_ARGS)
+
+.PHONY: eval/save
+eval/save: go/install
+	@PATH="$(abspath $(dir $(BIN_PATH))):$$PATH" go -C evals run . --output "$(abspath $(EVAL_OUTPUT))" $(EVAL_ARGS)
 
 # Help (make usage)
 .PHONY: help
@@ -151,4 +169,10 @@ help:
 	@echo "                  requires VERSION argument"
 	@echo " cleanup-release  Clean up after a release"
 	@echo "                  requires DEV_VERSION argument"
+	@echo ""
+	@echo "Evaluations:"
+	@echo " eval             Run skill evaluations"
+	@echo " eval/save        Run and save evaluation results"
+	@echo " eval/test        Test the evaluator module"
+	@echo " eval/lint        Lint the evaluator module"
 	@echo ""

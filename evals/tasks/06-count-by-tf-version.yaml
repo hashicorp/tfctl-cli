@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  In the 'tfc-demo-au' organization, how many workspaces are running Terraform
+  1.6 vs 1.7 vs 1.8+? Break down the counts.
+tags: [api-pattern, pagination, jq]
+accept: ['--all', '--jq']
+reject: ['\|\s*jq']
+turns: 10

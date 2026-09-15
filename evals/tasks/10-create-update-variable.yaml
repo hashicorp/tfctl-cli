@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Create a new terraform variable named 'region' with value 'us-west-2' in the
+  'dev-env' workspace in tfc-demo-au. First check if it already exists.
+tags: [api-pattern, endpoint-correctness, mutation]
+accept: ['/workspaces/', '/vars', '-p\s+workspace=dev-env']
+reject: ['/organizations/tfc-demo-au/workspaces/dev-env/vars', '\|\s*jq']
+turns: 10

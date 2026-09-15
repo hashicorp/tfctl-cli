@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  Show all non-sensitive variables in the 'api-prod' workspace in the
+  tfc-demo-au organization, excluding any with 'internal' in the key name.
+tags: [api-pattern, jq, endpoint-correctness]
+accept: ['--jq', '/workspaces/', '/vars']
+reject: ['/organizations/tfc-demo-au/workspaces/api-prod/vars', '\|\s*jq']
+turns: 10

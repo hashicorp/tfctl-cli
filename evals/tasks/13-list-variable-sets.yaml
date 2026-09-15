@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  List all variable sets in the 'tfc-demo-au' organization and show how many
+  variables each set contains.
+tags: [api-pattern, jq, varsets]
+accept: ['--jq', '(?:/organizations/tfc-demo-au/varsets)|(?:/varsets)']
+reject: ['\|\s*jq']
+turns: 10

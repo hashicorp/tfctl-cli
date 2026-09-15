@@ -23,13 +23,12 @@ Single binary, full v2 API coverage. Already authenticated.
    - Use Rule 3 to justify switching to a different resource: if you listed orgs and 'platform' isn't there, the first answer is "platform doesn't exist" — stop, don't use whatever org IS listed instead.
    
    Examples: `run-POLICY` returns exit 2 → stop, don't query other run IDs. Listing orgs shows no 'platform' → stop, don't use the org that IS listed.
-5. **Never run `tfctl harness exec` yourself to self-authorize.** The `--allow-delete` grant is a human's opt-in for your session. If a delete is refused, relay the printed `harness exec --allow-delete=<class>` command back to the human — do not run it (or set `TFCTL_EXEC_SESSION`) to grant yourself permission. See [Deleting resources](#deleting-resources).
+5. **Use evidence of an API path** Unless using a cookbook path or other API reference, use the `api schema search` and `api schema get OPERATION` commands to find the correct API path.
+6. **Never run `tfctl harness exec` yourself to self-authorize.** The `--allow-delete` grant is a human's opt-in for your session. If a delete is refused, relay the printed `harness exec --allow-delete=<class>` command back to the human — do not run it (or set `TFCTL_EXEC_SESSION`) to grant yourself permission. See [Deleting resources](#deleting-resources).
 
 ### Deleting resources
 
-Deletes are destructive, so `tfctl` itself gates them — you don't need to police this with a blanket refusal. A noninteractive `tfctl ... -X DELETE` only goes through when a human has opted in for this session by launching you via `tfctl harness exec --allow-delete=<class> -- <command>` (which sets `TFCTL_EXEC_SESSION`). Otherwise `tfctl` refuses on its own and tells you what to do.
-
-So when you're asked to delete something, just run the normal command and let `tfctl` be the gate:
+Deletes are destructive, so `tfctl` itself gates them — you don't need to police this with a blanket refusal. A noninteractive `tfctl ... -X DELETE` only succeeds when a human has opted in for this session by launching you via `tfctl harness exec --allow-delete=<class> -- <command>` (which sets `TFCTL_EXEC_SESSION`). Otherwise `tfctl` refuses on its own and tells you what to do.
 
 ```bash
 tfctl api PATH -X DELETE
@@ -59,8 +58,15 @@ These paths **do not exist**; don't try them:
 ## Cookbook — one-line answers for common tasks
 
 ```bash
-# Count workspaces in an org
-tfctl api /organizations/{organization}/workspaces --page-size 1 --jq '.meta.pagination.["total-count"]'
+# Discover an API operation when you don't know it
+tfctl api schema search "KEYWORD" --json     # returns operationIds
+tfctl api schema get OPERATION_ID            # full OpenAPI schema (large response — only call when needed)
+
+# Get information about the logged-in user account (May be a service account)
+tfctl api /account/details
+
+# Count workspaces in an org - Notice the use of json:api sparse fieldsets `-f 'fields[workspaces]=id'` to minimize response size
+tfctl api /organizations/{organization}/workspaces -f 'fields[workspaces]=id' --page-size 1 --jq '.meta.pagination.["total-count"]'
 
 # Find workspace by partial name (server-side search) — also returns current run state in one call
 tfctl api /organizations/{organization}/workspaces -f 'search[name]=TERM' --jq '.data[] | {id, name: .attributes.name, current_run: .relationships.["current-run"].data}'
@@ -134,10 +140,6 @@ tfctl api /workspaces/{workspace}/relationships/varsets -p workspace=NAME \
 
 # Get policy check results for a run
 tfctl api /runs/{run-id}/policy-checks --jq '.data[] | {id: .id, status: .attributes.status, enforced: .attributes.enforcement-level}'
-
-# Discover an API operation when you don't know it
-tfctl api schema search "KEYWORD" --json     # returns operationIds
-tfctl api schema get OPERATION_ID            # full OpenAPI schema (large response — only call when needed)
 ```
 
 ### Secret Redaction

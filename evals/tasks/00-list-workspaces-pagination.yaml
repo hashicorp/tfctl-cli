@@ -1,0 +1,10 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+task: |
+  List all workspaces in the 'tfc-demo-au' organization, including ones with
+  terraform version 1.7 or older. Show only the name and terraform version.
+tags: [api-pattern, pagination, jq]
+accept: ['--all', '--jq']
+reject: ['\|\s*jq']
+turns: 10

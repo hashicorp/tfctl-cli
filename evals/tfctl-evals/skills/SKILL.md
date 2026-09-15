@@ -1,1 +1,0 @@
-../../../skills/tfctl/SKILL.md
