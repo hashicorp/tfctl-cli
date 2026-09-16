@@ -57,6 +57,32 @@ run_case() {
   "$name"
 }
 
+assert_contains() {
+  local value=$1
+  local expected=$2
+
+  case "$value" in
+    *"$expected"*) ;;
+    *)
+      printf 'expected output to contain %q:\n%s\n' "$expected" "$value" >&2
+      return 1
+      ;;
+  esac
+}
+
+assert_not_contains() {
+  local value=$1
+  local unexpected=$2
+
+  case "$value" in
+    *"$unexpected"*)
+      printf 'expected output not to contain %q:\n%s\n' "$unexpected" "$value" >&2
+      return 1
+      ;;
+    *) ;;
+  esac
+}
+
 create_auto_apply_workspace() {
   local workspace="tfctl-e2e-$RANDOM"
 
@@ -94,6 +120,69 @@ upload_configuration() {
   return 1
 }
 
+case_get_formats() {
+  local workspace workspace_id output
+  workspace="tfctl-e2e-formats-$RANDOM"
+  workspace_id="$("$tfctl_bin" create workspace --organization "$organization" --jq '.data.id' -a "name=$workspace")"
+
+  output="$("$tfctl_bin" get workspaces --organization "$organization")"
+  assert_contains "$output" "ID"
+  output="$("$tfctl_bin" get workspaces --organization "$organization" --json)"
+  assert_contains "$output" "\"$workspace\""
+  output="$("$tfctl_bin" get workspaces --organization "$organization" --markdown)"
+  assert_contains "$output" "$workspace"
+
+  output="$("$tfctl_bin" get workspace "$workspace_id")"
+  assert_contains "$output" "$workspace"
+  output="$("$tfctl_bin" get workspace "$workspace_id" --json)"
+  assert_contains "$output" "\"id\": \"$workspace_id\""
+  output="$("$tfctl_bin" get workspace "$workspace_id" --markdown)"
+  assert_contains "$output" "$workspace"
+}
+
+case_dry_run_is_no_op() {
+  local workspace output
+  workspace="tfctl-e2e-dry-run-$RANDOM"
+
+  output="$("$tfctl_bin" create workspace --organization "$organization" -a "name=$workspace" --dry-run 2>&1)"
+  assert_contains "$output" "would send POST request"
+
+  output="$("$tfctl_bin" get workspaces --organization "$organization" --json)"
+  assert_not_contains "$output" "$workspace"
+}
+
+case_quiet_minimizes_output() (
+  local workspace stdout stderr
+  workspace="tfctl-e2e-quiet-$RANDOM"
+  stdout="$(mktemp)"
+  stderr="$(mktemp)"
+  trap 'rm -f "$stdout" "$stderr"' EXIT
+
+  "$tfctl_bin" create workspace --organization "$organization" -a "name=$workspace" --quiet >"$stdout" 2>"$stderr"
+  [ ! -s "$stdout" ]
+  [ ! -s "$stderr" ]
+)
+
+case_harness_install() (
+  local temp_dir skill_path
+  temp_dir="$(mktemp -d)"
+  skill_path="$temp_dir/.agents/skills/tfctl/SKILL.md"
+  trap 'rm -rf "$temp_dir"' EXIT
+
+  (
+    cd "$temp_dir"
+    "$tfctl_bin" harness install opencode
+  )
+  [ -s "$skill_path" ]
+)
+
+case_profile_display() {
+  local output
+  output="$("$tfctl_bin" profile display --json)"
+  assert_contains "$output" "\"Name\":"
+  assert_not_contains "$output" "token"
+}
+
 case_create_and_apply_workspace() (
   local archive workspace_id
   archive="$(mktemp)"
@@ -109,4 +198,9 @@ case_create_and_apply_workspace() (
 )
 
 setup
+run_case case_get_formats
+run_case case_dry_run_is_no_op
+run_case case_quiet_minimizes_output
+run_case case_harness_install
+run_case case_profile_display
 run_case case_create_and_apply_workspace
