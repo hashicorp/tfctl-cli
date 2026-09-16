@@ -273,13 +273,13 @@ func waitForRunAndReport(ctx context.Context, opts StartOpts, runID, runURL stri
 }
 
 func buildRunsEnvelope(wsID string, ro CreateOpts) *models.RunsEnvelope {
-	wsType := models.WORKSPACES_WORKSPACESID_DATA_TYPE
+	wsType := models.WORKSPACES_WORKSPACESIDENTIFIER_TYPE
 
-	workspaceIDData := models.NewWorkspacesId_data()
+	workspaceIDData := models.NewWorkspacesHasOne_data()
 	workspaceIDData.SetId(&wsID)
 	workspaceIDData.SetTypeEscaped(&wsType)
 
-	workspaceID := models.NewWorkspacesId()
+	workspaceID := models.NewWorkspacesHasOne()
 	workspaceID.SetData(workspaceIDData)
 
 	relationships := models.NewRuns_relationships()

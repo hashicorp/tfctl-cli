@@ -341,7 +341,12 @@ func populateErroredSummary(ctx context.Context, c *Client, runID string, result
 		return fmt.Errorf("fetching run %s: %w", runID, err)
 	}
 
-	applyRel := runData.GetData().GetRelationships().GetApply()
+	relationships := runData.GetData().GetRelationships()
+	if relationships == nil {
+		return fmt.Errorf("run %s has no relationships", runID)
+	}
+
+	applyRel := relationships.GetApply()
 	if applyRel == nil || applyRel.GetData() == nil || applyRel.GetData().GetId() == nil {
 		return fmt.Errorf("run %s has no apply relationship", runID)
 	}
@@ -469,21 +474,21 @@ func populateTaskStageSummary(ctx context.Context, c *Client, runID string, resu
 		// Fetch policy evaluations.
 		if peRel := ts.GetRelationships().GetPolicyEvaluations(); peRel != nil {
 			for _, pe := range peRel.GetData() {
-				peID := relationshipID(pe.GetAdditionalData())
-				if peID == "" {
+				peID := pe.GetId()
+				if peID == nil || *peID == "" {
 					continue
 				}
 
 				// Fetch the policy evaluation to get its kind.
 				policyKind := ""
-				peResp, err := c.TFE.API.PolicyEvaluations().ByPolicy_evaluation_id(peID).Get(ctx, nil)
+				peResp, err := c.TFE.API.PolicyEvaluations().ByPolicy_evaluation_id(*peID).Get(ctx, nil)
 				if err == nil && peResp.GetData() != nil && peResp.GetData().GetAttributes() != nil {
 					if k := peResp.GetData().GetAttributes().GetPolicyKind(); k != nil {
 						policyKind = k.String()
 					}
 				}
 
-				evals, err := fetchPolicySetOutcomes(ctx, c, peID, policyKind)
+				evals, err := fetchPolicySetOutcomes(ctx, c, *peID, policyKind)
 				if err != nil {
 					return err
 				}
@@ -494,11 +499,11 @@ func populateTaskStageSummary(ctx context.Context, c *Client, runID string, resu
 		// Fetch task results.
 		if trRel := ts.GetRelationships().GetTaskResults(); trRel != nil {
 			for _, tr := range trRel.GetData() {
-				trID := relationshipID(tr.GetAdditionalData())
-				if trID == "" {
+				trID := tr.GetId()
+				if trID == nil || *trID == "" {
 					continue
 				}
-				taskResult, err := fetchTaskResult(ctx, c, trID)
+				taskResult, err := fetchTaskResult(ctx, c, *trID)
 				if err != nil {
 					return err
 				}
@@ -561,16 +566,6 @@ func fetchPolicySetOutcomes(ctx context.Context, c *Client, peID, policyKind str
 	}
 
 	return results, nil
-}
-
-// relationshipID extracts the "id" string from a Kiota relationship object's
-// additional data. The generated types store flat JSON:API {id, type}
-// relationship fields in AdditionalData rather than typed accessors.
-func relationshipID(ad map[string]any) string {
-	if id, ok := ad["id"].(*string); ok && id != nil {
-		return *id
-	}
-	return ""
 }
 
 // extractStringSlice extracts a []string from a Kiota UntypedNodeable that
