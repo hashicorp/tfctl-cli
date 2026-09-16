@@ -122,6 +122,10 @@ logotools:
 .PHONY: check
 check: fmt-check go/lint go/test
 
+.PHONY: e2e
+e2e: bin
+	@bash e2e/test.sh
+
 # Help (make usage)
 .PHONY: help
 help:
@@ -144,6 +148,7 @@ help:
 	@echo " go/lint          Run golangci-lint"
 	@echo " go/fmt           Format go code"
 	@echo " fmt-check        Check go code formatting"
+	@echo " e2e              Run the HCP Terraform end-to-end test"
 	@echo ""
 	@echo "Release:"
 	@echo " gen/openapi      Update embedded OpenAPI spec"
