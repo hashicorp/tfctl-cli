@@ -103,7 +103,7 @@ func (r Resolver) CurrentRunForWorkspace(ctx context.Context, organization, id s
 	return extractCurrentRunID(ws.GetData().GetRelationships().GetCurrentRun(), id)
 }
 
-func extractCurrentRunID(rel models.RunsIdable, wsRef string) (string, error) {
+func extractCurrentRunID(rel models.RunsHasOneable, wsRef string) (string, error) {
 	if rel != nil && rel.GetData() != nil && rel.GetData().GetId() != nil {
 		return *rel.GetData().GetId(), nil
 	}
