@@ -7,9 +7,9 @@ set -euo pipefail
 
 # End-to-end test for tfctl
 #
-# Runs dist/tfctl through some basic test cases. Presumes the default configuration
-# profile is already correct and ready. setup creates an organization and all
-# cases should use it.
+# Runs dist/tfctl through some basic test cases. Presumes the default profile
+# is already configured. 'setup' creates $organization and all cases should
+# use it.
 # 
 # System prerequisites are:
 #   tar
@@ -57,8 +57,9 @@ run_case() {
   "$name"
 }
 
-create_workspace() {
-  local workspace="tfctl-e2e-${run_id}"
+create_auto_apply_workspace() {
+  local workspace="tfctl-e2e-$RANDOM"
+
   "$tfctl_bin" create workspace --organization "$organization" --jq '.data.id' \
     -a "name=$workspace" -a auto-apply=true
 }
@@ -99,7 +100,7 @@ case_create_and_apply_workspace() (
   trap 'rm -f "$archive"' EXIT
 
   printf 'Creating auto-apply workspace\n'
-  workspace_id="$(create_workspace)"
+  workspace_id="$(create_auto_apply_workspace)"
   tar -C "$root_dir/e2e" -czf "$archive" main.tf
   upload_configuration "$workspace_id" "$archive"
 
