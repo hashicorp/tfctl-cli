@@ -70,8 +70,8 @@ go/fmt:
 	@gofmt -s -w .
 
 # Check formatting
-.PHONY: fmt-check
-fmt-check:
+.PHONY: go/fmt-check
+go/fmt-check:
 	@test -z "$$(gofmt -s -l . | tee /dev/stderr)" || (echo "Code is not formatted. Run 'make go/fmt'" && exit 1)
 
 # Release targets
@@ -120,7 +120,11 @@ logotools:
 	}
 
 .PHONY: check
-check: fmt-check go/lint go/test
+check: go/fmt-check go/lint go/test
+
+.PHONY: e2e
+e2e: bin
+	@bash e2e/test.sh
 
 # Help (make usage)
 .PHONY: help
@@ -143,7 +147,8 @@ help:
 	@echo " go/test          Run all tests"
 	@echo " go/lint          Run golangci-lint"
 	@echo " go/fmt           Format go code"
-	@echo " fmt-check        Check go code formatting"
+	@echo " go/fmt-check     Check go code formatting"
+	@echo " e2e              Run the HCP Terraform end-to-end test"
 	@echo ""
 	@echo "Release:"
 	@echo " gen/openapi      Update embedded OpenAPI spec"

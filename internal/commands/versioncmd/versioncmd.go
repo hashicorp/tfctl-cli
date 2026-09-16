@@ -64,8 +64,12 @@ func runDetectOutdatedVersion(_ context.Context, io iostreams.IOStreams) {
 			fmt.Fprintf(io.ErrUnessential(), "A new version of %s is available: %s\n", version.Name, cs.String(fmt.Sprintf("v%s", versionInfo.Latest)).Color(cs.Purple()).Bold())
 			fmt.Fprintln(io.ErrUnessential())
 		} else {
-			fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`Release notes for this version are available at
-			{{ template "mdCodeOrBold" "https://github.com/hashicorp/tfctl-cli/blob/%s/CHANGELOG.md" }}`, version.Version))
+			if version.IsDev() {
+				fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`This is a development version of %s, not an official release.`, version.Name))
+			} else {
+				fmt.Fprintln(io.ErrUnessential(), heredoc.New(io).Mustf(`Release notes for this version are available at
+				{{ template "mdCodeOrBold" "https://github.com/hashicorp/tfctl-cli/blob/%s/CHANGELOG.md" }}`, version.Version))
+			}
 			fmt.Fprintln(io.ErrUnessential())
 		}
 
