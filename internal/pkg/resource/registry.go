@@ -353,6 +353,26 @@ var registry = []Resource{
 		Columns:  []string{"status", "stage", "task-result-count"},
 	},
 	{
+		Type:        "tdp-addon-definitions",
+		Columns:     []string{"name", "summary", "module-source", "module-id", "updated-at"},
+		Destroyable: NotDestroyable,
+	},
+	{
+		Type:        "tdp-addons",
+		Columns:     []string{"name", "definition.name", "terraform-workspace-id", "application.id", "updated-at"},
+		Destroyable: NotDestroyable,
+	},
+	{
+		Type:        "tdp-applications",
+		Columns:     []string{"name", "template-name", "tfc-workspace-id", "project", "updated-at"},
+		Destroyable: NotDestroyable,
+	},
+	{
+		Type:        "tdp-templates",
+		Columns:     []string{"name", "summary", "module-source", "module-id", "updated-at"},
+		Destroyable: NotDestroyable,
+	},
+	{
 		Type:        "teams",
 		Aliases:     []string{"team"},
 		IDPrefix:    "team-",
