@@ -337,6 +337,91 @@ func TestRunStatus_ExitCode(t *testing.T) {
 	}
 }
 
+// TestRunStatus_ConfirmableRunURL verifies that `run status` surfaces the same
+// "manual apply is required" wording and run URL that `run start --wait` shows,
+// so the two commands stay consistent for a run awaiting a manual apply.
+func TestRunStatus_ConfirmableRunURL(t *testing.T) {
+	t.Parallel()
+
+	c := testAPI(t, routeMap{
+		"GET /api/v2/runs/run-1": func(w http.ResponseWriter, _ *http.Request) {
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "run-1", "type": "runs",
+					"attributes": map[string]any{
+						"status":  "planned",
+						"actions": map[string]any{"is-confirmable": true},
+					},
+					"relationships": map[string]any{
+						"workspace": map[string]any{
+							"data": map[string]any{"id": "ws-1", "type": "workspaces"},
+						},
+					},
+				},
+			})
+		},
+		"GET /api/v2/workspaces/ws-1": func(w http.ResponseWriter, _ *http.Request) {
+			jsonapi(w, map[string]any{
+				"data": map[string]any{
+					"id": "ws-1", "type": "workspaces",
+					"attributes": map[string]any{"name": "my-ws"},
+					"relationships": map[string]any{
+						"organization": map[string]any{
+							"data": map[string]any{"id": "my-org", "type": "organizations"},
+						},
+					},
+				},
+			})
+		},
+	})
+
+	// The summary layer owns both the confirmation wording and the URL.
+	summary, err := client.NewRunSummary(context.Background(), c, "run-1")
+	require.NoError(t, err)
+	assert.Contains(t, summary.Message, "a manual apply is required")
+	assert.Contains(t, summary.RunURL, "workspaces/my-ws/runs/run-1")
+
+	io := iostreams.Test()
+	opts := &StatusOpts{IO: io, Output: format.New(io), Client: c, ID: "run-1"}
+	require.NoError(t, runStatus(context.Background(), opts))
+
+	out := io.Output.String()
+	assert.Contains(t, out, "a manual apply is required")
+	assert.Contains(t, out, "Confirm the apply by")
+	assert.Contains(t, out, "View run:")
+	assert.Contains(t, out, "workspaces/my-ws/runs/run-1")
+}
+
+// TestStringPayload_Footer verifies the run URL is surfaced in pretty output but
+// the markdown "View run" link is intentionally omitted, while duration is kept.
+func TestStringPayload_Footer(t *testing.T) {
+	t.Parallel()
+	io := iostreams.Test()
+
+	d := &summaryDisplayer{summary: &client.RunSummary{
+		Status:  "applied",
+		Message: "Run succeeded",
+		RunURL:  "https://app.terraform.io/app/my-org/workspaces/my-ws/runs/run-1",
+		Elapsed: 42,
+	}, io: io}
+
+	pretty := d.StringPayload(format.Pretty)
+	assert.Contains(t, pretty, "View run:")
+	assert.Contains(t, pretty, "runs/run-1")
+
+	md := d.StringPayload(format.Markdown)
+	assert.NotContains(t, md, "View run")
+	assert.NotContains(t, md, "runs/run-1")
+	assert.Contains(t, md, "**Duration:** 42")
+
+	// JSON output marshals Payload() directly, so both fields must serialize
+	// under their documented keys.
+	raw, err := json.Marshal(d.Payload())
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), `"run_url":"https://app.terraform.io/app/my-org/workspaces/my-ws/runs/run-1"`)
+	assert.Contains(t, string(raw), `"elapsed_seconds":42`)
+}
+
 func TestStringPayload_MultipleFailuresDivider(t *testing.T) {
 	t.Parallel()
 

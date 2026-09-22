@@ -44,22 +44,27 @@ const (
 
 // Opts stores the options parsed from flags for the API command.
 type Opts struct {
-	IO           iostreams.IOStreams
-	Output       *format.Outputter
-	Client       *client.Client
-	Quiet        bool
-	DryRun       bool
-	Headers      []string
-	URL          *url.URL
-	Attributes   map[string]string
-	Query        map[string]string
-	PathParams   map[string]string
-	InputRequest string
-	Method       string
-	ResourceType string
-	All          bool
-	PageSize     int
-	PageNumber   int
+	IO            iostreams.IOStreams
+	Output        *format.Outputter
+	Client        *client.Client
+	Quiet         bool
+	DryRun        bool
+	Headers       []string
+	URL           *url.URL
+	Attributes    map[string]string
+	Relationships map[string]string
+	Query         map[string]string
+	PathParams    map[string]string
+	InputRequest  string
+	Method        string
+	ResourceType  string
+	All           bool
+	PageSize      int
+	PageNumber    int
+
+	// Schema, when set, is consulted to infer relationship linkage types and
+	// cardinality for -r. Nil falls back to the embedded spec.
+	Schema openapi.Schema
 
 	// Authorizer, when set, can permit a noninteractive DELETE based on an
 	// active exec session. Nil in tests that don't exercise session behavior.
@@ -70,13 +75,14 @@ type Opts struct {
 // maps/slices initialized to empty values.
 func NewOpts(io iostreams.IOStreams, output *format.Outputter, apiClient *client.Client) *Opts {
 	return &Opts{
-		IO:         io,
-		Output:     output,
-		Client:     apiClient,
-		Headers:    []string{},
-		Attributes: map[string]string{},
-		Query:      map[string]string{},
-		PathParams: map[string]string{},
+		IO:            io,
+		Output:        output,
+		Client:        apiClient,
+		Headers:       []string{},
+		Attributes:    map[string]string{},
+		Relationships: map[string]string{},
+		Query:         map[string]string{},
+		PathParams:    map[string]string{},
 	}
 }
 
@@ -173,6 +179,14 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 					Value:        flagvalue.SimpleMap(nil, &opts.Attributes),
 				},
 				{
+					Name:         "relationship",
+					Shorthand:    "r",
+					DisplayValue: "NAME=ID",
+					Description:  "Relationship for JSON:API request bodies as name=id (repeatable). Implies POST method. The linkage type is inferred from the schema; override an unresolved one with name:type=id. Comma-separate ids for to-many relationships.",
+					Repeatable:   true,
+					Value:        flagvalue.SimpleMap(nil, &opts.Relationships),
+				},
+				{
 					Name:         "field",
 					Shorthand:    "f",
 					DisplayValue: "KEY=VALUE",
@@ -206,6 +220,10 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 			{
 				Preamble: "Create a project using attributes",
 				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /projects -a name=myproject`, version.Name),
+			},
+			{
+				Preamble: "Create a workspace in a project (relationship type inferred from the schema)",
+				Command:  heredoc.New(inv.IO, heredoc.WithNoWrap(), heredoc.WithPreserveNewlines()).Mustf(`$ %s api /organizations/{organization}/workspaces -a name=foo -r project=prj-12dff4673ab9`, version.Name),
 			},
 			{
 				Preamble: "Add remote state consumer",
@@ -270,6 +288,7 @@ func NewCmdAPI(inv *cmd.Invocation) *cmd.Command {
 
 			opts.URL = resolvedURL
 			opts.Client = apiClient
+			opts.Schema = oas
 			opts.Quiet = inv.IsQuiet()
 			opts.DryRun = inv.IsDryRun()
 
@@ -430,14 +449,42 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 	}
 
 	opts.URL.RawQuery = query.Encode()
+	method := inferMethod(opts.Method, len(opts.Attributes) > 0 || len(opts.Relationships) > 0, opts.InputRequest != "")
+
+	// Resolve relationship linkage types and cardinality from the schema. The
+	// embedded spec is used when no schema was injected (e.g. by the create
+	// command or tests).
+	var linkages map[string]linkage
+	var haveSchema bool
+	if len(opts.Relationships) > 0 {
+		oas := opts.Schema
+		if oas == nil {
+			oas = openapi.LoadEmbeddedSchema()
+		}
+		// Spec paths are relative to the API version base (e.g. /api/v2), which
+		// the resolved request URL carries as a prefix; trim it before matching.
+		specPath := opts.URL.Path
+		if opts.Client != nil && opts.Client.BaseURL != nil {
+			specPath = strings.TrimPrefix(specPath, strings.TrimRight(opts.Client.BaseURL.Path, "/"))
+		}
+		if linkages, haveSchema = relationshipLinkages(oas, method, specPath); haveSchema {
+			names := make([]string, 0, len(linkages))
+			for name := range linkages {
+				names = append(names, name)
+			}
+			logger.Debug("resolved relationship linkages from schema", "method", method, "path", specPath, "relationships", names)
+		} else {
+			// Not fatal: the request can still be built if every -r carries an
+			// explicit name:type=id. Otherwise buildRelationships returns a clear error.
+			logger.Debug("no relationship linkages resolved from schema; explicit types required for -r", "method", method, "path", specPath)
+		}
+	}
 
 	// Construct a request
-	body, contentType, err := buildRequestBody(opts.URL.Path, opts.InputRequest, opts.Attributes, opts.ResourceType, opts.IO.In())
+	body, contentType, err := buildRequestBody(opts.URL.Path, opts.InputRequest, opts.Attributes, opts.Relationships, opts.ResourceType, linkages, haveSchema, opts.IO.In())
 	if err != nil {
 		return err
 	}
-
-	method := inferMethod(opts.Method, len(opts.Attributes) > 0, opts.InputRequest != "")
 
 	requestHeaders, err := parseHeaders(opts.Headers)
 	if err != nil {
@@ -628,7 +675,7 @@ func parseTypedValue(raw string) any {
 	return raw
 }
 
-func buildRequestBody(path, input string, attrs map[string]string, resourceType string, stdin io.Reader) ([]byte, string, error) {
+func buildRequestBody(path, input string, attrs, rels map[string]string, resourceType string, linkages map[string]linkage, haveSchema bool, stdin io.Reader) ([]byte, string, error) {
 	if input != "" {
 		var data []byte
 		var err error
@@ -645,7 +692,7 @@ func buildRequestBody(path, input string, attrs map[string]string, resourceType 
 		return data, "application/vnd.api+json", nil
 	}
 
-	if len(attrs) == 0 {
+	if len(attrs) == 0 && len(rels) == 0 {
 		return nil, "", nil
 	}
 
@@ -656,19 +703,25 @@ func buildRequestBody(path, input string, attrs map[string]string, resourceType 
 		return nil, "", errors.New("could not infer resource type from path; use --type")
 	}
 
-	attributes := make(map[string]any, len(attrs))
-	for key, value := range attrs {
-		attributes[key] = parseTypedValue(value)
+	data := map[string]any{"type": resourceType}
+
+	if len(attrs) > 0 {
+		attributes := make(map[string]any, len(attrs))
+		for key, value := range attrs {
+			attributes[key] = parseTypedValue(value)
+		}
+		data["attributes"] = attributes
 	}
 
-	body := map[string]any{
-		"data": map[string]any{
-			"type":       resourceType,
-			"attributes": attributes,
-		},
+	if len(rels) > 0 {
+		relationships, err := buildRelationships(rels, linkages, haveSchema)
+		if err != nil {
+			return nil, "", err
+		}
+		data["relationships"] = relationships
 	}
 
-	encoded, err := json.Marshal(body)
+	encoded, err := json.Marshal(map[string]any{"data": data})
 	if err != nil {
 		return nil, "", err
 	}

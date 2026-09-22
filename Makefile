@@ -70,8 +70,8 @@ go/fmt:
 	@gofmt -s -w .
 
 # Check formatting
-.PHONY: fmt-check
-fmt-check:
+.PHONY: go/fmt-check
+go/fmt-check:
 	@test -z "$$(gofmt -s -l . | tee /dev/stderr)" || (echo "Code is not formatted. Run 'make go/fmt'" && exit 1)
 
 # Release targets
@@ -84,17 +84,18 @@ prepare-release: gen/openapi
 	@echo "$$(shasum -a 256 $(SKILL_EMBEDDED) | cut -d' ' -f1) v$(VERSION)" >> $(SKILL_HASHES)
 	@echo "Appended sha256 for $(SKILL_EMBEDDED) to $(SKILL_HASHES)"
 	@npx -q changie@$(CHANGIE_VERSION) batch $(VERSION)
+	@npx -q changie@$(CHANGIE_VERSION) merge
 
 .PHONY: cleanup-release
 cleanup-release:
 	@if [ -z "$(DEV_VERSION)" ]; then echo "DEV_VERSION is not set"; exit 1; fi
-	@if ! $$(git tag -l v$$(cat version/VERSION) >/dev/null 2>&1); then echo "Lastest version $$(cat version/VERSION) has not been released"; exit 1; fi
+	@if ! git rev-parse --verify --quiet refs/tags/v$$(cat $(VERSION_FILE)) >/dev/null 2>&1; then echo "Latest version $$(cat $(VERSION_FILE)) has not been released"; exit 1; fi
 
-	@echo $(DEV_VERSION) > $(VERSION_FILE)
 	@echo "## Unreleased" > $(CHANGELOG_FILE)
 	@echo "" >> $(CHANGELOG_FILE)
-	@echo "This file will be populated by automation before release. See this [CHANGELOG.md](https://github.com/hashicorp/tfctl-cli/blob/v$(VERSION)/CHANGELOG.md) for information about the latest release." >> $(CHANGELOG_FILE)
+	@echo "This file will be populated by automation before release. See this [CHANGELOG.md](https://github.com/hashicorp/tfctl-cli/blob/v$$(cat $(VERSION_FILE))/CHANGELOG.md) for information about the latest release." >> $(CHANGELOG_FILE)
 	@echo "Release cleanup finished, version is now $(DEV_VERSION)"
+	@echo $(DEV_VERSION) > $(VERSION_FILE)
 
 # Install development tools
 .PHONY: tools
@@ -120,7 +121,11 @@ logotools:
 	}
 
 .PHONY: check
-check: fmt-check go/lint go/test
+check: go/fmt-check go/lint go/test
+
+.PHONY: e2e
+e2e: bin
+	@bash e2e/test.sh
 
 # Help (make usage)
 .PHONY: help
@@ -143,7 +148,8 @@ help:
 	@echo " go/test          Run all tests"
 	@echo " go/lint          Run golangci-lint"
 	@echo " go/fmt           Format go code"
-	@echo " fmt-check        Check go code formatting"
+	@echo " go/fmt-check     Check go code formatting"
+	@echo " e2e              Run the HCP Terraform end-to-end test"
 	@echo ""
 	@echo "Release:"
 	@echo " gen/openapi      Update embedded OpenAPI spec"

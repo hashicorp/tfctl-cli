@@ -237,6 +237,79 @@ func TestCopyRaw(t *testing.T) {
 
 		r.Equal(planJSON, io.Output.String())
 	})
+
+	t.Run("masks a JSON body labeled application/octet-stream", func(t *testing.T) {
+		t.Parallel()
+		r := require.New(t)
+
+		// HCP Terraform's plan JSON export serves this exact content type for a
+		// JSON body, so it must be treated as JSON rather than passed through.
+		out, io := newRedactingOutputter(t, redact.ModeStrict)
+		r.NoError(out.CopyRaw(strings.NewReader(planJSON), "application/octet-stream"))
+
+		r.NotContains(io.Output.String(), "hunter2")
+		r.Contains(io.Output.String(), redact.Placeholder)
+		r.Contains(io.Error.String(), "masked 1 sensitive field")
+	})
+
+	t.Run("masks an octet-stream JSON body with leading whitespace", func(t *testing.T) {
+		t.Parallel()
+		r := require.New(t)
+
+		padded := "\n  \t" + planJSON
+
+		out, io := newRedactingOutputter(t, redact.ModeStrict)
+		r.NoError(out.CopyRaw(strings.NewReader(padded), "application/octet-stream"))
+
+		r.NotContains(io.Output.String(), "hunter2")
+		r.Contains(io.Output.String(), redact.Placeholder)
+	})
+
+	t.Run("passes a genuinely binary octet-stream body through unread", func(t *testing.T) {
+		t.Parallel()
+		r := require.New(t)
+
+		binary := string([]byte{0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00})
+
+		out, io := newRedactingOutputter(t, redact.ModeStrict)
+		r.NoError(out.CopyRaw(strings.NewReader(binary), "application/octet-stream"))
+
+		r.Equal(binary, io.Output.String())
+	})
+
+	t.Run("passes a plan-log-shaped octet-stream body through unmasked", func(t *testing.T) {
+		t.Parallel()
+		r := require.New(t)
+
+		// tfctl api against an arbitrary URL (TestRunAPI_GetArbitraryURL) already
+		// exercises this exact shape: human-readable log text, labeled
+		// application/octet-stream, with JSON *lines* embedded further down
+		// rather than being one JSON document itself. The leading bytes are not
+		// '{' or '[', so this must never reach the buffer-and-mask path, whether
+		// or not any embedded line happens to look sensitive.
+		const logOutput = "Terraform v1.2.8\non linux_amd64\n" +
+			`{"@level":"info","@message":"Terraform 1.2.8"}`
+
+		out, io := newRedactingOutputter(t, redact.ModeStrict)
+		r.NoError(out.CopyRaw(strings.NewReader(logOutput), "application/octet-stream"))
+
+		r.Equal(logOutput, io.Output.String())
+		r.Empty(io.Error.String())
+	})
+
+	t.Run("does not attempt to mask other content types", func(t *testing.T) {
+		t.Parallel()
+		r := require.New(t)
+
+		out, io := newRedactingOutputter(t, redact.ModeStrict)
+		r.NoError(out.CopyRaw(strings.NewReader(planJSON), "text/plain"))
+
+		// Out of scope for this fix: only application/json (and +json) and
+		// application/octet-stream are mask candidates. A body labeled
+		// something else streams exactly as it did before.
+		r.Equal(planJSON, io.Output.String())
+		r.Empty(io.Error.String())
+	})
 }
 
 func TestReportRedactions_QuietSuppressesTheReport(t *testing.T) {

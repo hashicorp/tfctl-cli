@@ -4,6 +4,7 @@
 package format
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -443,7 +444,13 @@ func pluralize(word string, count int) string {
 // exempt. The original bytes are written unchanged when nothing was masked, so
 // output stays byte-for-byte identical in the common case.
 func (o *Outputter) CopyRaw(body io.Reader, contentType string) error {
-	if !o.redactor.Enabled() || !isJSONContentType(contentType) {
+	if !o.redactor.Enabled() {
+		_, err := io.Copy(o.io.Out(), body)
+		return err
+	}
+
+	body, attempt := prepareForMasking(body, contentType)
+	if !attempt {
 		_, err := io.Copy(o.io.Out(), body)
 		return err
 	}
@@ -478,9 +485,56 @@ func (o *Outputter) CopyRaw(body io.Reader, contentType string) error {
 	return nil
 }
 
-func isJSONContentType(contentType string) bool {
+// prepareForMasking decides whether body is worth buffering and parsing as
+// JSON, and returns the reader CopyRaw should use afterward either way.
+//
+// application/json (and any +json subtype) is always attempted, unchanged
+// from the original behavior. application/octet-stream is not trusted
+// outright: at least one Terraform Enterprise endpoint (the plan JSON export)
+// serves valid JSON mislabeled this way, but octet-stream is also the label
+// this API uses for genuinely binary or large bodies elsewhere, such as state
+// archives and plan/apply logs fetched via signed archivist URLs. Buffering
+// one of those into memory just because a sibling endpoint is mislabeled
+// would trade a confirmed small leak for a real cost on unrelated, possibly
+// large, responses. So octet-stream gets a cheap peek instead: the reader is
+// wrapped in a bufio.Reader and Peek is used to look at, at most, the first
+// 64 bytes without consuming them, meaning the same reader can still be read
+// from the beginning afterward regardless of which branch this takes. Any
+// other content type is left exactly as before, out of scope for this fix.
+func prepareForMasking(body io.Reader, contentType string) (io.Reader, bool) {
 	mediaType := strings.TrimSpace(strings.Split(contentType, ";")[0])
-	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
+
+	if mediaType == "application/json" || strings.HasSuffix(mediaType, "+json") {
+		return body, true
+	}
+
+	if mediaType != "application/octet-stream" {
+		return body, false
+	}
+
+	buffered := bufio.NewReader(body)
+	return buffered, peekLooksLikeJSON(buffered)
+}
+
+// peekLooksLikeJSON reports whether the next non-whitespace byte available
+// from r opens a JSON object or array. It never reads more than a small,
+// fixed window, and Peek does not advance r, so the body is still intact and
+// unread from the start no matter what this returns.
+func peekLooksLikeJSON(r *bufio.Reader) bool {
+	const window = 64
+
+	peeked, _ := r.Peek(window)
+	for _, b := range peeked {
+		switch b {
+		case ' ', '\t', '\n', '\r':
+			continue
+		case '{', '[':
+			return true
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 // Show outputs the given val using the DisplayFields function.
