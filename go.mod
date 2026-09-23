@@ -1,6 +1,6 @@
 module github.com/hashicorp/tfctl-cli
 
-go 1.26.4
+go 1.26.6
 
 require (
 	github.com/MakeNowJust/heredoc/v2 v2.0.1
