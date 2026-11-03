@@ -10,7 +10,7 @@
 
 ## Development Setup
 
-- Use Go 1.26.4, git, bash, and make.
+- Use Go 1.27.3, git, bash, and make.
 - Run `scripts/setup.sh` to install development tools and the `tfctl` binary. The script does not install Go.
 - Run `make bin` to build the binary.
 - Run `make check` for formatting checks, lint, and standard tests. This target does not run the race detector.

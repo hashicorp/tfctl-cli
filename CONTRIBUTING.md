@@ -4,7 +4,7 @@
 
 ## 1. Development Setup
 
-**Prerequisites**: Go 1.26, git, bash, make
+**Prerequisites**: Go 1.27, git, bash, make
 
 ```bash
 git clone https://github.com/hashicorp/tfctl-cli
@@ -43,7 +43,7 @@ Open an issue for questions about contributing.
    auth) designed to support coding agents and humans at a terminal.
 
 - **Module:** `github.com/hashicorp/tfctl-cli`
-- **Language / toolchain:** Go 1.26
+- **Language / toolchain:** Go 1.27
 - **CLI framework:** `github.com/hashicorp/cli` (not cobra/urfave), wrapped by a
   custom command abstraction.
 

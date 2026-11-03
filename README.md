@@ -277,7 +277,7 @@ $ tfctl --autocomplete-uninstall
 
 #### Prerequisites
 
-- go v1.26.4 or later
+- go v1.27.3 or later
 - git
 - make
 
