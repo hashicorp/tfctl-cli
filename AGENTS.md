@@ -18,7 +18,7 @@
 ## Repository Architecture
 
 - `cmd/tfctl/main.go` is the process entry point. It creates I/O, logging, profiles, telemetry, the shared invocation, and the command tree.
-- `internal/commands/` contains command behavior. The top-level groups are `api`, `get`, `create`, `run`, `auth`, `variable`, `profile`, and `harness`.
+- `internal/commands/` contains command behavior. The top-level groups are `api`, `get`, `create`, `module`, `run`, `auth`, `variable`, `profile`, and `harness`.
 - `internal/pkg/` contains reusable infrastructure. Important packages include `cmd`, `client`, `format`, `iostreams`, `logging`, `telemetry`, `profile`, `openapi`, and `execsession`.
 - `internal/commands/*` can depend on `internal/pkg/*`. Do not add dependencies from infrastructure packages to command packages.
 - `skills/` contains embedded coding-agent skills.
