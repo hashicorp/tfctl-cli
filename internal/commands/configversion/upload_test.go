@@ -21,6 +21,16 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/redact"
 )
 
+func TestConfigVersionHelp(t *testing.T) {
+	t.Parallel()
+	inv := &cmd.Invocation{IO: iostreams.Test()}
+	group := NewCmdConfigVersion(inv)
+	assert.Equal(t, "config-version", group.Name)
+	assert.Contains(t, group.LongHelp, "Terraform config")
+	assert.Contains(t, group.LongHelp, "without queuing a run by default")
+	assert.NotContains(t, group.LongHelp, "configuration")
+}
+
 func TestUploadCommand(t *testing.T) {
 	t.Parallel()
 	for _, dryRun := range []bool{false, true} {

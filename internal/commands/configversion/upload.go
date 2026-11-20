@@ -1,7 +1,6 @@
 // Copyright IBM Corp. 2026
 // SPDX-License-Identifier: MPL-2.0
 
-// Package configversion implements the config-version command group.
 package configversion
 
 import (
@@ -24,13 +23,6 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/version"
 )
-
-// NewCmdConfigVersion creates the config-version command group.
-func NewCmdConfigVersion(inv *cmd.Invocation) *cmd.Command {
-	c := &cmd.Command{Name: "config-version", ShortHelp: "Upload Terraform config to a workspace."}
-	c.AddChild(newCmdUpload(inv))
-	return c
-}
 
 type uploadOpts struct {
 	io                                 iostreams.IOStreams
@@ -71,7 +63,7 @@ func newCmdUpload(inv *cmd.Invocation) *cmd.Command {
 			{Name: "timeout", Description: "Maximum time to wait for the uploaded status", Value: flagvalue.Duration(configupload.DefaultWaitTimeout, &opts.config.Timeout), Autocomplete: complete.PredictNothing},
 		}},
 		Examples: []cmd.Example{
-			{Preamble: "Upload a directory and return its config version ID:", Command: fmt.Sprintf(`$ %s config-version upload ws-abc123 --config-dir ./production --jq '.id'`, version.Name)},
+			{Preamble: "Upload a config directory and return its config version ID:", Command: fmt.Sprintf(`$ %s config-version upload ws-abc123 --config-dir ./production --jq '.id'`, version.Name)},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
 			run := opts
@@ -143,19 +135,4 @@ func resolveWorkspace(ctx context.Context, opts uploadOpts) (string, error) {
 		return "", errors.New("resolved workspace has no ID")
 	}
 	return *workspace.GetId(), nil
-}
-
-type uploadDisplayer struct{ result configupload.Result }
-
-func (d uploadDisplayer) DefaultFormat() format.Format { return format.Pretty }
-func (d uploadDisplayer) Payload() any                 { return d.result }
-func (d uploadDisplayer) FieldTemplates() []format.Field {
-	return []format.Field{
-		format.NewField("ID", "{{ .ID }}"),
-		format.NewField("Workspace ID", "{{ .WorkspaceID }}"),
-		format.NewField("Status", "{{ .Status }}"),
-		format.NewField("Speculative", "{{ .Speculative }}"),
-		format.NewField("Provisional", "{{ .Provisional }}"),
-		format.NewField("Auto Queue Run", "{{ .AutoQueueRun }}"),
-	}
 }
