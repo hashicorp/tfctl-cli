@@ -130,6 +130,18 @@ $ tfctl run start example-app-workspace --message="Run started with tfctl."
 $ tfctl run status example-app-workspace --json
 ```
 
+### Upload Terraform config
+
+Use `config-version upload` to pack a directory and upload it to a workspace.
+The command applies `.terraformignore` and the default exclusions. It waits
+for the `uploaded` status and does not queue a run by default.
+
+```bash
+tfctl config-version upload ws-abc123 --config-dir ./production --jq '.id'
+```
+
+Use `--no-wait` to return after the upload, or `--dry-run` to preview the upload without packing or sending files.
+
 ### Manage profiles
 
 Use the `tfctl profile profiles` command group to create and manage profiles. You can use a different profile for each HCP Terraform organization and each instance of HCP Terraform and instance of Terraform Enterprise.
