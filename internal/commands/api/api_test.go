@@ -578,6 +578,40 @@ func TestRunAPI_EmptyBodyNoOutput(t *testing.T) {
 	require.Empty(t, io.Output.String())
 }
 
+func TestRunAPI_AcceptedWithEmptyChunkedBodyNoOutput(t *testing.T) {
+	t.Parallel()
+
+	// Run actions such as apply and discard return 202 Accepted with a JSON:API
+	// content type and no body. The flush before the handler returns makes the
+	// server use chunked encoding, so the response has no Content-Length.
+	for name, body := range map[string]string{
+		"empty":      "",
+		"whitespace": " \n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			server, _ := newAPITestServer(map[string]http.HandlerFunc{
+				"POST /api/v2/runs/run-1/actions/apply": func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/vnd.api+json")
+					w.WriteHeader(http.StatusAccepted)
+					w.(http.Flusher).Flush()
+					_, _ = w.Write([]byte(body))
+				},
+			})
+			defer server.Close()
+
+			io := iostreams.Test()
+			err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+				opts.Method = http.MethodPost
+				opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/runs/run-1/actions/apply")
+			}))
+			require.NoError(t, err)
+			require.Empty(t, io.Output.String())
+		})
+	}
+}
+
 func TestRunAPI_DeleteNoConfirmation(t *testing.T) {
 	t.Parallel()
 

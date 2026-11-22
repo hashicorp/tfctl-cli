@@ -1,0 +1,6 @@
+# Copyright IBM Corp. 2026
+# SPDX-License-Identifier: MPL-2.0
+
+kind: BUG FIXES
+body: '`tfctl api` no longer returns `not a JSON:API envelope` when a successful response has an empty body with an unknown length. Action endpoints such as `/runs/:run_id/actions/apply` and `/runs/:run_id/actions/discard` return `202 Accepted` with no body, and the command now exits successfully without output'
+time: 2026-11-22T03:46:20.000000+00:00

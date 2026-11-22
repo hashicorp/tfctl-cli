@@ -615,6 +615,14 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	// Action endpoints, such as run apply and discard, return 202 Accepted with
+	// no body. The response can use chunked encoding, so ContentLength is -1 and
+	// the check above does not detect the empty body.
+	if len(bytes.TrimSpace(body)) == 0 {
+		logger.Debug("Empty response body, nothing to display", "status", response.StatusCode)
+		return nil
+	}
+
 	// Render the result
 	disp, err := format.NewJSONAPIDisplayer(body, logger)
 	if err != nil {
