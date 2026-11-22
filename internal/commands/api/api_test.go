@@ -578,6 +578,64 @@ func TestRunAPI_EmptyBodyNoOutput(t *testing.T) {
 	require.Empty(t, io.Output.String())
 }
 
+func TestRunAPI_AcceptedWithEmptyChunkedBodyNoOutput(t *testing.T) {
+	t.Parallel()
+
+	// Run actions such as apply and discard return 202 Accepted with a JSON:API
+	// content type and no body. The flush before the handler returns makes the
+	// server use chunked encoding, so the response has no Content-Length.
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{name: "empty", body: ""},
+		{name: "whitespace", body: " \n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			server, _ := newAPITestServer(map[string]http.HandlerFunc{
+				"POST /api/v2/runs/run-1/actions/apply": func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/vnd.api+json")
+					w.WriteHeader(http.StatusAccepted)
+					w.(http.Flusher).Flush()
+					_, _ = w.Write([]byte(tc.body))
+				},
+			})
+			defer server.Close()
+
+			io := iostreams.Test()
+			err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+				opts.Method = http.MethodPost
+				opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/runs/run-1/actions/apply")
+			}))
+			require.NoError(t, err)
+			require.Empty(t, io.Output.String())
+		})
+	}
+}
+
+func TestRunAPI_AcceptedWithBodyRendersOutput(t *testing.T) {
+	t.Parallel()
+
+	server, _ := newAPITestServer(map[string]http.HandlerFunc{
+		"POST /api/v2/runs/run-1/actions/apply": func(w http.ResponseWriter, r *http.Request) {
+			writeJSONAPIResponse(w, http.StatusAccepted, map[string]any{
+				"data": map[string]any{"id": "run-1", "type": "runs", "attributes": map[string]any{"status": "apply_queued"}},
+			})
+		},
+	})
+	defer server.Close()
+
+	io := iostreams.Test()
+	err := RunAPI(context.Background(), newTestOpts(t, server.URL, io, func(opts *Opts) {
+		opts.Method = http.MethodPost
+		opts.URL = mustResolveTestURL(t, opts.Client.BaseURL.String(), "/runs/run-1/actions/apply")
+	}))
+	require.NoError(t, err)
+	require.Contains(t, io.Output.String(), "apply_queued")
+}
+
 func TestRunAPI_DeleteNoConfirmation(t *testing.T) {
 	t.Parallel()
 
