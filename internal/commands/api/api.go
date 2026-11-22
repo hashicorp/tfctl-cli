@@ -619,7 +619,7 @@ func RunAPI(ctx context.Context, opts *Opts) error {
 	// no body. The response can use chunked encoding, so ContentLength is -1 and
 	// the check above does not detect the empty body.
 	if len(bytes.TrimSpace(body)) == 0 {
-		logger.Debug("Empty response body, nothing to display", "status", response.StatusCode)
+		logger.Debug("Empty response body after read, nothing to display", "status", response.StatusCode)
 		return nil
 	}
 
