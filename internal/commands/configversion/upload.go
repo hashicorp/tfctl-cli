@@ -25,45 +25,96 @@ import (
 )
 
 type uploadOpts struct {
-	io                                 iostreams.IOStreams
-	output                             *format.Outputter
-	resolver                           *client.Resolver
-	upload                             func(context.Context, string, string, configupload.Options) (configupload.Result, error)
-	workspace, organization, configDir string
-	config                             configupload.Options
-	dryRun                             bool
+	io            iostreams.IOStreams
+	output        *format.Outputter
+	resolver      *client.Resolver
+	upload        func(context.Context, string, string, configupload.Options) (configupload.Result, error)
+	workspace     string
+	organization  string
+	configDir     string
+	uploadOptions configupload.Options
+	dryRun        bool
 }
 
 func newCmdUpload(inv *cmd.Invocation) *cmd.Command {
-	opts := uploadOpts{io: inv.IO, output: inv.Output, configDir: "."}
+	opts := uploadOpts{io: inv.IO, output: inv.Output}
 	return &cmd.Command{
 		Name:      "upload",
-		ShortHelp: "Pack and upload Terraform config for a workspace.",
+		ShortHelp: "Package and upload Terraform config to a workspace.",
 		LongHelp: heredoc.New(inv.IO, heredoc.WithPreserveNewlines()).Mustf(`
-		The {{ template "mdCodeOrBold" "%s config-version upload" }} command packs a
-		Terraform config directory and uploads it to a workspace. It applies
-		.terraformignore and the default exclusions. It waits for the uploaded status
-		unless {{ template "mdCodeOrBold" "--no-wait" }} is set.
+		The {{ template "mdCodeOrBold" "%s config-version upload" }} command packages a
+		local Terraform config and upload it to a workspace. The command applies
+		the default exclusions and any rules in .terraformignore at the root of
+		the config directory.
 
-		The command does not create a run unless {{ template "mdCodeOrBold" "--auto-queue-run" }} is set.
-		WORKSPACE is a workspace ID or a workspace name. A workspace name requires an
-		organization from the flag, profile, or local Terraform context.
+		The command waits until the config version is ready unless you set
+		{{ template "mdCodeOrBold" "--no-wait" }}. It does not queue a run unless you set
+		{{ template "mdCodeOrBold" "--auto-queue-run" }}.
+
+		Use a workspace ID or name. For a workspace name, the command uses the
+		organization from {{ template "mdCodeOrBold" "--organization" }}, then the active
+		profile, then Terraform config in the current directory.
 		`, version.Name),
 		Args: cmd.PositionalArguments{
-			Args:         []cmd.PositionalArgument{{Name: "WORKSPACE", Documentation: "workspace ID or workspace name"}},
+			Args: []cmd.PositionalArgument{
+				{
+					Name:          "WORKSPACE",
+					Documentation: "Workspace ID or name.",
+				},
+			},
 			Autocomplete: complete.PredictNothing, // Do not make API requests during completion.
 		},
-		Flags: cmd.Flags{Local: []*cmd.Flag{
-			{Name: "config-dir", Description: "Terraform config directory to pack", Value: flagvalue.Simple(".", &opts.configDir), Autocomplete: complete.PredictDirs("*")},
-			{Name: "organization", Description: "Organization name (defaults to profile or Terraform context)", Value: flagvalue.Simple("", &opts.organization), Autocomplete: complete.PredictNothing},
-			{Name: "speculative", Description: "Restrict the config version to speculative runs", Value: flagvalue.Simple(false, &opts.config.Speculative), IsBooleanFlag: true},
-			{Name: "provisional", Description: "Do not immediately make this the workspace's current config", Value: flagvalue.Simple(false, &opts.config.Provisional), IsBooleanFlag: true},
-			{Name: "auto-queue-run", Description: "Let the server create a run after upload", Value: flagvalue.Simple(false, &opts.config.AutoQueueRun), IsBooleanFlag: true},
-			{Name: "no-wait", Description: "Return after upload without waiting for processing", Value: flagvalue.Simple(false, &opts.config.NoWait), IsBooleanFlag: true},
-			{Name: "timeout", Description: "Maximum time to wait for the uploaded status", Value: flagvalue.Duration(configupload.DefaultWaitTimeout, &opts.config.Timeout), Autocomplete: complete.PredictNothing},
-		}},
+		Flags: cmd.Flags{
+			Local: []*cmd.Flag{
+				{
+					Name:         "config-dir",
+					Description:  "Terraform config directory. Defaults to the current directory.",
+					Value:        flagvalue.Simple(".", &opts.configDir),
+					Autocomplete: complete.PredictDirs("*"),
+				},
+				{
+					Name:         "organization",
+					Description:  "Organization name. Defaults to the active profile or Terraform config in the current directory.",
+					Value:        flagvalue.Simple("", &opts.organization),
+					Autocomplete: complete.PredictNothing,
+				},
+				{
+					Name:          "speculative",
+					Description:   "Restrict the config version to speculative runs.",
+					Value:         flagvalue.Simple(false, &opts.uploadOptions.Speculative),
+					IsBooleanFlag: true,
+				},
+				{
+					Name:          "provisional",
+					Description:   "Do not set the workspace's current config when creating the version.",
+					Value:         flagvalue.Simple(false, &opts.uploadOptions.Provisional),
+					IsBooleanFlag: true,
+				},
+				{
+					Name:          "auto-queue-run",
+					Description:   "Let the server queue a run after upload.",
+					Value:         flagvalue.Simple(false, &opts.uploadOptions.AutoQueueRun),
+					IsBooleanFlag: true,
+				},
+				{
+					Name:          "no-wait",
+					Description:   "Return after upload without waiting for the server to process the config.",
+					Value:         flagvalue.Simple(false, &opts.uploadOptions.NoWait),
+					IsBooleanFlag: true,
+				},
+				{
+					Name:         "timeout",
+					Description:  "Maximum time to wait for the config version to be ready after upload.",
+					Value:        flagvalue.Duration(configupload.DefaultWaitTimeout, &opts.uploadOptions.Timeout),
+					Autocomplete: complete.PredictNothing,
+				},
+			},
+		},
 		Examples: []cmd.Example{
-			{Preamble: "Upload a config directory and return its config version ID:", Command: fmt.Sprintf(`$ %s config-version upload ws-abc123 --config-dir ./production --jq '.id'`, version.Name)},
+			{
+				Preamble: "Upload a config directory and print only the config version ID:",
+				Command:  fmt.Sprintf(`$ %s config-version upload ws-abc123 --config-dir ./production --jq '.id'`, version.Name),
+			},
 		},
 		RunF: func(_ *cmd.Command, args []string) error {
 			run := opts
@@ -85,7 +136,7 @@ func runUpload(ctx context.Context, opts uploadOpts) error {
 	if opts.configDir == "" {
 		return errors.New("--config-dir must not be empty")
 	}
-	if opts.config.Timeout < 0 {
+	if opts.uploadOptions.Timeout < 0 {
 		return errors.New("--timeout must not be negative")
 	}
 	workspaceID, err := resolveWorkspace(ctx, opts)
@@ -93,7 +144,7 @@ func runUpload(ctx context.Context, opts uploadOpts) error {
 		return err
 	}
 	if opts.dryRun {
-		// Check the directory itself without traversing it or packing any files.
+		// Check only the directory itself so dry-run does not read config files.
 		info, err := os.Lstat(filepath.Clean(opts.configDir))
 		if err != nil {
 			return fmt.Errorf("inspect config directory: %w", err)
@@ -102,19 +153,23 @@ func runUpload(ctx context.Context, opts uploadOpts) error {
 			return errors.New("config path must be a directory, not a file or symbolic link")
 		}
 		label := opts.io.ColorScheme().DryRunLabel()
-		fmt.Fprintf(opts.io.Err(), "%s would pack %q and upload it as a config version for workspace %s\n", label, opts.configDir, workspaceID)
-		fmt.Fprintf(opts.io.Err(), "%s auto-queue-runs=%t, speculative=%t, provisional=%t\n", label, opts.config.AutoQueueRun, opts.config.Speculative, opts.config.Provisional)
+		fmt.Fprintf(opts.io.Err(), "%s would package %q and upload it as a config version for workspace %s\n", label, opts.configDir, workspaceID)
+		fmt.Fprintf(opts.io.Err(), "%s auto-queue-runs=%t, speculative=%t, provisional=%t\n", label, opts.uploadOptions.AutoQueueRun, opts.uploadOptions.Speculative, opts.uploadOptions.Provisional)
 		return nil
 	}
-	fmt.Fprintf(opts.io.ErrUnessential(), "Packing and uploading config from %q...\n", opts.configDir)
-	opts.config.OnStatus = func(id, status string) {
+	fmt.Fprintf(opts.io.ErrUnessential(), "Packaging and uploading config from %q...\n", opts.configDir)
+	opts.uploadOptions.OnStatus = func(id, status string) {
 		fmt.Fprintf(opts.io.ErrUnessential(), "Config version %s: %s\n", id, status)
 	}
-	result, err := opts.upload(ctx, workspaceID, opts.configDir, opts.config)
+	result, err := opts.upload(ctx, workspaceID, opts.configDir, opts.uploadOptions)
 	if err != nil {
+		// The shared cancellation handler does not print the wrapped error.
+		if result.ID != "" && errors.Is(err, context.Canceled) {
+			fmt.Fprintf(opts.io.Err(), "Config version %s was created.\n", result.ID)
+		}
 		return err
 	}
-	if err := opts.output.Display(uploadDisplayer{result}); err != nil {
+	if err := opts.output.Display(uploadDisplayer{result: result}); err != nil {
 		return fmt.Errorf("config version %s was uploaded, but output failed: %w", result.ID, err)
 	}
 	return nil

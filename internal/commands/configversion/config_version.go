@@ -16,8 +16,8 @@ func NewCmdConfigVersion(inv *cmd.Invocation) *cmd.Command {
 		Name:      "config-version",
 		ShortHelp: "Upload Terraform config to a workspace.",
 		LongHelp: heredoc.New(inv.IO).Mustf(`
-		Use {{ template "mdCodeOrBold" "%s config-version upload" }} to pack and upload
-		Terraform config to a workspace without queuing a run by default.
+		The {{ template "mdCodeOrBold" "%s config-version" }} command group can package and
+		upload Terraform config to a workspace. By default, it does not queue a run.
 		`, version.Name),
 	}
 	c.AddChild(newCmdUpload(inv))

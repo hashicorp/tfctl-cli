@@ -8,10 +8,18 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 )
 
-type uploadDisplayer struct{ result configupload.Result }
+type uploadDisplayer struct {
+	result configupload.Result
+}
 
-func (d uploadDisplayer) DefaultFormat() format.Format { return format.Pretty }
-func (d uploadDisplayer) Payload() any                 { return d.result }
+func (d uploadDisplayer) DefaultFormat() format.Format {
+	return format.Pretty
+}
+
+func (d uploadDisplayer) Payload() any {
+	return d.result
+}
+
 func (d uploadDisplayer) FieldTemplates() []format.Field {
 	return []format.Field{
 		format.NewField("ID", "{{ .ID }}"),

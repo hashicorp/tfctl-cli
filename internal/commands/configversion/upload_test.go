@@ -5,6 +5,7 @@ package configversion
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync/atomic"
 	"testing"
@@ -19,16 +20,59 @@ import (
 	"github.com/hashicorp/tfctl-cli/internal/pkg/format"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/iostreams"
 	"github.com/hashicorp/tfctl-cli/internal/pkg/redact"
+	"github.com/hashicorp/tfctl-cli/version"
 )
 
 func TestConfigVersionHelp(t *testing.T) {
 	t.Parallel()
 	inv := &cmd.Invocation{IO: iostreams.Test()}
 	group := NewCmdConfigVersion(inv)
+	root := &cmd.Command{Name: version.Name}
+	cmd.ConfigureRootCommand(inv, root)
+	root.AddChild(group)
+	require.NoError(t, group.Validate())
 	assert.Equal(t, "config-version", group.Name)
 	assert.Contains(t, group.LongHelp, "Terraform config")
-	assert.Contains(t, group.LongHelp, "without queuing a run by default")
+	assert.Contains(t, group.LongHelp, "does not queue a run")
 	assert.NotContains(t, group.LongHelp, "configuration")
+}
+
+func TestUploadCommandCanceled(t *testing.T) {
+	t.Parallel()
+	for _, id := range []string{"", "cv-test"} {
+		name := "before creation"
+		if id != "" {
+			name = "after creation"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			io := iostreams.Test()
+			inv := cmdtest.NewInvocation(t, io, cmdtest.NewServer(t, nil))
+			root := &cmd.Command{Name: version.Name}
+			cmd.ConfigureRootCommand(inv, root)
+			// Use the real exit handler with a deterministic uploader result.
+			c := newCmdUpload(inv)
+			root.AddChild(c)
+			c.RunF = func(_ *cmd.Command, args []string) error {
+				return runUpload(context.Background(), uploadOpts{
+					io:        io,
+					workspace: args[0],
+					configDir: ".",
+					upload: func(context.Context, string, string, configupload.Options) (configupload.Result, error) {
+						return configupload.Result{ID: id}, fmt.Errorf("upload interrupted: %w", context.Canceled)
+					},
+				})
+			}
+			require.Equal(t, 130, c.Run([]string{"ws-test", "--quiet"}, inv))
+			assert.Contains(t, io.Error.String(), "Operation canceled")
+			if id != "" {
+				assert.Contains(t, io.Error.String(), "Config version cv-test was created")
+			} else {
+				assert.NotContains(t, io.Error.String(), "was created")
+			}
+			assert.Empty(t, io.Output.String())
+		})
+	}
 }
 
 func TestUploadCommand(t *testing.T) {
@@ -47,11 +91,16 @@ func TestUploadCommand(t *testing.T) {
 				},
 				"POST /api/v2/workspaces/ws-test/configuration-versions": func(w http.ResponseWriter, _ *http.Request) {
 					creates.Add(1)
-					cmdtest.WriteJSONAPI(w, map[string]any{"data": map[string]any{
-						"id": "cv-test", "type": "configuration-versions", "attributes": map[string]string{
-							"status": "pending", "upload-url": "http://upload.invalid/archive?token=CAPABILITY_SECRET",
+					cmdtest.WriteJSONAPI(w, map[string]any{
+						"data": map[string]any{
+							"id":   "cv-test",
+							"type": "configuration-versions",
+							"attributes": map[string]string{
+								"status":     "pending",
+								"upload-url": "http://upload.invalid/archive?token=CAPABILITY_SECRET",
+							},
 						},
-					}})
+					})
 				},
 			})
 			io := iostreams.Test()
@@ -92,8 +141,12 @@ func TestRunUpload(t *testing.T) {
 	require.NoError(t, err)
 	io := iostreams.Test()
 	opts := uploadOpts{
-		io: io, output: format.New(io), resolver: client.NewResolver(api, false, true),
-		workspace: "my-workspace", organization: "my-org", configDir: t.TempDir(), dryRun: true,
+		io:           io,
+		resolver:     client.NewResolver(api, false, true),
+		workspace:    "my-workspace",
+		organization: "my-org",
+		configDir:    t.TempDir(),
+		dryRun:       true,
 		upload: func(context.Context, string, string, configupload.Options) (configupload.Result, error) {
 			t.Fatal("dry-run must not invoke the uploader")
 			return configupload.Result{}, nil
@@ -108,7 +161,11 @@ func TestRunUpload(t *testing.T) {
 func TestUploadOutput(t *testing.T) {
 	t.Parallel()
 	for name, kind := range map[string]format.Format{
-		"json": format.JSON, "markdown": format.Markdown, "pretty": format.Pretty, "table": format.Table, "agent": format.Agent,
+		"json":     format.JSON,
+		"markdown": format.Markdown,
+		"pretty":   format.Pretty,
+		"table":    format.Table,
+		"agent":    format.Agent,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -117,7 +174,11 @@ func TestUploadOutput(t *testing.T) {
 			output := format.New(io)
 			output.SetFormat(kind)
 			output.SetRedactor(redact.New(redact.ModeOff))
-			opts := uploadOpts{io: io, output: output, workspace: "ws-test", configDir: ".",
+			opts := uploadOpts{
+				io:        io,
+				output:    output,
+				workspace: "ws-test",
+				configDir: ".",
 				upload: func(_ context.Context, workspace, dir string, opts configupload.Options) (configupload.Result, error) {
 					assert.Equal(t, ".", dir)
 					assert.False(t, opts.AutoQueueRun)
@@ -136,6 +197,6 @@ func TestUploadOutput(t *testing.T) {
 	output := format.New(io)
 	output.SetFormat(format.JSON)
 	output.SetJQFilter(".id")
-	require.NoError(t, output.Display(uploadDisplayer{configupload.Result{ID: "cv-test"}}))
+	require.NoError(t, output.Display(uploadDisplayer{result: configupload.Result{ID: "cv-test"}}))
 	assert.Equal(t, "cv-test\n", io.Output.String())
 }

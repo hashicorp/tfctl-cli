@@ -26,18 +26,40 @@ func TestUpload(t *testing.T) {
 	const create = "POST /api/v2/workspaces/ws-test/configuration-versions"
 	const read = "GET /api/v2/configuration-versions/cv-test"
 	for _, tt := range []struct {
-		name, status, wantStatus, wantError string
-		noWait, missingDir, realUpload      bool
-		createError, apiError               bool
-		timeout, cancel, autoQueue          bool
+		name        string
+		status      string
+		wantStatus  string
+		wantError   string
+		options     Options
+		missingDir  bool
+		realUpload  bool
+		createError bool
+		readError   bool
+		timeout     bool
+		cancel      bool
 	}{
-		{name: "wait", status: "uploaded", wantStatus: "uploaded"},
-		{name: "no wait with auto-queue enabled", noWait: true, autoQueue: true, wantStatus: "pending"},
+		{
+			name:       "wait for a speculative config version",
+			status:     "uploaded",
+			wantStatus: "uploaded",
+			options:    Options{Speculative: true},
+		},
+		{
+			name:       "no wait with auto-queue enabled",
+			wantStatus: "pending",
+			options:    Options{NoWait: true, AutoQueueRun: true},
+		},
 		{name: "pack failure", missingDir: true, wantError: "pack config"},
 		{name: "create failure", createError: true, wantError: "HTTP 403"},
 		{name: "SDK rejects HTTP", realUpload: true, wantStatus: "pending", wantError: "invalid HTTPS upload URL"},
-		{name: "terminal status", status: "errored", wantStatus: "errored", wantError: "unusable status"},
-		{name: "read failure", apiError: true, wantStatus: "pending", wantError: "HTTP 403"},
+		{
+			name:       "terminal status",
+			status:     "errored",
+			wantStatus: "errored",
+			wantError:  "unusable status",
+			options:    Options{Provisional: true},
+		},
+		{name: "read failure", readError: true, wantStatus: "pending", wantError: "HTTP 403"},
 		{name: "timeout", timeout: true, status: "fetching", wantError: "deadline exceeded"},
 		{name: "cancellation", cancel: true, wantStatus: "pending", wantError: "context canceled"},
 	} {
@@ -55,7 +77,11 @@ func TestUpload(t *testing.T) {
 					}
 					if assert.NoError(t, json.NewDecoder(r.Body).Decode(&body)) {
 						assert.Equal(t, "configuration-versions", body.Data.Type)
-						assert.Equal(t, map[string]bool{"auto-queue-runs": tt.autoQueue, "speculative": true, "provisional": true}, body.Data.Attributes)
+						assert.Equal(t, map[string]bool{
+							"auto-queue-runs": tt.options.AutoQueueRun,
+							"speculative":     tt.options.Speculative,
+							"provisional":     tt.options.Provisional,
+						}, body.Data.Attributes)
 					}
 					if tt.createError {
 						writeDenied(w, capability)
@@ -65,7 +91,7 @@ func TestUpload(t *testing.T) {
 				},
 				read: func(w http.ResponseWriter, _ *http.Request) {
 					reads.Add(1)
-					if tt.apiError {
+					if tt.readError {
 						writeDenied(w, capability)
 						return
 					}
@@ -83,7 +109,7 @@ func TestUpload(t *testing.T) {
 			defer cancel()
 			var packed *tfe.PackedConfig
 			if !tt.realUpload {
-				uploader.put = func(_ context.Context, version models.ConfigurationVersionsable, config *tfe.PackedConfig) error {
+				uploader.uploadConfig = func(_ context.Context, version models.ConfigurationVersionsable, config *tfe.PackedConfig) error {
 					require.Equal(t, int32(1), creates.Load())
 					require.Equal(t, int32(0), reads.Load())
 					require.Equal(t, "cv-test", *version.GetId())
@@ -96,8 +122,11 @@ func TestUpload(t *testing.T) {
 				}
 			}
 			var updates []string
-			opts := Options{Speculative: true, Provisional: true, AutoQueueRun: tt.autoQueue, NoWait: tt.noWait, Timeout: time.Second,
-				OnStatus: func(_ string, status string) { updates = append(updates, status) }}
+			opts := tt.options
+			opts.Timeout = time.Second
+			opts.OnStatus = func(_ string, status string) {
+				updates = append(updates, status)
+			}
 			if tt.timeout {
 				opts.Timeout = 20 * time.Millisecond
 			}
@@ -125,14 +154,16 @@ func TestUpload(t *testing.T) {
 				assert.ErrorContains(t, err, result.ID)
 			}
 			assert.Equal(t, "ws-test", result.WorkspaceID)
-			assert.Equal(t, tt.autoQueue, result.AutoQueueRun)
+			assert.Equal(t, opts.AutoQueueRun, result.AutoQueueRun)
+			assert.Equal(t, opts.Speculative, result.Speculative)
+			assert.Equal(t, opts.Provisional, result.Provisional)
 			if tt.wantStatus != "" {
 				assert.Equal(t, tt.wantStatus, result.Status)
 			}
-			if tt.noWait || tt.realUpload || tt.cancel {
+			if opts.NoWait || tt.realUpload || tt.cancel {
 				assert.Zero(t, reads.Load())
 			}
-			if tt.name == "wait" {
+			if tt.wantStatus == "uploaded" {
 				assert.Equal(t, []string{"uploaded"}, updates)
 			}
 			if tt.timeout {
@@ -155,9 +186,14 @@ func writeDenied(w http.ResponseWriter, detail string) {
 }
 
 func writeVersion(w http.ResponseWriter, status, capability string) {
-	cmdtest.WriteJSONAPI(w, map[string]any{"data": map[string]any{
-		"id": "cv-test", "type": "configuration-versions", "attributes": map[string]string{
-			"status": status, "upload-url": capability,
+	cmdtest.WriteJSONAPI(w, map[string]any{
+		"data": map[string]any{
+			"id":   "cv-test",
+			"type": "configuration-versions",
+			"attributes": map[string]string{
+				"status":     status,
+				"upload-url": capability,
+			},
 		},
-	}})
+	})
 }

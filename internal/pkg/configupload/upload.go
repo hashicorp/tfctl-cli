@@ -1,7 +1,7 @@
 // Copyright IBM Corp. 2026
 // SPDX-License-Identifier: MPL-2.0
 
-// Package configupload creates and uploads config versions from local directories.
+// Package configupload uploads local Terraform config to a workspace.
 package configupload
 
 import (
@@ -21,19 +21,28 @@ const (
 	pollInterval       = 2 * time.Second
 )
 
-var configVersionID = regexp.MustCompile(`^cv-[a-zA-Z0-9-]+$`)
+var configVersionIDPattern = regexp.MustCompile(`^cv-[a-zA-Z0-9-]+$`)
 
-// Options controls creation and waiting after upload.
+// Options controls how Upload creates a config version and waits for it to be ready.
 type Options struct {
-	Speculative  bool
-	Provisional  bool
+	// Speculative restricts the config version to speculative runs.
+	Speculative bool
+	// Provisional prevents creation from setting the workspace's current config.
+	Provisional bool
+	// AutoQueueRun lets the server queue a run after upload.
 	AutoQueueRun bool
-	NoWait       bool
-	Timeout      time.Duration
-	OnStatus     func(id, status string)
+
+	// NoWait skips polling after the archive upload succeeds.
+	NoWait bool
+	// Timeout bounds polling. A nonpositive value uses [DefaultWaitTimeout].
+	Timeout time.Duration
+	// OnStatus, if set, receives the first status from polling and each change.
+	OnStatus func(id, status string)
 }
 
-// Result contains safe config version facts, including the last known status.
+// Result identifies the config version and workspace without exposing the upload URL.
+// Status is the most recent status returned by the API, or "pending" if the
+// create response did not contain a status. The three flags reflect the request.
 type Result struct {
 	ID           string `json:"id"`
 	WorkspaceID  string `json:"workspace_id"`
@@ -43,25 +52,28 @@ type Result struct {
 	AutoQueueRun bool   `json:"auto_queue_run"`
 }
 
-// Uploader uses go-tfe to pack and upload a config directory.
+// Uploader creates config versions from local directories. Use [NewUploader]
+// to construct one.
 type Uploader struct {
-	api *tfe.Client
-	put func(context.Context, models.ConfigurationVersionsable, *tfe.PackedConfig) error
+	api          *tfe.Client
+	uploadConfig func(context.Context, models.ConfigurationVersionsable, *tfe.PackedConfig) error
 }
 
-// NewUploader uses api to create, upload, and read config versions.
+// NewUploader returns an uploader that uses api for config version requests.
 func NewUploader(api *tfe.Client) *Uploader {
-	return &Uploader{api: api, put: api.UploadConfig}
+	return &Uploader{api: api, uploadConfig: api.UploadConfig}
 }
 
-// Upload packs before creating a config version. After creation, it returns the
-// config version ID even if the upload or wait fails. It never deletes a version.
+// Upload packages configDir before creating a config version in workspaceID.
+// It uploads the archive and waits for the uploaded status unless opts.NoWait is set.
+// If the server returns a valid config version ID, Upload includes that ID in
+// the result even if the upload or wait fails. It does not delete the version.
 func (u *Uploader) Upload(ctx context.Context, workspaceID, configDir string, opts Options) (Result, error) {
 	packed, err := tfe.PackConfig(ctx, configDir)
 	if err != nil {
 		return Result{}, err
 	}
-	// Close after the PUT (or a failed POST), before waiting for remote processing.
+	// Release the archive before polling. Polling does not need its bytes.
 	result, err := u.createAndUpload(ctx, workspaceID, packed, opts)
 	if closeErr := packed.Close(); closeErr != nil {
 		if result.ID != "" {
@@ -77,7 +89,7 @@ func (u *Uploader) Upload(ctx context.Context, workspaceID, configDir string, op
 	}
 	waitCtx, cancel := context.WithTimeout(ctx, opts.Timeout)
 	defer cancel()
-	if err := u.wait(waitCtx, &result, opts.OnStatus); err != nil {
+	if err := u.waitForUpload(waitCtx, &result, opts.OnStatus); err != nil {
 		return result, fmt.Errorf("config version %s was uploaded, but did not become usable: %w", result.ID, err)
 	}
 	return result, nil
@@ -97,32 +109,40 @@ func (u *Uploader) createAndUpload(ctx context.Context, workspaceID string, pack
 
 	response, err := u.api.API.Workspaces().ByWorkspace_id(workspaceID).ConfigurationVersions().Post(ctx, body, nil)
 	if err != nil {
-		return Result{}, fmt.Errorf("create config version: %w", safeAPIError(ctx, err))
+		return Result{}, fmt.Errorf("create config version: %w", sanitizeAPIError(ctx, err))
 	}
-	if response == nil || response.GetData() == nil || response.GetData().GetId() == nil || !configVersionID.MatchString(*response.GetData().GetId()) {
+	if response == nil || response.GetData() == nil {
 		return Result{}, errors.New("create config version: response has no valid config version ID")
 	}
 	version := response.GetData()
+	id := version.GetId()
+	if id == nil || !configVersionIDPattern.MatchString(*id) {
+		return Result{}, errors.New("create config version: response has no valid config version ID")
+	}
 	result := Result{
-		ID: *version.GetId(), WorkspaceID: workspaceID, Status: "pending",
-		Speculative: opts.Speculative, Provisional: opts.Provisional, AutoQueueRun: opts.AutoQueueRun,
+		ID:           *id,
+		WorkspaceID:  workspaceID,
+		Status:       "pending",
+		Speculative:  opts.Speculative,
+		Provisional:  opts.Provisional,
+		AutoQueueRun: opts.AutoQueueRun,
 	}
 	if attrs := version.GetAttributes(); attrs != nil && attrs.GetStatus() != nil {
 		result.Status = attrs.GetStatus().String()
 	}
-	if err := u.put(ctx, version, packed); err != nil {
+	if err := u.uploadConfig(ctx, version, packed); err != nil {
 		return result, fmt.Errorf("config version %s was created, but its upload failed: %w", result.ID, err)
 	}
 	return result, nil
 }
 
-func (u *Uploader) wait(ctx context.Context, result *Result, onStatus func(string, string)) error {
+func (u *Uploader) waitForUpload(ctx context.Context, result *Result, onStatus func(string, string)) error {
 	version := u.api.API.ConfigurationVersions().ByConfiguration_version_id(result.ID)
 	last := ""
 	for {
 		response, err := version.Get(ctx, nil)
 		if err != nil {
-			return fmt.Errorf("read status: %w", safeAPIError(ctx, err))
+			return fmt.Errorf("read status: %w", sanitizeAPIError(ctx, err))
 		}
 		if response == nil || response.GetData() == nil || response.GetData().GetAttributes() == nil || response.GetData().GetAttributes().GetStatus() == nil {
 			return errors.New("response has no recognized status")
@@ -150,10 +170,10 @@ func (u *Uploader) wait(ctx context.Context, result *Result, onStatus func(strin
 	}
 }
 
-// Error details from the API can include the upload URL. Do not retain them.
-func safeAPIError(ctx context.Context, err error) error {
-	if ctx.Err() != nil {
-		return ctx.Err()
+// sanitizeAPIError drops API error details because they can contain the upload URL.
+func sanitizeAPIError(ctx context.Context, err error) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
 	}
 	var apiErr *tfe.APIError
 	if errors.As(err, &apiErr) {
