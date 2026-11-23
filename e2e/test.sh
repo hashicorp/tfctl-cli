@@ -183,6 +183,24 @@ case_profile_display() {
   assert_not_contains "$output" "token"
 }
 
+case_config_version_upload() (
+  local config_dir workspace_id config_id status run_count
+  config_dir="$(mktemp -d)"
+  trap 'rm -rf "$config_dir"' EXIT
+  cp "$root_dir/e2e/main.tf" "$config_dir/"
+  workspace_id="$("$tfctl_bin" create workspace --organization "$organization" --jq '.data.id' -a "name=tfctl-e2e-upload-$RANDOM")"
+
+  config_id="$("$tfctl_bin" config-version upload "$workspace_id" --config-dir "$config_dir" --jq '.id')"
+  case "$config_id" in
+    cv-?*) ;;
+    *) printf 'Expected a config version ID\n' >&2; return 1 ;;
+  esac
+  status="$("$tfctl_bin" api "/configuration-versions/$config_id" --jq '.data.attributes.status')"
+  [ "$status" = uploaded ]
+  run_count="$("$tfctl_bin" api "/workspaces/$workspace_id/runs" --jq '.data | length')"
+  [ "$run_count" = 0 ]
+)
+
 case_create_and_apply_workspace() (
   local archive workspace_id
   archive="$(mktemp)"
@@ -203,4 +221,5 @@ run_case case_dry_run_is_no_op
 run_case case_quiet_minimizes_output
 run_case case_harness_install
 run_case case_profile_display
+run_case case_config_version_upload
 run_case case_create_and_apply_workspace

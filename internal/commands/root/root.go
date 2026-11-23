@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/tfctl-cli/internal/commands/api"
 	"github.com/hashicorp/tfctl-cli/internal/commands/auth"
+	"github.com/hashicorp/tfctl-cli/internal/commands/configversion"
 	"github.com/hashicorp/tfctl-cli/internal/commands/create"
 	"github.com/hashicorp/tfctl-cli/internal/commands/get"
 	"github.com/hashicorp/tfctl-cli/internal/commands/harness"
@@ -41,6 +42,7 @@ func NewCmdRoot(inv *cmd.Invocation) *cmd.Command {
 	c.AddChild(api.NewCmdAPI(inv))
 	c.AddChild(get.NewCmdGet(inv))
 	c.AddChild(create.NewCmdCreate(inv))
+	c.AddChild(configversion.NewCmdConfigVersion(inv))
 	c.AddChild(run.NewCmdRun(inv))
 	c.AddChild(auth.NewCmdAuth(inv))
 	c.AddChild(variable.NewCmdVariable(inv))

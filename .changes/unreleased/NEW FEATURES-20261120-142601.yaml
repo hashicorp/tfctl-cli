@@ -1,0 +1,3 @@
+kind: NEW FEATURES
+body: Add `tfctl config-version upload` to pack and upload a local Terraform config directory without queuing a run by default.
+time: 2026-11-20T14:26:01.757914-08:00

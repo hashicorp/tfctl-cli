@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/go-checkpoint v0.5.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-tfe/v2 v2.11.0
+	github.com/hashicorp/go-tfe/v2 v2.16.1-0.20261120221841-8c984eec67cd
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/itchyny/gojq v0.12.19
@@ -78,6 +78,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.0 // indirect
+	github.com/hashicorp/go-slug v0.18.4 // indirect
 	github.com/hashicorp/go-uuid v1.0.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/itchyny/timefmt-go v0.1.8 // indirect
